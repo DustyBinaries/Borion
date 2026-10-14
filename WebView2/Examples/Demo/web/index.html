@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Demo WebView2</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <img src="img/logo.svg" alt="" width="40" height="40">
+    <div>
+      <h1>Delphi 7 + WebView2</h1>
+      <p class="sub">HTML, CSS, JS e imagem embutidos no executável, servidos em
+        <code id="origem"></code></p>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2>JS &rarr; Delphi (window.chrome.webview.postMessage)</h2>
+    <input id="texto" value="Olá, Delphi!">
+    <button onclick="enviar(document.getElementById('texto').value)">Enviar texto</button>
+    <button onclick="enviar('hora')">Pedir a hora ao Delphi</button>
+    <button onclick="enviarObjeto()">Enviar objeto (JSON)</button>
+  </div>
+
+  <div class="card">
+    <h2>Delphi &rarr; JS (mensagens recebidas)</h2>
+    <ul id="recebidas"><li><em>nenhuma ainda</em></li></ul>
+  </div>
+
+  <div class="card">
+    <h2>NavigationStarting (filtro no Delphi)</h2>
+    <a href="https://example.com/">Link permitido</a> &nbsp;|&nbsp;
+    <a href="https://example.com/bloqueado">Link bloqueado pelo Delphi</a>
+  </div>
+
+  <div class="card">
+    <h2>NewWindowRequested (escolha o comportamento no painel do Delphi)</h2>
+    <a href="https://example.com/" target="_blank">Link com target="_blank"</a> &nbsp;|&nbsp;
+    <button onclick="window.open('https://example.org/', 'janela', 'width=600,height=400')">window.open()</button>
+  </div>
+
+  <div class="card">
+    <h2>Delphi chamando funções JS (ExecuteScript)</h2>
+    Experimente no Delphi: <code>somar(20, 22)</code>, <code>document.title</code>,
+    <code>navigator.userAgent</code>
+  </div>
+
+  <div class="card">
+    <h2>API local em Delphi (WebResourceRequested)</h2>
+    <button onclick="listarClientes()">GET api/clientes</button>
+    <button onclick="enviarEco()">POST api/eco</button>
+    <button onclick="chamar('api/erro')">api/erro (500)</button>
+    <button onclick="chamar('api/xyz')">api/xyz (404)</button>
+    <ul id="clientes"></ul>
+    <pre id="resposta"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Recurso que não existe</h2>
+    <a href="nao-existe.html">nao-existe.html</a> (o Delphi responde 404)
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
