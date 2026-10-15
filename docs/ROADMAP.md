@@ -51,18 +51,24 @@ O núcleo atual precisa ser robusto antes de crescer em cima dele.
       (`WebView2Browser` → ?), e criar `Borion/plugins/`, `templates/` e `tools/` quando surgirem.
 - [ ] Pacote `.dpk` opcional para instalar o componente na paleta da IDE.
 
-**Robustez do `TWebView2Browser`**
-- [ ] Proteger **todos** os callbacks COM com `try/except`. Hoje só o `WebResourceRequested` e o
-      `WebMessageReceived` fazem isso.
-- [ ] Evento `ProcessFailed`: o renderer ou o browser caiu, então recriar ou avisar.
-- [ ] Tratar `RecreateWnd` (`put_ParentWindow` no novo handle).
-- [ ] Expor `GetDeferral` para respostas assíncronas no `WebResourceRequested`.
-- [ ] `RemoveWebResourceRequestedFilter` e remoção dos handlers (`remove_*` com os tokens).
-- [ ] Decodificar `%XX` (UTF-8) em `Path` e `Query`.
-- [ ] Opções do ambiente (`ICoreWebView2EnvironmentOptions`): idioma, argumentos do browser.
-- [ ] Testes DUnit do `TWebView2Browser` nas partes puras: mapeamento de recursos, MIME, `Path` e
-      `Query` do `TWV2WebResourceRequest`. (Os do Borion já existem: `Tests`.)
-
+**Robustez do `TWebView2Browser`** (detalhes no [README do WebView2](../../WebView2/README.md#robustez))
+- [x] Proteger **todos** os callbacks COM com `try/except`: exceções vão para o
+      `OnCallbackError` (ou para o tratador padrão da aplicação), nunca para o WebView2.
+- [x] Evento `OnProcessFailed` com ação padrão: browser caiu → recria o WebView e volta à
+      última URL (reaplicando filtros, scripts e opções); renderer caiu → recarrega.
+- [x] Tratar `RecreateWnd`: o WebView é "estacionado" numa janela oculta e volta para o novo
+      handle, sem recarregar a página (troca de `Parent`, `BorderStyle`...).
+- [x] Resposta adiada no `WebResourceRequested`: `Response.Defer` / `Response.Complete`
+      (`GetDeferral`).
+- [x] `RemoveWebResourceRequestedFilter` e remoção dos handlers com os tokens (`remove_*`) ao
+      liberar ou recriar.
+- [x] `Path` decodificado (`%XX` em UTF-8), `RawPath` e `QueryParam` / `HasQueryParam`. O
+      `Query` continua cru de propósito.
+- [x] Opções do ambiente (`ICoreWebView2EnvironmentOptions`): `Language` e
+      `AdditionalBrowserArguments`.
+- [x] Testes DUnit do `TWebView2Browser` nas partes puras (`WebView2/Tests`, 28 testes) e
+      verificação com o runtime num app de integração (quedas de processo, recriação de handle,
+      resposta adiada, opções, callbacks).
 **Marco 0:** o mesmo protótipo, organizado, sem crashes conhecidos e com testes.
 
 ---
@@ -273,6 +279,7 @@ liberados.
 - [x] **Borion IPC**: `invoke` / `emit` / `listen`, comandos assíncronos, validação de origem
 - [x] **Assets**: `borion pack` + `TBorionAssets` (fallback de SPA, zlib, headers) e modo dev com hot-reload
 - [x] **Plugins** `dialog`, `fs` e `shell`, com escopo de arquivos negado por padrão
+- [x] **Robustez** do `TWebView2Browser`: callbacks protegidos, queda de processo, recriação de handle
 - [x] Repositório separado em `WebView2/` e `Borion/`, cada um com exemplo próprio
 - [x] Documentação: READMEs de cada parte, `WebView2/docs/WebResourceRequested.md`,
       `Borion/docs/IPC.md`, `Borion/docs/ASSETS.md`
@@ -280,7 +287,7 @@ liberados.
 ## Ordem sugerida para começar
 
 1. ~~Tomar as decisões de nome, biblioteca JSON e transporte do IPC.~~ ✅
-2. Fase 0, só os itens de robustez dos callbacks e a reorganização de pastas.
+2. ~~Fase 0, só os itens de robustez dos callbacks e a reorganização de pastas.~~ ✅
 3. ~~**Fase 1 inteira**: é o que transforma o protótipo num framework.~~ ✅
 4. ~~Fase 2: gerar o `.rc` da pasta, SPA fallback e modo dev.~~ ✅
 5. ~~Fase 4: só `dialog`, `fs` e `shell`, junto com o mínimo da Fase 5 (escopo do `fs` e validação
@@ -288,5 +295,5 @@ liberados.
 
 Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distribuição vêm depois.
 
-**Situação:** os cinco passos estão feitos, exceto a parte de robustez da Fase 0 (proteger os
-demais callbacks COM). Concluída essa parte, dá para marcar a v0.1.
+**Situação:** os cinco passos estão feitos: **v0.1 completa.** Próximos candidatos: plugins `menu` e
+`tray` (para fechar o Marco 4), configuração e janelas (Fase 3) e a CLI `borion dev`/`build` (Fase 6).

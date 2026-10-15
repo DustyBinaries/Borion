@@ -349,7 +349,7 @@ begin
   Prefixo := Origin + '/';
   if SameText(Copy(Request.Uri, 1, Length(Prefixo)), Prefixo) then
   begin
-    ServePath(Request.Path, Response);
+    ServePath(Request.RawPath, Response);  { ServePath decodifica (bytes UTF-8 do pacote) }
     Handled := True;
   end;
 end;
