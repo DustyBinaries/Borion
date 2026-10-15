@@ -1,7 +1,7 @@
 # Borion: plugins
 
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
-`clipboard`, `store`), com API tipada no JS
+`clipboard`, `store`, `os`, `http`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
 linha:
 
@@ -33,6 +33,8 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`app`](#app)
 - [`clipboard`](#clipboard)
 - [`store`](#store)
+- [`os`](#os)
+- [`http`](#http)
 - [Unicode completo: JSON só com ASCII](#unicode-completo-json-só-com-ascii)
 - [Escrevendo um plugin](#escrevendo-um-plugin)
 - [Limitações](#limitações)
@@ -349,6 +351,74 @@ Store.WriteString('settings', 'ultimoUsuario', Nome);
 
 - **Erros:** `INVALID_STORE`, `INVALID_ARGS` (chave ou valor inválido), `IO_ERROR`.
 
+## `os`
+
+Exemplo: [`Examples/Os`](../Examples/Os/README.md).
+
+`TBorionOsPlugin.Create`. Como o plugin `os` do Tauri, mas todas as funções são assíncronas.
+
+| JS (`@borion/api/os`) | Exemplo |
+|---|---|
+| `platform()`, `family()`, `type()` | `'windows'` |
+| `arch()` | Arquitetura do Windows: `'x86_64'`, `'aarch64'`, `'x86'`, `'arm'` |
+| `version()` | `'10.0.22631'`: a versão real, sem o "modo de compatibilidade" do `GetVersionEx` |
+| `locale()` | `'pt-BR'` (BCP 47), ou `null` |
+| `hostname()` | Nome DNS do computador |
+| `eol()` / `exeExtension()` | CRLF (`"\r\n"`) / `'exe'` |
+| `info()` | Tudo de uma vez, mais `build` (22631), `displayVersion` (`'23H2'`), `name` (`'Windows 11 Pro'`) e `processArch` (`'x86'`: o Delphi 7 só gera 32 bits) |
+
+O `name` vem da visão de 64 bits do registro. Um processo de 32 bits leria o `WOW6432Node`, que
+pode guardar o nome de antes de uma troca de edição. O "Windows 10" que o Windows 11 ainda
+grava ali é corrigido pelo número do build.
+
+## `http`
+
+Exemplo: [`Examples/Http`](../Examples/Http/README.md).
+
+`TBorionHttpPlugin.Create`. Requisições feitas pelo Delphi (WinInet), sem as regras de CORS do
+navegador. A interface é a do `fetch`:
+
+```pascal
+Http := TBorionHttpPlugin(Ipc.AddPlugin(TBorionHttpPlugin.Create));
+Http.Allow('https://api.exemplo.com/v1/*');   // tudo negado por padrão
+Http.Allow('https://*.cdn.exemplo.com');      // sem caminho = o host inteiro
+```
+
+```js
+import { fetch } from '@borion/api/http';
+
+const r = await fetch('https://api.exemplo.com/v1/itens', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  body: JSON.stringify({ nome: 'José' }),
+  timeout: 10000,                // extra do Borion: ms, a requisição inteira
+});
+if (r.ok) console.log(await r.json());
+```
+
+- **Devolve um `Response` de verdade** (`json()`, `text()`, `blob()`, `headers`, `url`,
+  `redirected`). Como no `fetch`, status de erro (404, 500) resolvem normalmente.
+- **Corpo:** `string` (UTF-8, `text/plain;charset=UTF-8` se não houver `Content-Type`),
+  `URLSearchParams`, `Blob`, `ArrayBuffer` ou `TypedArray`. `FormData` e streams não são
+  suportados.
+- **Escopo** (`Allow`): `'*'` no host vale só dentro do host (`https://*.cdn.com` não casa
+  `https://mal.com/.cdn.com`). Sem porta no padrão, só a porta padrão do esquema; `:*` libera
+  qualquer porta. URLs com usuário/senha (`https://api.ok.com@outro.com/`) são recusadas.
+- **Redirecionamentos** são seguidos pelo plugin, não pelo WinInet: cada destino passa pelo
+  escopo (`FORBIDDEN_URL` se sair dele) e o `Authorization`/`Cookie` não vão para outro host.
+  `redirect: 'manual'` devolve o 3xx, `'error'` rejeita com `REDIRECT`; `maxRedirections` (padrão
+  10). 303 (e 301/302 de um POST) viram GET sem corpo; 307/308 mantêm método e corpo.
+- **Cancelar:** `signal` (`AbortController`) cancela no Delphi e rejeita com `AbortError`.
+- **`timeout`** é medido pelo próprio plugin (o do WinInet não vale enquanto espera a resposta).
+- **Sem cookies e sem cache** do sistema: cada requisição é independente. `gzip`/`deflate` são
+  pedidos e descompactados sozinhos. O proxy é o configurado no Windows.
+- **Limites:** `MaxResponseSize` (padrão 50 MB, `TOO_LARGE` acima); `UserAgent` para trocar o
+  `User-Agent`. Cada requisição roda numa thread: a interface não trava.
+- O `Response` montado no JS não expõe `Set-Cookie` (o navegador esconde esse cabeçalho).
+- **Erros** (`code`): `INVALID_URL`, `FORBIDDEN_URL`, `TIMEOUT`, `CANCELED`, `REDIRECT`,
+  `TOO_MANY_REDIRECTS`, `TOO_LARGE`, `NETWORK_ERROR` (DNS, conexão recusada, certificado
+  inválido...), `INVALID_ARGS` (cabeçalho com quebra de linha, método inválido).
+
 ## Unicode completo: JSON só com ASCII
 
 As strings do Delphi 7 são ANSI: emoji e caracteres fora da página de código do Windows viram `?`
@@ -412,6 +482,6 @@ end;
   [Unicode completo](#unicode-completo-json-só-com-ascii)).
 - Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
   sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
-- Ainda faltam outros plugins (`os`, `http`, `notification`...), imagens no `clipboard` e o resto
-  do `app`: veja o
+- Ainda faltam outros plugins (`notification`, `global-shortcut`...), os caminhos do `os`/`app`,
+  imagens no `clipboard` e o upload com `FormData` no `http`: veja o
   [roadmap](ROADMAP.md).

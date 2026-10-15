@@ -11,6 +11,8 @@ import * as app from '../app.js';
 import * as clipboard from '../clipboard.js';
 import { load, Store } from '../store.js';
 import { asciiJson } from '../ascii-json.js';
+import * as os from '../os.js';
+import { fetch as httpFetch } from '../http.js';
 
 let chamadas;
 let respostas;
@@ -298,5 +300,105 @@ describe('@borion/api/store', () => {
     parar();
     delphiEmite('store:change', { store: 'prefs.json', key: '"tema"', value: '1' });
     assert.deepEqual(mudancas, [['tema', 'escuro'], ['tema!', 'escuro'], ['não', undefined], ['tema!', 1]]);
+  });
+});
+
+describe('@borion/api/os', () => {
+  test('info e os campos', async () => {
+    respostas['os:info'] = { platform: 'windows', arch: 'x86_64', version: '10.0.22631', locale: 'pt-BR', hostname: 'PC', eol: '\r\n' };
+    assert.equal(await os.platform(), 'windows');
+    assert.equal(await os.arch(), 'x86_64');
+    assert.equal(await os.version(), '10.0.22631');
+    assert.equal(await os.locale(), 'pt-BR');
+    assert.equal(await os.hostname(), 'PC');
+    assert.equal(await os.eol(), '\r\n');
+    assert.equal((await os.info()).platform, 'windows');
+    assert.ok(chamadas.every((c) => c[0] === 'os:info'));
+  });
+});
+
+describe('@borion/api/http', () => {
+  const base64 = (texto) => Buffer.from(texto).toString('base64');
+  const ok = (extra = {}) => ({
+    status: 200, statusText: 'OK', url: 'https://api.exemplo.com/x', redirected: false,
+    headers: [['content-type', 'application/json']], body: base64('{"a":1}'), ...extra,
+  });
+
+  test('GET: devolve um Response de verdade', async () => {
+    respostas['http:fetch'] = ok({ redirected: true });
+    const r = await httpFetch('https://api.exemplo.com/x#frag', { headers: { 'X-Teste': '1' }, timeout: 5000 });
+    assert.ok(r instanceof Response);
+    assert.equal(r.status, 200);
+    assert.equal(r.ok, true);
+    assert.equal(r.url, 'https://api.exemplo.com/x');
+    assert.equal(r.redirected, true);
+    assert.equal(r.headers.get('Content-Type'), 'application/json');
+    assert.deepEqual(await r.json(), { a: 1 });
+    const [cmd, args] = chamadas[0];
+    assert.equal(cmd, 'http:fetch');
+    assert.equal(args.url, 'https://api.exemplo.com/x', 'sem o fragmento');
+    assert.equal(args.method, 'GET');
+    assert.deepEqual(args.headers, [['x-teste', '1']]);
+    assert.equal(args.timeout, 5000);
+    assert.equal(args.redirect, 'follow');
+    assert.equal(args.body, undefined);
+    assert.match(args.rid, /./);
+  });
+
+  test('corpo: string vira UTF-8 com Content-Type padrão; bytes passam iguais', async () => {
+    respostas['http:fetch'] = ok();
+    await httpFetch('https://api.exemplo.com/x', { method: 'post', body: 'olá' });
+    assert.equal(chamadas[0][1].method, 'POST');
+    assert.equal(chamadas[0][1].body, base64('olá'));
+    assert.deepEqual(chamadas[0][1].headers, [['content-type', 'text/plain;charset=UTF-8']]);
+    await httpFetch('https://api.exemplo.com/x', { method: 'PUT', body: new Uint8Array([0, 255, 7]), headers: { 'content-type': 'x/y' } });
+    assert.equal(chamadas[1][1].body, Buffer.from([0, 255, 7]).toString('base64'));
+    assert.deepEqual(chamadas[1][1].headers, [['content-type', 'x/y']]);
+    await httpFetch('https://api.exemplo.com/x', { method: 'POST', body: new URLSearchParams({ q: 'a b' }) });
+    assert.equal(Buffer.from(chamadas[2][1].body, 'base64').toString(), 'q=a+b');
+    await assert.rejects(httpFetch('https://api.exemplo.com/x', { body: 'x' }), TypeError, 'GET com corpo');
+    await assert.rejects(httpFetch('https://api.exemplo.com/x', { method: 'POST', body: { a: 1 } }), TypeError);
+  });
+
+  test('status sem corpo e erros HTTP resolvem', async () => {
+    respostas['http:fetch'] = ok({ status: 204, statusText: 'No Content', body: '' });
+    assert.equal((await httpFetch('https://api.exemplo.com/x', { method: 'DELETE' })).status, 204);
+    respostas['http:fetch'] = ok({ status: 404, statusText: 'Not Found', body: base64('nada') });
+    const r = await httpFetch('https://api.exemplo.com/x');
+    assert.equal(r.ok, false);
+    assert.equal(await r.text(), 'nada');
+  });
+
+  test('erros do Delphi chegam com code', async () => {
+    globalThis.__BORION__.invoke = () => {
+      const e = new Error('fora do escopo'); e.code = 'FORBIDDEN_URL';
+      return Promise.reject(e);
+    };
+    await assert.rejects(httpFetch('https://outro.com/'), (e) => e.code === 'FORBIDDEN_URL');
+  });
+
+  test('AbortSignal cancela no Delphi e rejeita com AbortError', async () => {
+    globalThis.__BORION__.invoke = (cmd, args) => {
+      chamadas.push([cmd, args]);
+      if (cmd === 'http:fetch') return new Promise(() => {});  // nunca responde
+      return Promise.resolve(true);
+    };
+    const controle = new AbortController();
+    const p = httpFetch('https://api.exemplo.com/lento', { signal: controle.signal });
+    await new Promise((r) => setTimeout(r, 10));
+    controle.abort();
+    await assert.rejects(p, (e) => e.name === 'AbortError');
+    assert.deepEqual(chamadas[1], ['http:cancel', { rid: chamadas[0][1].rid }]);
+    await assert.rejects(httpFetch('https://api.exemplo.com/x', { signal: AbortSignal.abort() }), (e) => e.name === 'AbortError');
+    assert.equal(chamadas.length, 2, 'já abortado: nem chama o Delphi');
+  });
+
+  test('aceita um Request', async () => {
+    respostas['http:fetch'] = ok();
+    await httpFetch(new Request('https://api.exemplo.com/r', { method: 'POST', body: 'x', headers: { 'x-a': 'b' } }));
+    assert.equal(chamadas[0][1].method, 'POST');
+    assert.equal(chamadas[0][1].url, 'https://api.exemplo.com/r');
+    assert.equal(chamadas[0][1].body, base64('x'));
+    assert.ok(chamadas[0][1].headers.some(([n, v]) => n === 'x-a' && v === 'b'));
   });
 });

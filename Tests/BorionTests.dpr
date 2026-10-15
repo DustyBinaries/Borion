@@ -26,9 +26,12 @@ uses
   BorionApp in '..\Plugins\BorionApp.pas',
   BorionClipboard in '..\Plugins\BorionClipboard.pas',
   BorionStore in '..\Plugins\BorionStore.pas',
+  BorionOs in '..\Plugins\BorionOs.pas',
+  BorionHttp in '..\Plugins\BorionHttp.pas',
   TestBorionPlugins in 'TestBorionPlugins.pas',
   TestBorionUi in 'TestBorionUi.pas',
-  TestBorionData in 'TestBorionData.pas';
+  TestBorionData in 'TestBorionData.pas',
+  TestBorionNet in 'TestBorionNet.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

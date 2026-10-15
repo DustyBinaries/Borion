@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: os</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/os": "./borion-api/os.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>os</code></h2>
+      <p>Informações do sistema pelo Delphi.</p>
+    </header>
+
+    <section>
+      <h3>1. <code>os.info()</code></h3>
+      <table id="info"><tr><td>carregando...</td></tr></table>
+    </section>
+
+    <section>
+      <h3>2. O que o navegador diz</h3>
+      <p>Para comparar: o <code>navigator</code> não sabe a versão real do Windows (o
+        <code>userAgent</code> diz "Windows NT 10.0" também no Windows 11) nem o nome do computador.</p>
+      <table id="navegador"></table>
+    </section>
+
+    <section>
+      <h3>3. Usando o idioma</h3>
+      <p id="idioma">...</p>
+    </section>
+  </main>
+</body>
+</html>

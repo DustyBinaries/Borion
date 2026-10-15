@@ -2,6 +2,7 @@
 // Todo caminho passa pelo escopo configurado no Delphi (TBorionScope): fora dele,
 // a Promise rejeita com code = 'FORBIDDEN_PATH'.
 import { invoke } from './index.js';
+import { bytesParaBase64, base64ParaBytes } from './base64.js';
 
 /** Diretórios-base para caminhos relativos (opção baseDir). */
 export const BaseDirectory = Object.freeze({
@@ -67,24 +68,4 @@ export function rename(from, to, options = {}) {
 
 export function copyFile(from, to, options = {}) {
   return call('copyFile', { ...options, from, to }).then(() => undefined);
-}
-
-// --- base64 (o IPC é JSON: binário trafega como base64) ---
-
-function bytesParaBase64(data) {
-  const bytes = data instanceof Uint8Array ? data
-    : data instanceof ArrayBuffer ? new Uint8Array(data)
-    : Uint8Array.from(data);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(bin);
-}
-
-function base64ParaBytes(b64) {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
 }

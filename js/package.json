@@ -43,6 +43,14 @@
       "types": "./store.d.ts",
       "default": "./store.js"
     },
+    "./os": {
+      "types": "./os.d.ts",
+      "default": "./os.js"
+    },
+    "./http": {
+      "types": "./http.d.ts",
+      "default": "./http.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -68,7 +76,12 @@
     "clipboard.d.ts",
     "store.js",
     "store.d.ts",
-    "ascii-json.js"
+    "ascii-json.js",
+    "os.js",
+    "os.d.ts",
+    "http.js",
+    "http.d.ts",
+    "base64.js"
   ],
   "sideEffects": false,
   "scripts": {

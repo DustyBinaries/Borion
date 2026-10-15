@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: http</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/http": "./borion-api/http.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>http</code></h2>
+      <p>O <code>fetch</code> do <code>@borion/api/http</code> é feito pelo Delphi (WinInet): não
+        passa pelas regras de CORS do navegador, mas só alcança as URLs liberadas no Delphi
+        (<code>example.com</code>, <code>api.github.com</code> e <code>httpbin.org</code>). Precisa de internet.</p>
+    </header>
+
+    <section>
+      <h3>1. Sem CORS</h3>
+      <p><code>https://example.com/</code> não manda cabeçalhos CORS: o <code>fetch</code> do navegador é
+        barrado, o do Borion funciona.</p>
+      <div class="linha"><button id="comparar">Buscar com os dois</button></div>
+      <div class="lado">
+        <div><b>fetch do navegador</b><pre id="navegador" class="saida"></pre></div>
+        <div><b>@borion/api/http</b><pre id="borion" class="saida"></pre></div>
+      </div>
+    </section>
+
+    <section>
+      <h3>2. JSON de uma API</h3>
+      <div class="linha">
+        <input id="repo" value="MicrosoftEdge/WebView2Feedback">
+        <button id="github">Buscar no GitHub</button>
+      </div>
+      <pre id="saida-github" class="saida"></pre>
+    </section>
+
+    <section>
+      <h3>3. POST, timeout e cancelamento</h3>
+      <div class="linha">
+        <button id="post">POST com JSON (httpbin.org/post)</button>
+        <button id="lento">Esperar 5 s com timeout de 2 s</button>
+        <button id="cancelavel">Começar uma requisição de 10 s</button>
+        <button id="cancelar" disabled>Cancelar</button>
+      </div>
+      <pre id="saida-3" class="saida"></pre>
+    </section>
+
+    <section>
+      <h3>4. Escopo</h3>
+      <div class="linha">
+        <input id="url-livre" value="https://www.google.com/">
+        <button id="tentar">Tentar</button>
+      </div>
+      <pre id="saida-4" class="saida"></pre>
+    </section>
+  </main>
+</body>
+</html>

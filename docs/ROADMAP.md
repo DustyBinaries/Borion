@@ -176,7 +176,7 @@ Documentação: [PLUGINS.md](PLUGINS.md).
       `Ipc.Later` para comandos que abrem janelas modais fora do callback do WebView2.
 - [ ] Script JS opcional por plugin (injetado junto com a ponte).
 - [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`,
-      `/clipboard`, `/store`.
+      `/clipboard`, `/store`, `/os`, `/http`.
 
 Plugins, em ordem de utilidade:
 - [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
@@ -190,8 +190,11 @@ Plugins, em ordem de utilidade:
 - [x] `store`: chave-valor persistido em JSON no `%APPDATA%`, com gravação atômica,
       `AutoSave`, evento `store:change`, recuperação de arquivo corrompido e API no Delphi.
 - [ ] `os` / `app`: versão, caminhos (`appData`, `documents`...), sair, reiniciar. **Parcial:** o
-      `app` mínimo já tem sair, mostrar, esconder, minimizar e `info` (nome, versão, exe, pid).
-- [ ] `http`: requisições pelo Delphi (WinInet), sem CORS.
+      `app` mínimo já tem sair, mostrar, esconder, minimizar e `info` (nome, versão, exe, pid), e o
+      `os` tem plataforma, arquitetura, versão real, idioma e nome do computador. Faltam os
+      caminhos e reiniciar.
+- [x] `http`: requisições pelo Delphi (WinInet), sem CORS, com a interface do `fetch`, escopo de
+      URLs, redirecionamentos verificados, timeout e cancelamento. Falta `FormData`/streaming.
 - [x] `notification`: por enquanto é o `tray.notify` (balão; toast no Windows 10/11).
 - [x] `tray`: ícone, tooltip, menu, cliques, notificações, minimizar para a bandeja e
       recolocar o ícone quando o Explorer reinicia.
@@ -305,4 +308,4 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4. Próximos candidatos: configuração e janelas (Fase 3), a CLI
-`borion dev`/`build` (Fase 6) e os plugins `os` e `http`.
+`borion dev`/`build` (Fase 6) e os plugins `notification` (toast) e `single-instance`.
