@@ -105,6 +105,7 @@ type
   { Payload pertence ao Borion e só vale durante a chamada }
   TBorionEventMethod = procedure(const Event: string; Payload: TJsonValue) of object;
   TBorionLogEvent = procedure(Sender: TObject; const Msg: string) of object;
+  TBorionPostEvent = procedure(Sender: TObject; const Json: WideString) of object;
 
   TBorionIpc = class(TComponent)
   private
@@ -115,6 +116,7 @@ type
     FPending: TList;
     FWindow: HWND;
     FOnLog: TBorionLogEvent;
+    FOnPost: TBorionPostEvent;
     procedure WebMessageJson(Sender: TObject; const Json, Source: WideString; var Handled: Boolean);
     procedure HandleInvoke(Msg: TJsonObject; const Source: WideString);
     procedure HandleEmit(Msg: TJsonObject; const Source: WideString);
@@ -128,6 +130,7 @@ type
     { Liga o IPC ao browser: injeta a ponte JS e assume o OnWebMessageJson.
       Crie antes do Browser.CreateWebView (ou recarregue a página depois). }
     constructor Create(AOwner: TComponent; ABrowser: TWebView2Browser); reintroduce;
+    { ABrowser = nil: IPC sem página (testes); as respostas só saem pelo OnPost }
     destructor Destroy; override;
 
     { Origens que podem usar o IPC, ex.: 'https://app.local'. '*' libera todas. }
@@ -149,6 +152,13 @@ type
     property Browser: TWebView2Browser read FBrowser;
     { Diagnóstico: origem negada, JSON inválido, exceção em listener... }
     property OnLog: TBorionLogEvent read FOnLog write FOnLog;
+
+    { Processa uma mensagem como se viesse da página (Json = mensagem do
+      postMessage; Source = URL do documento). True se era do Borion. }
+    function ProcessMessage(const Json, Source: WideString): Boolean;
+    { Cada mensagem enviada à página (respostas e eventos), já no formato final.
+      Para diagnóstico e testes; não substitui o envio ao browser. }
+    property OnPost: TBorionPostEvent read FOnPost write FOnPost;
   end;
 
 { A ponte JS injetada em todo documento (window.borion / window.__BORION__) }
@@ -412,9 +422,12 @@ begin
   FPending := TList.Create;
   FWindow := AllocateHWnd(WndProc);
   FBrowser := ABrowser;
-  FBrowser.FreeNotification(Self);
-  FBrowser.OnWebMessageJson := WebMessageJson;
-  FBrowser.AddScriptOnDocumentCreated(BorionBridgeScript);
+  if FBrowser <> nil then
+  begin
+    FBrowser.FreeNotification(Self);
+    FBrowser.OnWebMessageJson := WebMessageJson;
+    FBrowser.AddScriptOnDocumentCreated(BorionBridgeScript);
+  end;
 end;
 
 destructor TBorionIpc.Destroy;
@@ -554,6 +567,7 @@ end;
 procedure TBorionIpc.PostJson(const Json: string);
 var
   P: PString;
+  W: WideString;
 begin
   if GetCurrentThreadId <> MainThreadID then
   begin
@@ -564,8 +578,11 @@ begin
       Dispose(P);
     Exit;
   end;
+  W := AnsiJsonToWide(Json);
+  if Assigned(FOnPost) then
+    FOnPost(Self, W);
   if FBrowser <> nil then
-    FBrowser.PostWebMessageAsJson(AnsiJsonToWide(Json));
+    FBrowser.PostWebMessageAsJson(W);
 end;
 
 procedure TBorionIpc.WndProc(var Message: TMessage);
@@ -609,10 +626,17 @@ end;
 
 procedure TBorionIpc.WebMessageJson(Sender: TObject; const Json, Source: WideString;
   var Handled: Boolean);
+begin
+  if ProcessMessage(Json, Source) then
+    Handled := True;
+end;
+
+function TBorionIpc.ProcessMessage(const Json, Source: WideString): Boolean;
 var
   S, Kind: string;
   Msg: TJsonObject;
 begin
+  Result := False;
   S := WideJsonToAnsi(Json);
   { filtro rápido: só objetos do protocolo Borion }
   if (S = '') or (S[1] <> '{') or (Pos('"__borion"', S) = 0) then
@@ -630,14 +654,20 @@ begin
     end;
     if Msg.Find('__borion') < 0 then
       Exit;
-    Handled := True;
-    Kind := Msg['kind'].AsString;
-    if Kind = 'invoke' then
-      HandleInvoke(Msg, Source)
-    else if Kind = 'emit' then
-      HandleEmit(Msg, Source)
-    else
-      Log('tipo de mensagem desconhecido: ' + Kind);
+    Result := True;
+    try
+      Kind := Msg['kind'].AsString;
+      if Kind = 'invoke' then
+        HandleInvoke(Msg, Source)
+      else if Kind = 'emit' then
+        HandleEmit(Msg, Source)
+      else
+        Log('tipo de mensagem desconhecido: ' + Kind);
+    except
+      { campos com o tipo errado (ex.: "cmd" com um objeto) não podem derrubar o app }
+      on E: Exception do
+        Log('mensagem malformada: ' + E.Message);
+    end;
   finally
     Msg.Free;
   end;

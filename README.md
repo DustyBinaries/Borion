@@ -43,10 +43,11 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 |---|---|
 | `BorionIpc.pas` | `TBorionIpc` (comandos, eventos, origens), `TBorionCall`, `EBorionError` e a ponte JS injetada |
 | `BorionJson.pas` | Correções de Unicode na fronteira JSON entre o JS e o Delphi 7 |
-| `js/borion.d.ts` | Tipos TypeScript de `window.borion` |
+| `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
 | `docs/IPC.md` | Guia completo do IPC |
 | `docs/ROADMAP.md` | Roadmap do framework |
 | `Examples/Demo/` | Exemplo com todas as funcionalidades (veja abaixo) |
+| `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
 Para usar num projeto: adicione as units do `WebView2/` e do `Borion/` e ponha a pasta da
 `Jsons.pas` e a do `ACBr.inc` no *Search path*.
@@ -70,3 +71,14 @@ Abra `BorionDemo.dpr` na IDE, ou pela linha de comando:
 ```bat
 Examples\Demo\build.bat
 ```
+
+## Testes
+
+```bat
+Tests\run-tests.bat
+```
+
+Roda **56 testes DUnit**, que cobrem o Unicode do `BorionJson` e o roteamento do `TBorionIpc`
+sem WebView2, e **24 testes JS** (`node:test`), que cobrem a ponte real e o pacote `@borion/api`.
+Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão
+`C:\dev\lib\dunit\src`) e do Node.js 18+. Detalhes no [guia do IPC](docs/IPC.md#testes).

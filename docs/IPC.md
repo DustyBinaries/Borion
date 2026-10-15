@@ -26,6 +26,7 @@ end;
 - [Segurança: origens](#segurança-origens)
 - [Texto e Unicode](#texto-e-unicode)
 - [Protocolo](#protocolo)
+- [Testes](#testes)
 - [Limitações conhecidas](#limitações-conhecidas)
 
 ## Configuração
@@ -150,7 +151,9 @@ Regras:
 - Depois do `Defer`, a chamada pertence a quem vai resolvê-la. Ela é liberada pelo Borion depois
   do `Resolve`/`Reject`, então não use o objeto depois disso.
 - Enquanto uma thread mexe em `Call.Result`, ninguém mais deve mexer.
-- `Resolve`/`Reject` repetidos são ignorados.
+- Dentro do handler, `Resolve`/`Reject` repetidos são ignorados: vale o primeiro. Numa chamada
+  adiada, o primeiro `Resolve`/`Reject` **envia a resposta e libera o objeto**; não chame de
+  novo nem acesse `Call` depois disso.
 - Uma chamada adiada que nunca é resolvida deixa a Promise pendente para sempre. No JS, use
   `{ timeout }` (veja [API JavaScript](#api-javascript)).
 
@@ -240,6 +243,20 @@ sobrescrevível. Os tipos estão em [`js/borion.d.ts`](../js/borion.d.ts).
 Sem `chrome.webview` (página aberta num navegador comum), a ponte não é criada. Teste com
 `if (window.borion)`.
 
+### Com bundler: pacote `@borion/api`
+
+Para apps com Vite, Rollup e afins, o pacote ESM em [`Borion/js`](../js/README.md) expõe a mesma
+API como imports tipados:
+
+```js
+import { invoke, listen, emit, isBorion } from '@borion/api';
+const soma = await invoke('somar', { a: 20, b: 22 });
+```
+
+Fora de um app Borion, `invoke` rejeita e `listen`/`once`/`emit` lançam um erro com
+`code = 'NOT_AVAILABLE'`; `isBorion()` permite tratar esse caso. Instalação e detalhes no
+[README do pacote](../js/README.md).
+
 ## Segurança: origens
 
 O IPC é **negado por padrão**. Só documentos de origens liberadas com `AllowOrigin` podem chamar
@@ -294,6 +311,31 @@ Borion é um objeto com `"__borion": 1`:
 
 A ponte JS escuta `chrome.webview` `message` e chama `stopImmediatePropagation` nas mensagens do
 Borion, então listeners da própria página não as veem.
+
+## Testes
+
+```bat
+Borion\Tests\run-tests.bat
+```
+
+Compila e roda as duas baterias e sai com erro se alguma falhar:
+
+| Bateria | Onde | O que cobre |
+|---|---|---|
+| DUnit (Delphi) | `Tests/` | `BorionJson` (Unicode nos dois sentidos) e `TBorionIpc`: roteamento, argumentos, erros, chamadas adiadas (inclusive de outra thread), origens, eventos e mensagens malformadas |
+| `node:test` (JS) | `Borion/js/test/` | A ponte JS real (exportada pelo DUnit) num `chrome.webview` simulado, e o pacote `@borion/api` |
+
+Requisitos: DUnit (`DUNIT`, padrão `C:\dev\lib\dunit\src`), as variáveis da Jsons já citadas e
+Node.js 18+ (sem Node, os testes JS são pulados com aviso).
+
+Os testes Delphi não precisam de WebView2: criam o IPC sem browser (`TBorionIpc.Create(nil, nil)`),
+entregam mensagens com **`ProcessMessage`** e capturam as respostas com **`OnPost`**. Essas duas
+peças também servem para diagnóstico num app real:
+
+```pascal
+Ipc.OnPost := RegistrarSaida;   // cada resposta/evento enviado à página
+Ipc.ProcessMessage('{"__borion":1,"kind":"invoke","id":1,"cmd":"info"}', 'https://app.local/');
+```
 
 ## Limitações conhecidas
 

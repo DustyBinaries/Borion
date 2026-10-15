@@ -1,0 +1,29 @@
+{
+  "name": "@borion/api",
+  "version": "0.1.0",
+  "description": "API JavaScript do Borion — Native Application Engine (invoke, listen, emit)",
+  "type": "module",
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./global": {
+      "types": "./borion.d.ts"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "borion.d.ts"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

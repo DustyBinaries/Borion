@@ -4,3 +4,7 @@
 *.RES
 # copias do loader feitas pelos build.bat dos exemplos
 **/Examples/**/WebView2Loader.dll
+# gerados pelos testes do Borion
+Tests/out/
+Tests/dcu/
+node_modules/

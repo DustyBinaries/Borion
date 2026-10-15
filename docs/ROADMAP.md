@@ -15,7 +15,7 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 | Assets embutidos (protocolo customizado) | `ServeEmbeddedResources` + `web.rc` | ✅ básico pronto |
 | `invoke('comando', args)` → `#[tauri::command]` | `borion.invoke()` → `TBorionIpc.RegisterCommand` | ✅ Fase 1 |
 | Eventos `emit`/`listen` | `borion.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
-| `@tauri-apps/api` | Ponte JS injetada (`window.borion`) + `js/borion.d.ts` | ✅ básico (falta pacote ESM) |
+| `@tauri-apps/api` | Ponte injetada (`window.borion`) + pacote ESM `@borion/api` | ✅ Fase 1 |
 | `tauri.conf.json` | `app.json` embutido | ⬜ Fase 3 |
 | Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ⬜ Fase 4 |
 | Capabilities / permissões | Lista de comandos permitidos por janela e origem | ⬜ Fase 5 |
@@ -60,8 +60,8 @@ O núcleo atual precisa ser robusto antes de crescer em cima dele.
 - [ ] `RemoveWebResourceRequestedFilter` e remoção dos handlers (`remove_*` com os tokens).
 - [ ] Decodificar `%XX` (UTF-8) em `Path` e `Query`.
 - [ ] Opções do ambiente (`ICoreWebView2EnvironmentOptions`): idioma, argumentos do browser.
-- [ ] Testes com DUnit (vem com o Delphi 7) para as partes puras: mapeamento de recursos, MIME,
-      JSON, roteamento.
+- [ ] Testes DUnit do `TWebView2Browser` nas partes puras: mapeamento de recursos, MIME, `Path` e
+      `Query` do `TWV2WebResourceRequest`. (Os do Borion já existem: `Tests`.)
 
 **Marco 0:** o mesmo protótipo, organizado, sem crashes conhecidos e com testes.
 
@@ -84,7 +84,8 @@ Documentação: [IPC.md](IPC.md).
 - [x] Eventos JS → Delphi: `Ipc.Listen` / `Unlisten`, com curinga `*`.
 - [x] Validar a **origem** de cada mensagem (`Source` do WebView2), negando por padrão
       (`AllowOrigin`).
-- [ ] Testes DUnit do `BorionJson` e do roteamento de comandos.
+- [x] Testes DUnit do `BorionJson` e do roteamento de comandos (`Tests`, 56 testes),
+      com `TBorionIpc.ProcessMessage` / `OnPost` para testar sem WebView2.
 
 **Lado JS**
 - [x] Declarar `AddScriptToExecuteOnDocumentCreated` e injetar a ponte antes de qualquer script
@@ -93,7 +94,11 @@ Documentação: [IPC.md](IPC.md).
 - [x] `listen` / `once` / `emit`; `listen` devolve a função para cancelar.
 - [x] Mensagens do Borion isoladas dos listeners da página (`stopImmediatePropagation`).
 - [x] Tipos TypeScript: `js/borion.d.ts`.
-- [ ] Pacote ESM (`import { invoke } from 'borion'`) para bundlers, que use a ponte injetada.
+- [x] Pacote ESM `@borion/api` (`import { invoke } from '@borion/api'`) sobre a ponte injetada,
+      com `isBorion()` e erro `NOT_AVAILABLE` fora do app.
+- [x] Testes JS (`node:test`, 24 testes) da ponte real e do pacote, rodados pelo
+      `Tests/run-tests.bat`.
+- [ ] Publicar o `@borion/api` no npm (hoje: `npm install <caminho>/Borion/js`).
 
 **Marco 1:** ✅ `await borion.invoke('somar', {a: 20, b: 22})` devolve `42` vindo de um comando
 Delphi registrado em uma linha.
@@ -249,8 +254,7 @@ liberados.
 
 1. ~~Tomar as decisões de nome, biblioteca JSON e transporte do IPC.~~ ✅
 2. Fase 0, só os itens de robustez dos callbacks e a reorganização de pastas.
-3. ~~**Fase 1 inteira**: é o que transforma o protótipo num framework.~~ ✅ (faltam testes DUnit
-   e o pacote ESM)
+3. ~~**Fase 1 inteira**: é o que transforma o protótipo num framework.~~ ✅
 4. Fase 2: gerar o `.rc` da pasta, SPA fallback e modo dev.
 5. Fase 4: só `dialog`, `fs` e `shell`, junto com o mínimo da Fase 5 (escopo do `fs` e validação
    de origem).

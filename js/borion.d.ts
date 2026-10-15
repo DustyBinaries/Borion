@@ -4,7 +4,8 @@
 
 export interface BorionError extends Error {
   /** Código do erro: o Code do EBorionError, a classe da exceção Delphi,
-   *  ou UNKNOWN_COMMAND / FORBIDDEN_ORIGIN / TIMEOUT. */
+   *  ou UNKNOWN_COMMAND / FORBIDDEN_ORIGIN / TIMEOUT
+   *  (e NOT_AVAILABLE no pacote @borion/api, fora de um app Borion). */
   code: string;
   /** Nome do comando que falhou. */
   command?: string;
