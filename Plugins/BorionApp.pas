@@ -44,6 +44,9 @@ type
 
 { FileVersion do recurso de versão do exe ('' se não houver) }
 function BorionExeVersion: string;
+{ Mostra a janela do app e a traz para frente: sai da bandeja (plugin tray),
+  desfaz o minimizar e o esconder. Form nil: o form do browser do Ipc ou o MainForm. }
+procedure BorionShowMainWindow(Ipc: TBorionIpc; Form: TCustomForm = nil);
 
 implementation
 
@@ -70,6 +73,33 @@ begin
   finally
     FreeMem(Buffer);
   end;
+end;
+
+procedure BorionShowMainWindow(Ipc: TBorionIpc; Form: TCustomForm);
+var
+  Tray: TBorionPlugin;
+begin
+  Tray := nil;
+  if Ipc <> nil then
+    Tray := Ipc.FindPlugin('tray');
+  if Tray <> nil then
+  begin
+    TBorionTrayPlugin(Tray).RestoreWindow;  { sabe sair da bandeja }
+    Exit;
+  end;
+  if (Form = nil) and (Ipc <> nil) and (Ipc.Browser <> nil) then
+    Form := GetParentForm(Ipc.Browser);
+  if Form = nil then
+    Form := Application.MainForm;
+  if Form = nil then
+    Exit;
+  Form.Show;
+  { no Delphi 7, o app:minimize minimiza a janela da TApplication, não o form }
+  if IsIconic(Application.Handle) then
+    Application.Restore;
+  if Form.WindowState = wsMinimized then
+    Form.WindowState := wsNormal;
+  SetForegroundWindow(Form.Handle);
 end;
 
 { TBorionAppPlugin }
@@ -112,24 +142,8 @@ begin
 end;
 
 procedure TBorionAppPlugin.CmdShow(Call: TBorionCall);
-var
-  Tray: TBorionPlugin;
-  F: TCustomForm;
 begin
-  Tray := Ipc.FindPlugin('tray');
-  if Tray <> nil then
-    TBorionTrayPlugin(Tray).RestoreWindow  { sabe sair da bandeja }
-  else
-  begin
-    F := Formulario;
-    F.Show;
-    { no Delphi 7, o app:minimize minimiza a janela da TApplication, não o form }
-    if IsIconic(Application.Handle) then
-      Application.Restore;
-    if F.WindowState = wsMinimized then
-      F.WindowState := wsNormal;
-    SetForegroundWindow(F.Handle);
-  end;
+  BorionShowMainWindow(Ipc, Formulario);
 end;
 
 procedure TBorionAppPlugin.CmdHide(Call: TBorionCall);

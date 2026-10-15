@@ -1,7 +1,7 @@
 # Borion: plugins
 
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
-`clipboard`, `store`, `os`, `http`), com API tipada no JS
+`clipboard`, `store`, `os`, `http`, `notification`, `single-instance`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
 linha:
 
@@ -35,6 +35,8 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`store`](#store)
 - [`os`](#os)
 - [`http`](#http)
+- [`notification`](#notification)
+- [`single-instance`](#single-instance)
 - [Unicode completo: JSON só com ASCII](#unicode-completo-json-só-com-ascii)
 - [Escrevendo um plugin](#escrevendo-um-plugin)
 - [Limitações](#limitações)
@@ -419,6 +421,82 @@ if (r.ok) console.log(await r.json());
   `TOO_MANY_REDIRECTS`, `TOO_LARGE`, `NETWORK_ERROR` (DNS, conexão recusada, certificado
   inválido...), `INVALID_ARGS` (cabeçalho com quebra de linha, método inválido).
 
+## `notification`
+
+Exemplo: [`Examples/Notification`](../Examples/Notification/README.md).
+
+`TBorionNotificationPlugin.Create([AppId])`. Notificações nativas do Windows 10/11 (toast, via
+WinRT), com botões. `AppId` identifica o app nas notificações e em Configurações > Sistema >
+Notificações; sem ele, vale `'Borion.' + Application.Title`.
+
+```js
+import { sendNotification, onAction } from '@borion/api/notification';
+
+await sendNotification({
+  id: 'pedido-42',                    // opcional; o mesmo id substitui a anterior
+  title: 'Pedido #42 aguardando aprovação',
+  body: 'Cliente: José da Silva',
+  actions: [{ id: 'aprovar', title: 'Aprovar' }, { id: 'recusar', title: 'Recusar' }],
+});
+onAction(({ id, action }) => { /* action: null no clique na notificação, ou o id do botão */ });
+```
+
+| JS (`@borion/api/notification`) | O que faz |
+|---|---|
+| `sendNotification(titulo \| {title, body?, id?, silent?, actions?})` | Mostra a notificação; devolve o id. Até 5 botões |
+| `hide(id)` | Tira da tela uma notificação mostrada |
+| `isPermissionGranted()` / `requestPermission()` | Se o usuário não desligou as notificações do app. O Windows não pergunta: `requestPermission` só informa (`'granted'`/`'denied'`) |
+| `onAction(({id, action}) => ...)` | Clique na notificação ou num botão |
+| `onDismissed(({id, reason}) => ...)` | Fechada: `'user'`, `'hidden'` (pelo `hide`) ou `'timeout'` (foi para a Central de Ações) |
+
+- **Sem atalho no Menu Iniciar:** um app desktop sem pacote precisa de um AppUserModelID
+  registrado para mostrar toasts. O plugin grava `DisplayName` (e `IconUri`, se houver
+  `IconPath`) em `HKCU\Software\Classes\AppUserModelId\<AppId>` e define o AppId do
+  processo, como o Windows Community Toolkit faz. No desinstalador, chame
+  `BorionNotificationUnregister(AppId)`.
+- **Clicar traz a janela para frente** (`FocusOnClick`, padrão `True`), saindo da bandeja se for o
+  caso. No Delphi também há o evento `OnClick(Sender, Id, Action)`.
+- **Os eventos só chegam com o app aberto.** Uma notificação clicada na Central de Ações depois de
+  fechar o app não o abre de novo (isso exigiria registrar um ativador COM).
+- `IconPath`: imagem `.png`/`.jpg` mostrada na notificação (`appLogoOverride`).
+- Sem WinRT (Windows 7), a notificação vira um balão do plugin `tray`, se houver; senão rejeita
+  com `UNSUPPORTED`.
+- **Erros:** `INVALID_ARGS` (id inválido, mais de 5 botões), `NOTIFICATION_FAILED`, `UNSUPPORTED`.
+
+## `single-instance`
+
+Exemplo: [`Examples/SingleInstance`](../Examples/SingleInstance/README.md).
+
+O app roda uma vez só. Abrir de novo (pelo atalho, ou com um arquivo arrastado para o exe) traz a
+janela aberta para frente e entrega a ela os argumentos da nova execução.
+
+```pascal
+// no .dpr, antes de criar o form: a segunda execução nem chega a criar janela
+begin
+  if BorionIsSecondInstance('Empresa.MeuApp') then
+    Exit;
+  Application.Initialize;
+  ...
+
+// no form
+Ipc.AddPlugin(TBorionSingleInstancePlugin.Create);
+```
+
+```js
+import { args, onSecondInstance } from '@borion/api/single-instance';
+
+const inicio = await args();                       // { args, cwd } desta execução
+onSecondInstance(({ args, cwd }) => abrir(args));  // as próximas
+```
+
+- `args` não inclui o exe. Unicode completo (os argumentos são lidos com `CommandLineToArgvW`).
+- Se o `.dpr` não chamar `BorionIsSecondInstance`, o plugin faz a verificação ao ser criado; numa
+  segunda execução, o app termina sem mostrar a janela (mas o form chega a ser criado).
+- A janela volta para frente (`FocusOnSecondInstance`, padrão `True`), saindo da bandeja se for
+  o caso. No Delphi, o evento `OnSecondInstance(Sender, Args, Cwd)`.
+- Vale por sessão do Windows: dois usuários logados têm uma instância cada.
+- Por baixo: um mutex nomeado e uma janela só de mensagens que recebe um `WM_COPYDATA`.
+
 ## Unicode completo: JSON só com ASCII
 
 As strings do Delphi 7 são ANSI: emoji e caracteres fora da página de código do Windows viram `?`
@@ -482,6 +560,6 @@ end;
   [Unicode completo](#unicode-completo-json-só-com-ascii)).
 - Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
   sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
-- Ainda faltam outros plugins (`notification`, `global-shortcut`...), os caminhos do `os`/`app`,
+- Ainda faltam outros plugins (`global-shortcut`, `deep-link`, `autostart`...), os caminhos do `os`/`app`,
   imagens no `clipboard` e o upload com `FormData` no `http`: veja o
   [roadmap](ROADMAP.md).

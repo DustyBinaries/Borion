@@ -72,6 +72,8 @@ import { writeText, readText, writeHtml } from '@borion/api/clipboard';
 import { load } from '@borion/api/store';
 import { version, arch, locale } from '@borion/api/os';
 import { fetch } from '@borion/api/http';
+import { sendNotification, onAction } from '@borion/api/notification';
+import { args, onSecondInstance } from '@borion/api/single-instance';
 ```
 
 Cada módulo só funciona se o plugin correspondente tiver sido adicionado no Delphi

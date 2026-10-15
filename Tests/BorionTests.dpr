@@ -28,10 +28,13 @@ uses
   BorionStore in '..\Plugins\BorionStore.pas',
   BorionOs in '..\Plugins\BorionOs.pas',
   BorionHttp in '..\Plugins\BorionHttp.pas',
+  BorionNotification in '..\Plugins\BorionNotification.pas',
+  BorionSingleInstance in '..\Plugins\BorionSingleInstance.pas',
   TestBorionPlugins in 'TestBorionPlugins.pas',
   TestBorionUi in 'TestBorionUi.pas',
   TestBorionData in 'TestBorionData.pas',
-  TestBorionNet in 'TestBorionNet.pas';
+  TestBorionNet in 'TestBorionNet.pas',
+  TestBorionSystem in 'TestBorionSystem.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

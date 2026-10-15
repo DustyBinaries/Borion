@@ -51,6 +51,14 @@
       "types": "./http.d.ts",
       "default": "./http.js"
     },
+    "./notification": {
+      "types": "./notification.d.ts",
+      "default": "./notification.js"
+    },
+    "./single-instance": {
+      "types": "./single-instance.d.ts",
+      "default": "./single-instance.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -81,7 +89,11 @@
     "os.d.ts",
     "http.js",
     "http.d.ts",
-    "base64.js"
+    "base64.js",
+    "notification.js",
+    "notification.d.ts",
+    "single-instance.js",
+    "single-instance.d.ts"
   ],
   "sideEffects": false,
   "scripts": {

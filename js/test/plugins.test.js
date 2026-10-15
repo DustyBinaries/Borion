@@ -13,6 +13,8 @@ import { load, Store } from '../store.js';
 import { asciiJson } from '../ascii-json.js';
 import * as os from '../os.js';
 import { fetch as httpFetch } from '../http.js';
+import * as notification from '../notification.js';
+import * as singleInstance from '../single-instance.js';
 
 let chamadas;
 let respostas;
@@ -400,5 +402,50 @@ describe('@borion/api/http', () => {
     assert.equal(chamadas[0][1].url, 'https://api.exemplo.com/r');
     assert.equal(chamadas[0][1].body, base64('x'));
     assert.ok(chamadas[0][1].headers.some(([n, v]) => n === 'x-a' && v === 'b'));
+  });
+});
+
+describe('@borion/api/notification', () => {
+  test('sendNotification: título em string ou opções completas, textos em ASCII', async () => {
+    respostas['notification:send'] = 'n1-1';
+    assert.equal(await notification.sendNotification('Oi'), 'n1-1');
+    await notification.sendNotification({
+      id: 'pedido-1', title: OLA, body: 'corpo', silent: true,
+      actions: [{ id: 'sim', title: 'Sim' }, { id: 'nao', title: 'Não' }],
+    });
+    assert.deepEqual(chamadas[0], ['notification:send', { title: '"Oi"' }]);
+    assert.deepEqual(chamadas[1][1], {
+      title: OLA_ASCII, body: '"corpo"', id: 'pedido-1', silent: true,
+      actions: [{ id: 'sim', title: '"Sim"' }, { id: 'nao', title: '"N' + B + 'u00e3o"' }],
+    });
+  });
+
+  test('permissão, hide e eventos', async () => {
+    respostas['notification:permission'] = 'granted';
+    assert.equal(await notification.isPermissionGranted(), true);
+    assert.equal(await notification.requestPermission(), 'granted');
+    respostas['notification:permission'] = 'denied';
+    assert.equal(await notification.isPermissionGranted(), false);
+    await notification.hide('x');
+    assert.deepEqual(chamadas.at(-1), ['notification:hide', { id: 'x' }]);
+    const ev = [];
+    notification.onAction((e) => ev.push(['click', e.id, e.action]));
+    notification.onDismissed((e) => ev.push(['fechou', e.id, e.reason]));
+    delphiEmite('notification:click', { id: 'a', action: null });
+    delphiEmite('notification:click', { id: 'a', action: 'sim' });
+    delphiEmite('notification:dismissed', { id: 'b', reason: 'user' });
+    assert.deepEqual(ev, [['click', 'a', null], ['click', 'a', 'sim'], ['fechou', 'b', 'user']]);
+  });
+});
+
+describe('@borion/api/single-instance', () => {
+  test('args e onSecondInstance decodificam os literais', async () => {
+    const lit = (t) => asciiJson(t);
+    respostas['single-instance:args'] = { args: [lit('--x'), lit('C:' + B + OLA)], cwd: lit('C:' + B + 'p') };
+    assert.deepEqual(await singleInstance.args(), { args: ['--x', 'C:' + B + OLA], cwd: 'C:' + B + 'p' });
+    const recebidos = [];
+    singleInstance.onSecondInstance((e) => recebidos.push(e));
+    delphiEmite('single-instance:second', { args: [lit('nota.txt')], cwd: lit('D:' + B) });
+    assert.deepEqual(recebidos, [{ args: ['nota.txt'], cwd: 'D:' + B }]);
   });
 });

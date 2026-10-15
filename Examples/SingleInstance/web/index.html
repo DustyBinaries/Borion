@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: single-instance</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/single-instance": "./borion-api/single-instance.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>single-instance</code></h2>
+      <p>Este app abre uma vez só. Abra o <code>SingleInstanceDemo.exe</code> de novo, ou
+        arraste um arquivo para cima dele no Explorer: em vez de uma segunda janela, esta volta
+        para frente e recebe os argumentos.</p>
+    </header>
+
+    <section>
+      <h3>1. Esta execução (<code>args()</code>)</h3>
+      <pre id="minha" class="saida">...</pre>
+    </section>
+
+    <section>
+      <h3>2. Outras execuções (<code>onSecondInstance</code>)</h3>
+      <p class="dica">No prompt: <code>SingleInstanceDemo.exe "um arquivo.txt" --opcao</code></p>
+      <ol id="log" class="log"><li class="vazio">nenhuma ainda</li></ol>
+    </section>
+  </main>
+</body>
+</html>

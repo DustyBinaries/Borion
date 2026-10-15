@@ -176,7 +176,8 @@ Documentação: [PLUGINS.md](PLUGINS.md).
       `Ipc.Later` para comandos que abrem janelas modais fora do callback do WebView2.
 - [ ] Script JS opcional por plugin (injetado junto com a ponte).
 - [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`,
-      `/clipboard`, `/store`, `/os`, `/http`.
+      `/clipboard`, `/store`, `/os`, `/http`,
+      `/notification`, `/single-instance`.
 
 Plugins, em ordem de utilidade:
 - [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
@@ -195,14 +196,15 @@ Plugins, em ordem de utilidade:
       caminhos e reiniciar.
 - [x] `http`: requisições pelo Delphi (WinInet), sem CORS, com a interface do `fetch`, escopo de
       URLs, redirecionamentos verificados, timeout e cancelamento. Falta `FormData`/streaming.
-- [x] `notification`: por enquanto é o `tray.notify` (balão; toast no Windows 10/11).
+- [x] `notification`: toast nativo (WinRT) com botões e eventos de clique/fechamento, sem atalho
+      no Menu Iniciar (AppUserModelID no registro); balão do `tray` no Windows 7.
 - [x] `tray`: ícone, tooltip, menu, cliques, notificações, minimizar para a bandeja e
       recolocar o ícone quando o Explorer reinicia.
 - [x] `menu`: barra de menu (submenus, separadores, itens com marcação, `update`) e menu de
       contexto (`popup`) nativos. Atalhos funcionam com o foco na página, pelo
       `AcceleratorKeyPressed` do WebView2 (novo evento `OnAcceleratorKeyPressed` do controle).
 - [ ] `global-shortcut`: atalhos globais (`RegisterHotKey`).
-- [ ] `single-instance`: segunda execução foca a primeira e repassa os argumentos.
+- [x] `single-instance`: segunda execução foca a primeira e repassa os argumentos (Unicode).
 - [ ] `deep-link`: registrar `meuapp://` e receber os links.
 - [ ] `autostart`: iniciar com o Windows.
 - [ ] `log`: log em arquivo, com o lado JS repassando `console.*`.
@@ -308,4 +310,4 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4. Próximos candidatos: configuração e janelas (Fase 3), a CLI
-`borion dev`/`build` (Fase 6) e os plugins `notification` (toast) e `single-instance`.
+`borion dev`/`build` (Fase 6) e os plugins `deep-link` e `autostart`.

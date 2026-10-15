@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: notification</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/notification": "./borion-api/notification.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>notification</code></h2>
+      <p>Notificações nativas do Windows (toast). Permissão: <b id="permissao">...</b></p>
+    </header>
+
+    <section>
+      <h3>1. Uma notificação simples</h3>
+      <div class="linha">
+        <input id="titulo" value="Olá do Borion 😀">
+      </div>
+      <div class="linha">
+        <input id="corpo" class="largo" value="Notificação nativa, mandada por uma página web num app Delphi.">
+      </div>
+      <div class="linha">
+        <label><input type="checkbox" id="silenciosa"> sem som</label>
+        <button id="enviar">Notificar</button>
+        <button id="enviar-depois">Notificar em 5 s (minimize a janela)</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>2. Com botões (<code>actions</code>)</h3>
+      <p>Clique num botão da notificação: o id dele chega em <code>onAction</code>, e a janela
+        volta para frente.</p>
+      <div class="linha">
+        <button id="pedido">Novo pedido para aprovar</button>
+        <button id="esconder">Esconder a última</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>Eventos</h3>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+</body>
+</html>
