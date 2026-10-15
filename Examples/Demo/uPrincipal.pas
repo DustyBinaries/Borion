@@ -7,7 +7,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, ExtCtrls, Jsons, WebView2Browser, BorionIpc;
+  StdCtrls, ExtCtrls, Jsons, WebView2Browser, BorionIpc, BorionAssets;
 
 type
   TfrmPrincipal = class(TForm)
@@ -25,6 +25,7 @@ type
   private
     FBrowser: TWebView2Browser;
     FIpc: TBorionIpc;
+    FAssets: TBorionAssets;
     procedure Log(const S: string);
     procedure WMMove(var Message: TWMMove); message WM_MOVE;
     procedure BrowserInitialized(Sender: TObject; ErrorCode: HResult);
@@ -52,17 +53,24 @@ begin
   { Borion IPC. Criado antes do CreateWebView para a ponte JS (window.borion)
     entrar já no primeiro documento. }
   FIpc := TBorionIpc.Create(Self, FBrowser);
-  FIpc.AllowOrigin('https://app.local');  { só a página embutida usa o IPC }
   FIpc.OnLog := IpcLog;
   FIpc.Listen('*', IpcEvento);
   RegistrarComandos(FIpc);
 
+  { A interface: o pacote BORION_ASSETS do exe (gerado por "borion pack web
+    web.res"), servido em https://app.local/. Com --dev-url=<url>, carrega
+    do servidor de desenvolvimento em vez do pacote. }
+  FAssets := TBorionAssets.Create(Self, FBrowser);
+  FIpc.AllowOrigin(BorionOriginOf(FAssets.StartUrl));  { só a interface do app usa o IPC }
+
   Log('Borion ' + BORION_VERSION + ' iniciando...');
+  if FAssets.IsDev then
+    Log('modo dev: ' + FAssets.DevUrl)
+  else if FAssets.Pack = nil then
+    Log('AVISO: ' + FAssets.PackError);
   try
-    { a interface vem dos recursos do exe (web.rc), em https://app.local/ }
-    FBrowser.ServeEmbeddedResources('app.local');
     FBrowser.CreateWebView;
-    FBrowser.Navigate(FBrowser.EmbeddedUrl('index.html'));
+    FBrowser.Navigate(FAssets.StartUrl);
   except
     on E: Exception do
     begin

@@ -8,3 +8,5 @@
 Tests/out/
 Tests/dcu/
 node_modules/
+# build do frontend dos exemplos (vai para o pacote de assets)
+**/frontend/dist/

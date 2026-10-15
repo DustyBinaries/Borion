@@ -13,7 +13,10 @@ uses
   BorionJson in '..\BorionJson.pas',
   BorionIpc in '..\BorionIpc.pas',
   TestBorionJson in 'TestBorionJson.pas',
-  TestBorionIpc in 'TestBorionIpc.pas';
+  BorionPack in '..\BorionPack.pas',
+  BorionAssets in '..\BorionAssets.pas',
+  TestBorionIpc in 'TestBorionIpc.pas',
+  TestBorionPack in 'TestBorionPack.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

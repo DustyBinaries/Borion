@@ -12,7 +12,7 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 | Tauri | Equivalente aqui | Situação |
 |---|---|---|
 | WRY (WebView do sistema) | `TWebView2Browser` + `WebView2.pas` | ✅ básico pronto |
-| Assets embutidos (protocolo customizado) | `ServeEmbeddedResources` + `web.rc` | ✅ básico pronto |
+| Assets embutidos (protocolo customizado) | `borion pack` + `TBorionAssets` (SPA, zlib, headers) | ✅ Fase 2 |
 | `invoke('comando', args)` → `#[tauri::command]` | `borion.invoke()` → `TBorionIpc.RegisterCommand` | ✅ Fase 1 |
 | Eventos `emit`/`listen` | `borion.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
 | `@tauri-apps/api` | Ponte injetada (`window.borion`) + pacote ESM `@borion/api` | ✅ Fase 1 |
@@ -107,21 +107,31 @@ Delphi registrado em uma linha.
 
 ## Fase 2: Assets e servidor de frontend
 
-- [ ] Ferramenta que **gera o `.rc` a partir de uma pasta** (ex.: o `dist/` do Vite), sem lista
-      manual.
-- [ ] Nomes de recurso que suportem qualquer caminho: um índice com caminho → id, em vez de
-      depender do nome do recurso.
-- [ ] Compressão opcional dos assets (unit `ZLib` do Delphi 7), com descompressão ao servir.
-- [ ] **SPA fallback**: rota desconhecida sem extensão → `index.html`, para o roteamento do React
-      e afins funcionar.
-- [ ] Headers padrão: `Cache-Control`, `Content-Security-Policy` configurável, MIME completo
-      (`webp`, `mp4`, `wasm`, `map`...).
-- [ ] **Modo dev**: carregar de `devUrl` (ex.: `http://localhost:5173`) para usar o hot-reload do
-      Vite, mantendo a ponte IPC.
-- [ ] Exemplo com Vite + vanilla JS e outro com React.
+Documentação: [ASSETS.md](ASSETS.md).
 
-**Marco 2:** um app React feito com Vite roda em modo dev com hot-reload e, no build, sai
-embutido no `.exe`.
+- [x] Ferramenta que **empacota uma pasta** (ex.: o `dist/` do Vite) sem lista manual: CLI
+      `borion pack <pasta> <saida.res>`, que grava o `.res` direto (sem `.rc` nem `brcc32`).
+- [x] Qualquer caminho de arquivo: um pacote único (`BORION_ASSETS`) com índice caminho → dados,
+      caminhos em UTF-8 (acentos ok) e busca sem diferenciar maiúsculas.
+- [x] Compressão zlib (unit `ZLib` do Delphi 7) quando reduz pelo menos 10%, pulando formatos já
+      comprimidos; descompressão ao servir.
+- [x] **Fallback de SPA**: rota sem extensão que não existe → `index.html`. `StartUrl` é a raiz
+      `/`, não `/index.html`.
+- [x] Headers padrão: `Cache-Control: no-cache`, `X-Content-Type-Options: nosniff`, CSP
+      configurável, tabela de MIME completa (`webp`, `avif`, `wasm`, `map`, `mp4`, fontes...).
+- [x] **Modo dev**: `--dev-url=<url>` ou `BORION_DEV_URL` → `StartUrl` aponta para o servidor do
+      Vite; IPC liberado para a origem dele com `AllowOrigin(BorionOriginOf(StartUrl))`.
+- [x] Exemplo React + Vite (`Examples/ViteReact`): `build.bat` e `dev.bat`.
+- [x] `Examples/Demo` migrado para `borion pack` + `TBorionAssets` (é o exemplo sem bundler).
+- [x] Testes DUnit do pacote e do servidor (25 testes).
+- [ ] Exemplo com Vite + JS puro (sem React). Hoje, o mais próximo é o `Examples/Demo`, que é
+      JS puro mas sem Vite.
+- [ ] Cache em memória dos arquivos descomprimidos.
+- [ ] `borion dev` / `borion build` na CLI, no lugar dos `.bat` dos exemplos (é a Fase 6).
+
+**Marco 2:** ✅ o app React feito com Vite roda em modo dev com hot-reload (testado: edição no
+`App.jsx` aparece sem recarregar a página e sem perder o estado) e, no build, sai embutido no
+`.exe`.
 
 ---
 
@@ -246,16 +256,17 @@ liberados.
 - [x] Página embutida no executável (`RCDATA` + host virtual)
 - [x] `WebResourceRequested` genérico, base para "API local"
 - [x] **Borion IPC**: `invoke` / `emit` / `listen`, comandos assíncronos, validação de origem
+- [x] **Assets**: `borion pack` + `TBorionAssets` (fallback de SPA, zlib, headers) e modo dev com hot-reload
 - [x] Repositório separado em `WebView2/` e `Borion/`, cada um com exemplo próprio
 - [x] Documentação: READMEs de cada parte, `WebView2/docs/WebResourceRequested.md`,
-      `Borion/docs/IPC.md`
+      `Borion/docs/IPC.md`, `Borion/docs/ASSETS.md`
 
 ## Ordem sugerida para começar
 
 1. ~~Tomar as decisões de nome, biblioteca JSON e transporte do IPC.~~ ✅
 2. Fase 0, só os itens de robustez dos callbacks e a reorganização de pastas.
 3. ~~**Fase 1 inteira**: é o que transforma o protótipo num framework.~~ ✅
-4. Fase 2: gerar o `.rc` da pasta, SPA fallback e modo dev.
+4. ~~Fase 2: gerar o `.rc` da pasta, SPA fallback e modo dev.~~ ✅
 5. Fase 4: só `dialog`, `fs` e `shell`, junto com o mínimo da Fase 5 (escopo do `fs` e validação
    de origem).
 

@@ -10,6 +10,8 @@ uses
   WebView2Browser in '..\..\WebView2\WebView2Browser.pas',
   BorionJson in '..\..\BorionJson.pas',
   BorionIpc in '..\..\BorionIpc.pas',
+  BorionPack in '..\..\BorionPack.pas',
+  BorionAssets in '..\..\BorionAssets.pas',
   uComandos in 'uComandos.pas',
   uPrincipal in 'uPrincipal.pas' {frmPrincipal};
 
@@ -17,7 +19,7 @@ uses
   e o Search path do projeto (BorionDemo.dof) }
 
 {$R *.res}
-{$R web.res}  { arquivos da pasta web\ (gerado a partir de web.rc pelo build.bat) }
+{$R web.res}  { pacote BORION_ASSETS com a pasta web\ (gerado por "borion pack" no build.bat) }
 
 begin
   Application.Initialize;
