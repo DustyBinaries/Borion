@@ -1,0 +1,27 @@
+:root {
+  --cor: #6b4fbb;
+  --borda: #d9d9e3;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: #222;
+}
+html, body { height: 100%; margin: 0; }
+body { display: flex; flex-direction: column; background: #fafafc; }
+.barra { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--borda); background: #fff; }
+.barra button { padding: 5px 12px; border: 1px solid var(--borda); border-radius: 5px; background: #fff; cursor: pointer; }
+.barra button:hover:not(:disabled) { border-color: var(--cor); color: var(--cor); }
+.barra button:disabled { opacity: .45; cursor: default; }
+.barra .link { border: none; color: var(--cor); }
+.separador { width: 1px; height: 22px; background: var(--borda); margin: 0 6px; }
+.espaco { flex: 1; }
+.corpo { flex: 1; display: flex; min-height: 0; }
+aside { width: 210px; border-right: 1px solid var(--borda); padding: 10px; overflow: auto; background: #f4f4f8; }
+aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #777; margin: 0 0 8px; }
+#recentes { list-style: none; margin: 0; padding: 0; }
+#recentes li { padding: 5px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#recentes li:hover { background: #e8e4f5; color: var(--cor); }
+#recentes li.vazio { color: #999; cursor: default; background: none; }
+textarea { flex: 1; border: none; outline: none; resize: none; padding: 14px 18px;
+  font: 14px/1.5 Consolas, "Cascadia Mono", monospace; background: #fff; }
+.status { display: flex; gap: 18px; padding: 4px 10px; border-top: 1px solid var(--borda); color: #666; background: #fff; }
+#arquivo { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

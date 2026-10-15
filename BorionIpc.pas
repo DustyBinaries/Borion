@@ -107,6 +107,28 @@ type
   TBorionLogEvent = procedure(Sender: TObject; const Msg: string) of object;
   TBorionPostEvent = procedure(Sender: TObject; const Json: WideString) of object;
 
+  { Base dos plugins: um conjunto de comandos com o prefixo do plugin
+    ('fs:readTextFile'). Registre com Ipc.AddPlugin; o TBorionIpc vira o dono. }
+  TBorionPlugin = class
+  private
+    FIpc: TBorionIpc;
+    FLater: TStringList;  { comando -> handler rodado pelo Ipc.Later }
+    procedure DispatchLater(Call: TBorionCall);
+  protected
+    { Registra '<Name>:<Comando>' }
+    procedure Command(const Comando: string; Handler: TBorionCommandMethod);
+    { Como Command, mas o handler roda fora do callback do WebView2 (ver
+      TBorionIpc.Later). Para o que abre janelas modais, como diálogos. }
+    procedure CommandLater(const Comando: string; Handler: TBorionCommandMethod);
+    { Registra os comandos (chamado pelo AddPlugin) }
+    procedure Install; virtual; abstract;
+  public
+    destructor Destroy; override;
+    { Prefixo dos comandos, ex.: 'fs' }
+    function Name: string; virtual; abstract;
+    property Ipc: TBorionIpc read FIpc;
+  end;
+
   TBorionIpc = class(TComponent)
   private
     FBrowser: TWebView2Browser;
@@ -117,12 +139,14 @@ type
     FWindow: HWND;
     FOnLog: TBorionLogEvent;
     FOnPost: TBorionPostEvent;
+    FPlugins: TList;
     procedure WebMessageJson(Sender: TObject; const Json, Source: WideString; var Handled: Boolean);
     procedure HandleInvoke(Msg: TJsonObject; const Source: WideString);
     procedure HandleEmit(Msg: TJsonObject; const Source: WideString);
     procedure SendResponse(Call: TBorionCall);
     procedure PostJson(const Json: string);
     procedure WndProc(var Message: TMessage);
+    procedure RunLater(P: Pointer);
     procedure Log(const Msg: string);
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
@@ -159,6 +183,18 @@ type
     { Cada mensagem enviada à página (respostas e eventos), já no formato final.
       Para diagnóstico e testes; não substitui o envio ao browser. }
     property OnPost: TBorionPostEvent read FOnPost write FOnPost;
+
+    { Adiciona um plugin (o TBorionIpc passa a ser o dono) e registra os comandos
+      dele. Devolve o próprio plugin, para configurar na mesma linha. }
+    function AddPlugin(Plugin: TBorionPlugin): TBorionPlugin;
+    { nil se não houver }
+    function FindPlugin(const Name: string): TBorionPlugin;
+
+    { Adia a chamada e roda Handler depois que o callback do WebView2 retornar,
+      na thread da interface. A resposta sai quando Handler termina (Result,
+      ou Reject/exceção). Use para janelas modais: abrir um diálogo dentro do
+      callback COM do WebView2 causa reentrância. }
+    procedure Later(Call: TBorionCall; Handler: TBorionCommandMethod);
   end;
 
 { A ponte JS injetada em todo documento (window.borion / window.__BORION__) }
@@ -175,6 +211,7 @@ uses
 const
   WM_BORION_FINISH = WM_USER + 1;
   WM_BORION_POST = WM_USER + 2;
+  WM_BORION_LATER = WM_USER + 3;
 
 type
   TBorionCommandEntry = class
@@ -420,6 +457,7 @@ begin
   FListeners := TList.Create;
   FOrigins := TStringList.Create;
   FPending := TList.Create;
+  FPlugins := TList.Create;
   FWindow := AllocateHWnd(WndProc);
   FBrowser := ABrowser;
   if FBrowser <> nil then
@@ -451,7 +489,124 @@ begin
     Dispose(PBorionListener(FListeners[I]));
   FListeners.Free;
   FOrigins.Free;
+  for I := 0 to FPlugins.Count - 1 do
+    TBorionPlugin(FPlugins[I]).Free;
+  FPlugins.Free;
   inherited Destroy;
+end;
+
+function TBorionIpc.AddPlugin(Plugin: TBorionPlugin): TBorionPlugin;
+begin
+  if FindPlugin(Plugin.Name) <> nil then
+    raise EBorionError.Create('PLUGIN', 'plugin já adicionado: ' + Plugin.Name);
+  Plugin.FIpc := Self;
+  FPlugins.Add(Plugin);
+  Plugin.Install;
+  Result := Plugin;
+end;
+
+function TBorionIpc.FindPlugin(const Name: string): TBorionPlugin;
+var
+  I: Integer;
+begin
+  for I := 0 to FPlugins.Count - 1 do
+  begin
+    Result := TBorionPlugin(FPlugins[I]);
+    if SameText(Result.Name, Name) then
+      Exit;
+  end;
+  Result := nil;
+end;
+
+type
+  PBorionMethod = ^TMethod;
+  PBorionLater = ^TBorionLater;
+  TBorionLater = record
+    Call: TBorionCall;
+    Handler: TBorionCommandMethod;
+  end;
+
+procedure TBorionIpc.Later(Call: TBorionCall; Handler: TBorionCommandMethod);
+var
+  P: PBorionLater;
+begin
+  Call.Defer;
+  New(P);
+  P^.Call := Call;
+  P^.Handler := Handler;
+  if not PostMessage(FWindow, WM_BORION_LATER, 0, LPARAM(P)) then
+  begin
+    Dispose(P);
+    Call.Reject('não foi possível agendar o comando', 'INTERNAL');
+  end;
+end;
+
+procedure TBorionIpc.RunLater(P: Pointer);
+var
+  Call: TBorionCall;
+  Handler: TBorionCommandMethod;
+begin
+  Call := PBorionLater(P)^.Call;
+  Handler := PBorionLater(P)^.Handler;
+  Dispose(PBorionLater(P));
+  Call.FInHandler := True;
+  try
+    try
+      Handler(Call);
+    except
+      on E: EBorionError do
+        Call.Reject(E.Message, E.Code);
+      on E: Exception do
+        Call.Reject(E.Message, E.ClassName);
+    end;
+  finally
+    Call.FInHandler := False;
+  end;
+  Call.FFinished := True;
+  SendResponse(Call);
+end;
+
+{ TBorionPlugin }
+
+destructor TBorionPlugin.Destroy;
+var
+  I: Integer;
+begin
+  if FLater <> nil then
+  begin
+    for I := 0 to FLater.Count - 1 do
+      Dispose(PBorionMethod(FLater.Objects[I]));
+    FLater.Free;
+  end;
+  inherited Destroy;
+end;
+
+procedure TBorionPlugin.Command(const Comando: string; Handler: TBorionCommandMethod);
+begin
+  FIpc.RegisterCommand(Name + ':' + Comando, Handler);
+end;
+
+procedure TBorionPlugin.CommandLater(const Comando: string; Handler: TBorionCommandMethod);
+var
+  M: PBorionMethod;
+begin
+  if FLater = nil then
+  begin
+    FLater := TStringList.Create;
+    FLater.CaseSensitive := True;
+  end;
+  New(M);
+  M^ := TMethod(Handler);
+  FLater.AddObject(Name + ':' + Comando, TObject(M));
+  FIpc.RegisterCommand(Name + ':' + Comando, DispatchLater);
+end;
+
+procedure TBorionPlugin.DispatchLater(Call: TBorionCall);
+var
+  I: Integer;
+begin
+  I := FLater.IndexOf(Call.Command);
+  FIpc.Later(Call, TBorionCommandMethod(PBorionMethod(FLater.Objects[I])^));
 end;
 
 procedure TBorionIpc.Notification(AComponent: TComponent; Operation: TOperation);
@@ -601,6 +756,8 @@ begin
           Dispose(P);
         end;
       end;
+    WM_BORION_LATER:
+      RunLater(Pointer(Message.LParam));
   else
     Message.Result := DefWindowProc(FWindow, Message.Msg, Message.WParam, Message.LParam);
   end;

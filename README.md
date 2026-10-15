@@ -30,6 +30,8 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 - **Frontend embutido no exe**: `borion pack` empacota o `dist/` (Vite ou qualquer pasta) e o
   `TBorionAssets` serve com fallback de SPA e headers padrão.
 - **Modo dev**: `--dev-url=http://localhost:5173` abre o servidor do Vite, com hot-reload.
+- **Plugins** `dialog`, `fs` e `shell`, com escopo de arquivos negado por padrão: o app só toca
+  as pastas liberadas e o que o usuário escolher nos diálogos.
 
 ## Requisitos
 
@@ -48,6 +50,7 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 | `BorionJson.pas` | Correções de Unicode na fronteira JSON entre o JS e o Delphi 7 |
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
 | `BorionPack.pas` | Formato do pacote de assets, compressão e leitura/escrita de `.res` |
+| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog` e `shell` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
 | `docs/IPC.md` | Guia completo do IPC |
@@ -55,12 +58,17 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 | `docs/ROADMAP.md` | Roadmap do framework |
 | `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
+| `Examples/Editor/` | Editor de texto com Vite + JS puro, feito só com os plugins oficiais ([README](Examples/Editor/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
 Para usar num projeto: adicione as units do `WebView2/` e do `Borion/` e ponha a pasta da
 `Jsons.pas` e a do `ACBr.inc` no *Search path*.
 
 ## Exemplos
+
+**[`Examples/Editor/`](Examples/Editor/README.md):** um editor de texto (abrir, salvar, recentes)
+sem nenhum comando Delphi próprio, só com os plugins `dialog`, `fs` e `shell`. Mostra o escopo
+de arquivos na prática.
 
 **[`Examples/ViteReact/`](Examples/ViteReact/README.md):** um app React com Vite. O `build.bat`
 gera um único exe com o frontend embutido; o `dev.bat` abre o app ligado ao servidor do Vite,
@@ -91,11 +99,13 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **81 testes DUnit** e **24 testes JS** (`node:test`):
+Roda **128 testes DUnit** e **34 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
   modo dev);
-- JS: a ponte real e o pacote `@borion/api`.
+  e os plugins (escopo contra `..`, prefixo vizinho, dispositivos e streams; todo o `fs` pelo IPC,
+  inclusive uma junção apontando para fora do escopo; política do `shell`; `Ipc.Later`);
+- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs` e `shell`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão
 `C:\dev\lib\dunit\src`) e do Node.js 18+. Detalhes no [guia do IPC](docs/IPC.md#testes).

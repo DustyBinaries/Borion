@@ -161,6 +161,28 @@ Regras:
 > (`Call.Ipc = nil`) e se liberam no `Resolve`/`Reject`. A thread não deve usar `Call.Ipc` sem
 > checar `nil`, e o ideal é terminá-la antes de destruir o form.
 
+### Janelas modais: `Ipc.Later`
+
+Os handlers rodam dentro do callback do WebView2. Abrir ali uma janela modal (`ShowModal`,
+`MessageDlg`, um diálogo de arquivo) causa reentrância no callback COM. Para isso existe o
+`Later`: a chamada é adiada e o handler roda logo depois, na thread da interface. A resposta sai
+quando ele retorna.
+
+```pascal
+procedure TForm1.CmdEscolherCliente(Call: TBorionCall);
+begin
+  FIpc.Later(Call, MostrarEscolha);   // adia; não use Call depois desta linha
+end;
+
+procedure TForm1.MostrarEscolha(Call: TBorionCall);
+begin
+  if TfrmEscolha.Executar(Id) then    // form modal, fora do callback
+    Call.Result.AsInteger := Id;      // senão: null
+end;
+```
+
+Plugins fazem o mesmo com `CommandLater` (veja [PLUGINS.md](PLUGINS.md#escrevendo-um-plugin)).
+
 ## Erros
 
 Qualquer exceção no handler rejeita a Promise. O `error.message` é a mensagem, e o `error.code`

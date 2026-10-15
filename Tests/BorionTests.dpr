@@ -16,7 +16,12 @@ uses
   BorionPack in '..\BorionPack.pas',
   BorionAssets in '..\BorionAssets.pas',
   TestBorionIpc in 'TestBorionIpc.pas',
-  TestBorionPack in 'TestBorionPack.pas';
+  BorionScope in '..\Plugins\BorionScope.pas',
+  BorionFs in '..\Plugins\BorionFs.pas',
+  BorionDialog in '..\Plugins\BorionDialog.pas',
+  BorionShell in '..\Plugins\BorionShell.pas',
+  TestBorionPack in 'TestBorionPack.pas',
+  TestBorionPlugins in 'TestBorionPlugins.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

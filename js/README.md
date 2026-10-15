@@ -57,6 +57,20 @@ Códigos de erro do `invoke`: o `Code` de um `EBorionError` no Delphi, o nome da
 exceção, `UNKNOWN_COMMAND`, `FORBIDDEN_ORIGIN`, `TIMEOUT` e `NOT_AVAILABLE`. Veja o
 [guia do IPC](../docs/IPC.md).
 
+## Plugins
+
+Os plugins oficiais têm módulos próprios, com tipos:
+
+```js
+import { open, save, message, confirm, ask } from '@borion/api/dialog';
+import { readTextFile, writeTextFile, readDir, BaseDirectory } from '@borion/api/fs';
+import { open as abrir, showInFolder } from '@borion/api/shell';
+```
+
+Cada módulo só funciona se o plugin correspondente tiver sido adicionado no Delphi
+(`Ipc.AddPlugin`); senão, as chamadas rejeitam com `UNKNOWN_COMMAND`. Referência completa em
+[docs/PLUGINS.md](../docs/PLUGINS.md).
+
 ## Fora de um app Borion
 
 Abrir a página num navegador comum (por exemplo, `vite dev` no Chrome) é útil para trabalhar no

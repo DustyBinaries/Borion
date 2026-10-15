@@ -163,13 +163,21 @@ Documentação: [ASSETS.md](ASSETS.md).
 
 ## Fase 4: Plugins e APIs nativas
 
-- [ ] **Arquitetura de plugin**: `IAppPlugin` (nome, comandos, script JS opcional, init/finalize),
-      registrado no `.dpr` com uma linha.
+Documentação: [PLUGINS.md](PLUGINS.md).
+
+- [x] **Arquitetura de plugin**: `TBorionPlugin` (nome, `Install`, comandos com prefixo
+      `plugin:comando`), adicionado com `Ipc.AddPlugin(...)` numa linha. `CommandLater` /
+      `Ipc.Later` para comandos que abrem janelas modais fora do callback do WebView2.
+- [ ] Script JS opcional por plugin (injetado junto com a ponte).
+- [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`.
 
 Plugins, em ordem de utilidade:
-- [ ] `dialog`: abrir e salvar arquivo, escolher pasta, mensagem e confirmação.
-- [ ] `fs`: ler e gravar texto e binário, listar, criar, apagar. **Com escopo** (Fase 5).
-- [ ] `shell`: abrir URL ou arquivo no programa padrão.
+- [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
+      o usuário escolhe entra no escopo do `fs`.
+- [x] `fs`: ler e gravar texto (UTF-8/ANSI) e binário, `exists`, `stat`, `readDir`, `mkdir`,
+      `remove` (sem seguir junções), `rename`, `copyFile`; `baseDir`. **Com escopo.**
+- [x] `shell`: abrir URL (esquemas liberados) ou arquivo do escopo (nunca executáveis) e
+      `showInFolder`.
 - [ ] `clipboard`: texto (e imagem, depois).
 - [ ] `store`: chave-valor persistido em JSON no `%APPDATA%`.
 - [ ] `os` / `app`: versão, caminhos (`appData`, `documents`...), sair, reiniciar.
@@ -186,7 +194,8 @@ Plugins, em ordem de utilidade:
       Delphi.
 
 **Marco 4:** um editor de texto de exemplo (abrir, salvar, menu, tray) feito só com plugins
-oficiais.
+oficiais. **Parcial:** o `Examples/Editor` já abre, salva, guarda recentes e mostra na pasta só
+com `dialog`, `fs` e `shell`; faltam os plugins `menu` e `tray`.
 
 ---
 
@@ -194,8 +203,14 @@ oficiais.
 
 - [ ] **Capabilities**: arquivo que diz quais comandos e plugins cada janela ou origem pode
       chamar. Negar por padrão.
-- [ ] Recusar IPC vindo de origens fora do app (sites externos abertos na janela).
-- [ ] **Escopos do `fs`**: só pastas permitidas (`$APPDATA/**`, `$DOCUMENT/meuapp/**`), sem `..`.
+- [x] Recusar IPC vindo de origens fora do app (sites externos abertos na janela): `AllowOrigin`,
+      negado por padrão (Fase 1).
+- [x] **Escopos do `fs`**: `TBorionScope` com pastas e arquivos liberados (`$APPDATA`,
+      `$DOCUMENT\meuapp`...), `..` resolvido antes da comparação, recusa de dispositivos, streams
+      e nomes reservados; o `dialog` acrescenta as escolhas do usuário.
+- [ ] Escopo persistido entre sessões (opcional, para recentes fora das pastas fixas).
+- [ ] Junções/links simbólicos dentro de pastas liberadas: hoje só o `remove` recursivo se
+      protege.
 - [ ] CSP padrão restritiva, injetada nos headers dos assets.
 - [ ] Bloquear navegação para fora do app por padrão (`NavigationStarting`), com lista de
       permitidos.
@@ -257,6 +272,7 @@ liberados.
 - [x] `WebResourceRequested` genérico, base para "API local"
 - [x] **Borion IPC**: `invoke` / `emit` / `listen`, comandos assíncronos, validação de origem
 - [x] **Assets**: `borion pack` + `TBorionAssets` (fallback de SPA, zlib, headers) e modo dev com hot-reload
+- [x] **Plugins** `dialog`, `fs` e `shell`, com escopo de arquivos negado por padrão
 - [x] Repositório separado em `WebView2/` e `Borion/`, cada um com exemplo próprio
 - [x] Documentação: READMEs de cada parte, `WebView2/docs/WebResourceRequested.md`,
       `Borion/docs/IPC.md`, `Borion/docs/ASSETS.md`
@@ -267,7 +283,10 @@ liberados.
 2. Fase 0, só os itens de robustez dos callbacks e a reorganização de pastas.
 3. ~~**Fase 1 inteira**: é o que transforma o protótipo num framework.~~ ✅
 4. ~~Fase 2: gerar o `.rc` da pasta, SPA fallback e modo dev.~~ ✅
-5. Fase 4: só `dialog`, `fs` e `shell`, junto com o mínimo da Fase 5 (escopo do `fs` e validação
-   de origem).
+5. ~~Fase 4: só `dialog`, `fs` e `shell`, junto com o mínimo da Fase 5 (escopo do `fs` e validação
+   de origem).~~ ✅
 
 Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distribuição vêm depois.
+
+**Situação:** os cinco passos estão feitos, exceto a parte de robustez da Fase 0 (proteger os
+demais callbacks COM). Concluída essa parte, dá para marcar a v0.1.

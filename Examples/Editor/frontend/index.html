@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <title>Borion Editor</title>
+  </head>
+  <body>
+    <header class="barra">
+      <button id="novo" title="Ctrl+N">Novo</button>
+      <button id="abrir" title="Ctrl+O">Abrir…</button>
+      <button id="salvar" title="Ctrl+S">Salvar</button>
+      <button id="salvar-como" title="Ctrl+Shift+S">Salvar como…</button>
+      <span class="separador"></span>
+      <button id="mostrar" title="Mostrar o arquivo no Explorer" disabled>Mostrar na pasta</button>
+      <span class="espaco"></span>
+      <button id="ajuda" class="link">Sobre o WebView2 ↗</button>
+    </header>
+    <div class="corpo">
+      <aside>
+        <h2>Recentes</h2>
+        <ul id="recentes"><li class="vazio">nenhum ainda</li></ul>
+      </aside>
+      <textarea id="texto" spellcheck="false" placeholder="Escreva aqui. Ctrl+S salva."></textarea>
+    </div>
+    <footer class="status">
+      <span id="arquivo">sem título</span>
+      <span id="contagem"></span>
+      <span>UTF-8</span>
+    </footer>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

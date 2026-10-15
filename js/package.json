@@ -11,6 +11,18 @@
       "types": "./index.d.ts",
       "default": "./index.js"
     },
+    "./dialog": {
+      "types": "./dialog.d.ts",
+      "default": "./dialog.js"
+    },
+    "./fs": {
+      "types": "./fs.d.ts",
+      "default": "./fs.js"
+    },
+    "./shell": {
+      "types": "./shell.d.ts",
+      "default": "./shell.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -18,7 +30,14 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "borion.d.ts"
+    "borion.d.ts",
+    "dialog.js",
+    "dialog.d.ts",
+    "fs.js",
+    "fs.d.ts",
+    "shell.js",
+    "shell.d.ts",
+    "plugins.d.ts"
   ],
   "sideEffects": false,
   "scripts": {
