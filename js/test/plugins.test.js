@@ -1,4 +1,4 @@
-// Testes dos módulos de plugins (@borion/api/dialog, /fs, /shell): verificam que
+// Testes dos módulos de plugins (@borion/api/dialog, /fs, /shell, /menu...): verificam que
 // cada função chama o comando certo do Delphi com os argumentos certos.
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,6 +8,9 @@ import * as shell from '../shell.js';
 import * as menu from '../menu.js';
 import * as tray from '../tray.js';
 import * as app from '../app.js';
+import * as clipboard from '../clipboard.js';
+import { load, Store } from '../store.js';
+import { asciiJson } from '../ascii-json.js';
 
 let chamadas;
 let respostas;
@@ -195,5 +198,105 @@ describe('@borion/api/app', () => {
     assert.equal((await app.info()).name, 'Editor');
     for (const fn of [app.exit, app.show, app.hide, app.minimize]) assert.equal(await fn(), undefined);
     assert.deepEqual(chamadas.map((c) => c[0]), ['app:info', 'app:exit', 'app:show', 'app:hide', 'app:minimize']);
+  });
+});
+
+// Texto com acento e emoji: o Delphi 7 (ANSI) não os representaria em string,
+// então clipboard e store trafegam JSON só com ASCII.
+const B = String.fromCharCode(92);
+const OLA = 'olá ' + String.fromCodePoint(0x1f600);
+const OLA_ASCII = '"ol' + B + 'u00e1 ' + B + 'ud83d' + B + 'ude00"';
+
+describe('JSON só com ASCII', () => {
+  test('escapa tudo fora de ASCII imprimível e volta igual', () => {
+    assert.equal(asciiJson(OLA), OLA_ASCII);
+    const valor = { nome: OLA, lista: [1, null, true, 'a' + String.fromCharCode(127) + 'b'], n: 1.5 };
+    const json = asciiJson(valor);
+    assert.match(json, /^[ -~]*$/);
+    assert.deepEqual(JSON.parse(json), valor);
+    assert.equal(asciiJson(undefined), undefined);
+    assert.equal(asciiJson(() => 1), undefined);
+  });
+});
+
+describe('@borion/api/clipboard', () => {
+  test('writeText e writeHtml mandam literais ASCII', async () => {
+    await clipboard.writeText(OLA);
+    await clipboard.writeHtml('<b>' + OLA + '</b>', OLA);
+    await clipboard.writeHtml('<i>x</i>');
+    await clipboard.clear();
+    assert.deepEqual(chamadas, [
+      ['clipboard:writeText', { text: OLA_ASCII }],
+      ['clipboard:writeHtml', { html: asciiJson('<b>' + OLA + '</b>'), altText: OLA_ASCII }],
+      ['clipboard:writeHtml', { html: '"<i>x</i>"' }],
+      ['clipboard:clear', undefined],
+    ]);
+  });
+
+  test('readText decodifica; null quando não há texto', async () => {
+    respostas['clipboard:readText'] = OLA_ASCII;
+    assert.equal(await clipboard.readText(), OLA);
+    respostas['clipboard:readText'] = null;
+    assert.equal(await clipboard.readText(), null);
+  });
+});
+
+describe('@borion/api/store', () => {
+  test('load valida pelo Delphi e devolve um Store', async () => {
+    const s = await load('Settings');
+    assert.ok(s instanceof Store);
+    assert.equal(s.file, 'settings.json');
+    assert.deepEqual(chamadas[0], ['store:load', { store: 'Settings' }]);
+  });
+
+  test('set e get com qualquer valor JSON, Unicode intacto', async () => {
+    const s = new Store('prefs.json');
+    await s.set('nome', OLA);
+    await s.set('janela', { w: 800, h: 600 });
+    assert.deepEqual(chamadas[0], ['store:set', { store: 'prefs.json', key: '"nome"', value: OLA_ASCII }]);
+    assert.deepEqual(chamadas[1][1].value, '{"w":800,"h":600}');
+    respostas['store:get'] = OLA_ASCII;
+    assert.equal(await s.get('nome'), OLA);
+    respostas['store:get'] = null;
+    assert.equal(await s.get('nada'), undefined);
+    respostas['store:get'] = 'null';
+    assert.equal(await s.get('vazio'), null, 'null guardado é diferente de não existir');
+  });
+
+  test('valores e chaves inválidos são recusados no JS', async () => {
+    const s = new Store('x');
+    await assert.rejects(s.set('f', () => 1), TypeError);
+    await assert.rejects(s.set('u', undefined), TypeError);
+    await assert.rejects(s.get(1), TypeError);
+    assert.equal(chamadas.length, 0);
+  });
+
+  test('entries, keys, values e length', async () => {
+    const s = new Store('x');
+    respostas['store:entries'] = [['"b"', '2'], ['"' + B + 'u00e9"', '{"a":[1]}']];
+    assert.deepEqual(await s.entries(), [['b', 2], ['é', { a: [1] }]]);
+    assert.deepEqual(await s.keys(), ['b', 'é']);
+    assert.deepEqual(await s.values(), [2, { a: [1] }]);
+    assert.equal(await s.length(), 2);
+  });
+
+  test('has, delete, clear, save e reload', async () => {
+    const s = new Store('x');
+    await s.has('a'); await s.delete('a'); await s.clear(); await s.save(); await s.reload();
+    assert.deepEqual(chamadas.map((c) => c[0]), ['store:has', 'store:delete', 'store:clear', 'store:save', 'store:reload']);
+    assert.deepEqual(chamadas[1][1], { store: 'x', key: '"a"' });
+  });
+
+  test('onChange e onKeyChange filtram pelo arquivo e decodificam', () => {
+    const s = new Store('Prefs');
+    const mudancas = [];
+    const parar = s.onChange((k, v) => mudancas.push([k, v]));
+    s.onKeyChange('tema', (v) => mudancas.push(['tema!', v]));
+    delphiEmite('store:change', { store: 'prefs.json', key: '"tema"', value: '"escuro"' });
+    delphiEmite('store:change', { store: 'outro.json', key: '"tema"', value: '"claro"' });
+    delphiEmite('store:change', { store: 'prefs.json', key: '"n' + B + 'u00e3o"', value: null });
+    parar();
+    delphiEmite('store:change', { store: 'prefs.json', key: '"tema"', value: '1' });
+    assert.deepEqual(mudancas, [['tema', 'escuro'], ['tema!', 'escuro'], ['não', undefined], ['tema!', 1]]);
   });
 });

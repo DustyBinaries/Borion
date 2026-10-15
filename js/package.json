@@ -35,6 +35,14 @@
       "types": "./app.d.ts",
       "default": "./app.js"
     },
+    "./clipboard": {
+      "types": "./clipboard.d.ts",
+      "default": "./clipboard.js"
+    },
+    "./store": {
+      "types": "./store.d.ts",
+      "default": "./store.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -55,7 +63,12 @@
     "tray.js",
     "tray.d.ts",
     "app.js",
-    "app.d.ts"
+    "app.d.ts",
+    "clipboard.js",
+    "clipboard.d.ts",
+    "store.js",
+    "store.d.ts",
+    "ascii-json.js"
   ],
   "sideEffects": false,
   "scripts": {

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: clipboard</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/clipboard": "./borion-api/clipboard.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>clipboard</code></h2>
+      <p>Área de transferência do Windows pelo Delphi: funciona a partir de qualquer código da
+        página, sem a permissão que a Clipboard API do navegador pede fora de um clique, e
+        com Unicode completo (emoji inclusive), apesar de o Delphi 7 ser ANSI.</p>
+    </header>
+
+    <section>
+      <h3>1. Copiar texto (<code>writeText</code>)</h3>
+      <textarea id="texto" rows="3"></textarea>
+      <div class="linha">
+        <button id="copiar">Copiar</button>
+        <button id="copiar-depois">Copiar em 3 s (sem clique: a Clipboard API do navegador pediria permissão)</button>
+      </div>
+      <p class="dica">Cole no Bloco de Notas para conferir.</p>
+    </section>
+
+    <section>
+      <h3>2. Ler (<code>readText</code>)</h3>
+      <p>Copie algo em outro programa e clique em Ler.</p>
+      <div class="linha">
+        <button id="ler">Ler</button>
+        <button id="limpar">Esvaziar a área de transferência</button>
+      </div>
+      <pre id="lido" class="saida">(nada lido ainda)</pre>
+    </section>
+
+    <section>
+      <h3>3. Copiar HTML (<code>writeHtml</code>)</h3>
+      <div id="rico" class="rico">
+        <b>Negrito</b>, <i>itálico</i>, <span style="color:#d13438">vermelho</span> e uma lista:
+        <ul><li>um</li><li>dois 😀</li></ul>
+      </div>
+      <div class="linha">
+        <button id="copiar-html">Copiar com formatação</button>
+      </div>
+      <p class="dica">Cole no Word ou no WordPad: a formatação vai junto. No Bloco de Notas, entra o
+        texto alternativo (<code>altText</code>).</p>
+    </section>
+
+    <section>
+      <h3>Log</h3>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+</body>
+</html>

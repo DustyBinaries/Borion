@@ -1,5 +1,5 @@
 // Borion Editor: um editor de texto feito só com os plugins oficiais do Borion
-// (dialog, fs, shell, menu, tray, app). Não há nenhum comando Delphi próprio no exemplo.
+// (dialog, fs, shell, menu, tray, app, store). Não há nenhum comando Delphi próprio no exemplo.
 import './style.css';
 import { isBorion } from '@borion/api';
 import { open, save, ask, message } from '@borion/api/dialog';
@@ -8,6 +8,7 @@ import { open as abrirExterno, showInFolder } from '@borion/api/shell';
 import * as menu from '@borion/api/menu';
 import * as tray from '@borion/api/tray';
 import * as app from '@borion/api/app';
+import { load } from '@borion/api/store';
 
 const FILTROS = [
   { name: 'Texto', extensions: ['txt', 'md', 'log', 'csv', 'json', 'ini'] },
@@ -165,8 +166,19 @@ async function sobre() {
     { title: 'Sobre', kind: 'info' });
 }
 
+// preferências em %APPDATA%\Borion Editor\preferencias.json (plugin store)
+let preferencias;
+
 function quebraDeLinha(ligada) {
   texto.wrap = ligada ? 'soft' : 'off';
+  preferencias?.set('quebraDeLinha', ligada);
+}
+
+async function carregarPreferencias() {
+  preferencias = await load('preferencias');
+  const quebra = (await preferencias.get('quebraDeLinha')) ?? true;
+  texto.wrap = quebra ? 'soft' : 'off';
+  await menu.update('quebra', { checked: quebra });
 }
 
 // --- menu e bandeja (plugins menu, tray e app) ------------------------------------
@@ -257,7 +269,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 if (isBorion()) {
-  Promise.all([montarMenu(), montarBandeja()])
+  Promise.all([montarMenu().then(carregarPreferencias), montarBandeja()])
     .catch((e) => console.warn('menu/bandeja:', e))
     .then(() => { atualizarTela(); mostrarRecentes(); });
 } else {

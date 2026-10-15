@@ -175,7 +175,8 @@ Documentação: [PLUGINS.md](PLUGINS.md).
       `plugin:comando`), adicionado com `Ipc.AddPlugin(...)` numa linha. `CommandLater` /
       `Ipc.Later` para comandos que abrem janelas modais fora do callback do WebView2.
 - [ ] Script JS opcional por plugin (injetado junto com a ponte).
-- [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`.
+- [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`,
+      `/clipboard`, `/store`.
 
 Plugins, em ordem de utilidade:
 - [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
@@ -184,8 +185,10 @@ Plugins, em ordem de utilidade:
       `remove` (sem seguir junções), `rename`, `copyFile`; `baseDir`. **Com escopo.**
 - [x] `shell`: abrir URL (esquemas liberados) ou arquivo do escopo (nunca executáveis) e
       `showInFolder`.
-- [ ] `clipboard`: texto (e imagem, depois).
-- [ ] `store`: chave-valor persistido em JSON no `%APPDATA%`.
+- [x] `clipboard`: texto e HTML, com Unicode completo (JSON só com ASCII na ponte) e leitura
+      opcional (`AllowRead`). Imagem fica para depois.
+- [x] `store`: chave-valor persistido em JSON no `%APPDATA%`, com gravação atômica,
+      `AutoSave`, evento `store:change`, recuperação de arquivo corrompido e API no Delphi.
 - [ ] `os` / `app`: versão, caminhos (`appData`, `documents`...), sair, reiniciar. **Parcial:** o
       `app` mínimo já tem sair, mostrar, esconder, minimizar e `info` (nome, versão, exe, pid).
 - [ ] `http`: requisições pelo Delphi (WinInet), sem CORS.
@@ -302,4 +305,4 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4. Próximos candidatos: configuração e janelas (Fase 3), a CLI
-`borion dev`/`build` (Fase 6) e os plugins `clipboard` e `store`.
+`borion dev`/`build` (Fase 6) e os plugins `os` e `http`.

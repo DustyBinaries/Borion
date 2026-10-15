@@ -68,6 +68,8 @@ import { open as abrir, showInFolder } from '@borion/api/shell';
 import { setMenu, update, popup, onItems } from '@borion/api/menu';
 import { show, setMenu as menuDaBandeja, notify, onMenu } from '@borion/api/tray';
 import { exit, show as mostrarJanela, minimize, info } from '@borion/api/app';
+import { writeText, readText, writeHtml } from '@borion/api/clipboard';
+import { load } from '@borion/api/store';
 ```
 
 Cada módulo só funciona se o plugin correspondente tiver sido adicionado no Delphi

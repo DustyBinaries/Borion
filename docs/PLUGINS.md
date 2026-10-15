@@ -1,7 +1,7 @@
 # Borion: plugins
 
-Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`),
-com API tipada no JS
+Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
+`clipboard`, `store`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
 linha:
 
@@ -31,6 +31,9 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`menu`](#menu)
 - [`tray`](#tray)
 - [`app`](#app)
+- [`clipboard`](#clipboard)
+- [`store`](#store)
+- [Unicode completo: JSON só com ASCII](#unicode-completo-json-só-com-ascii)
 - [Escrevendo um plugin](#escrevendo-um-plugin)
 - [Limitações](#limitações)
 
@@ -264,6 +267,103 @@ item "Sair" não tem como fechar o app sem ela.
 | `hide()` / `minimize()` | Esconde / minimiza a janela |
 | `info()` | `{name, version, exe, pid}`; `version` é o `FileVersion` do exe (`''` se não houver) |
 
+## `clipboard`
+
+Exemplo: [`Examples/Clipboard`](../Examples/Clipboard/README.md).
+
+`TBorionClipboardPlugin.Create([AllowRead = True])`.
+
+| JS (`@borion/api/clipboard`) | O que faz |
+|---|---|
+| `writeText(texto)` | Copia texto |
+| `readText()` | Texto da área de transferência, ou `null` se não houver texto |
+| `writeHtml(html, altText?)` | Copia HTML (o formato "HTML Format" do Windows: colar no Word mantém a formatação); `altText` é o texto puro para quem não entende HTML |
+| `clear()` | Esvazia a área de transferência |
+
+```js
+import { writeText, readText } from '@borion/api/clipboard';
+
+await writeText('Olá 😀');
+const texto = await readText();
+```
+
+- Funciona a partir de qualquer código da página. A Clipboard API do navegador
+  (`navigator.clipboard`) pede permissão ao usuário quando não é chamada dentro de um clique
+  na página (depois de um menu nativo, por exemplo).
+- **Ler expõe o que o usuário copiou de outros programas**, senhas inclusive. Se a página só
+  precisa copiar, crie com `TBorionClipboardPlugin.Create(False)`: o `readText` passa a
+  rejeitar com `FORBIDDEN`.
+- Se outro programa estiver com a área de transferência aberta, o plugin tenta de novo por
+  ~150 ms e então rejeita com `CLIPBOARD_BUSY`.
+- No Delphi: `BorionClipboardReadText`, `BorionClipboardWriteText`, `BorionClipboardWriteHtml`
+  e `BorionClipboardClear`, com `WideString`.
+- Imagens ainda não são suportadas.
+
+## `store`
+
+Exemplo: [`Examples/Store`](../Examples/Store/README.md).
+
+`TBorionStorePlugin.Create(AppName)`: os arquivos ficam em `%APPDATA%\<AppName>` (troque pela
+propriedade `Dir`). Um store é um arquivo JSON com um objeto chave → valor, no estilo do store do
+Tauri.
+
+```js
+import { load } from '@borion/api/store';
+
+const prefs = await load('settings.json');      // '.json' é opcional
+await prefs.set('tema', 'escuro');
+await prefs.set('janela', { w: 800, h: 600 }); // qualquer valor JSON
+const tema = await prefs.get('tema');          // undefined se não existir
+prefs.onKeyChange('tema', (valor) => aplicarTema(valor));
+```
+
+| `Store` | O que faz |
+|---|---|
+| `get(chave)` | Valor, ou `undefined` se a chave não existir (`null` guardado volta `null`) |
+| `set(chave, valor)` | Grava; recusa valores que o `JSON.stringify` não serializa |
+| `has(chave)` / `delete(chave)` | `boolean` (`delete`: se existia) |
+| `clear()` | Apaga todas as chaves |
+| `entries()` / `keys()` / `values()` / `length()` | Na ordem em que as chaves foram criadas |
+| `save()` | Grava agora (só é preciso com `AutoSave = False`) |
+| `reload()` | Descarta o que não foi gravado e relê o arquivo |
+| `onChange((chave, valor) => ...)` / `onKeyChange(chave, valor => ...)` | Alterações vindas desta página, de outra ou do Delphi; `undefined` = apagada |
+
+- **Nome do store:** letras, números, `.`, `_` e `-`, até 64 caracteres. Não aceita caminhos,
+  então a página não escolhe onde gravar (`INVALID_STORE`). Maiúsculas não importam
+  (`Settings` = `settings.json`).
+- **`AutoSave`** (padrão `True`): cada alteração grava o arquivo na hora, num temporário que
+  depois substitui o original (uma queda no meio não deixa o arquivo pela metade). Com `False`,
+  grava no `save()`, no `Save` do Delphi e ao destruir o plugin.
+- **Arquivo corrompido** (editado à mão, por exemplo): é renomeado para `<nome>.json.corrupt` e o
+  store recomeça vazio, para o app não travar nem perder os dados antigos. Arquivos em UTF-8,
+  com ou sem BOM, editados à mão são lidos normalmente.
+- **No Delphi**, o mesmo store: `ReadJson`/`WriteJson` (valor como texto JSON),
+  `ReadString`/`WriteString` (`WideString`), `Delete` e `Save`. As alterações feitas pelo Delphi
+  também emitem `store:change` para a página.
+
+```pascal
+Store := TBorionStorePlugin(Ipc.AddPlugin(TBorionStorePlugin.Create('Meu App')));
+if Store.ReadJson('settings', 'janela', Json) then ...
+Store.WriteString('settings', 'ultimoUsuario', Nome);
+```
+
+- **Erros:** `INVALID_STORE`, `INVALID_ARGS` (chave ou valor inválido), `IO_ERROR`.
+
+## Unicode completo: JSON só com ASCII
+
+As strings do Delphi 7 são ANSI: emoji e caracteres fora da página de código do Windows viram `?`
+ao entrar no Delphi. Para o `clipboard` e o `store`, em que o texto precisa sair exatamente como
+entrou, o `@borion/api` manda e recebe **JSON só com ASCII**: o resto vai como `\uXXXX`
+(`"olá"` → `"ol\u00e1"`).
+
+- O `store` guarda esse texto como está, sem interpretar. O arquivo continua sendo JSON comum.
+- O `clipboard` converte direto de e para UTF-16 (`CF_UNICODETEXT`).
+
+Os módulos JS fazem isso sozinhos. Quem chama `invoke` direto precisa seguir o formato: no
+`clipboard`, `text`/`html`/`altText` são literais JSON de string (com as aspas); no `store`, `key`
+é um literal de string e `value` o texto JSON do valor. No Delphi, as funções estão no
+`BorionJson`: `WideToJsonLiteral`, `JsonLiteralToWide` e `IsAsciiJson`.
+
 ## Escrevendo um plugin
 
 ```pascal
@@ -308,7 +408,10 @@ end;
 - Nomes 8.3 (`PROGRA~1`) não são expandidos: são comparados como estão, o que só pode negar,
   nunca liberar a mais.
 - Caminhos com caracteres fora da página de código do Windows não são suportados (Delphi 7 ANSI).
+  O mesmo vale para o texto do `fs` e dos outros plugins, exceto `clipboard` e `store` (veja
+  [Unicode completo](#unicode-completo-json-só-com-ascii)).
 - Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
   sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
-- Ainda faltam outros plugins (`clipboard`, `store`, `os`, `http`...) e o resto do `app`: veja o
+- Ainda faltam outros plugins (`os`, `http`, `notification`...), imagens no `clipboard` e o resto
+  do `app`: veja o
   [roadmap](ROADMAP.md).

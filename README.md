@@ -34,6 +34,8 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
   as pastas liberadas e o que o usuário escolher nos diálogos.
 - **Menus e bandeja**: plugins `menu` (barra de menu com atalhos de teclado e menu de contexto
   nativos), `tray` (ícone, menu e notificações na bandeja) e `app` (sair, mostrar, minimizar).
+- **Dados**: `clipboard` (texto e HTML) e `store` (chave-valor persistido em JSON), com Unicode
+  completo, inclusive emoji, apesar de o Delphi 7 ser ANSI.
 
 ## Requisitos
 
@@ -52,7 +54,7 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 | `BorionJson.pas` | Correções de Unicode na fronteira JSON entre o JS e o Delphi 7 |
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
 | `BorionPack.pas` | Formato do pacote de assets, compressão e leitura/escrita de `.res` |
-| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray` e `app` ([docs](docs/PLUGINS.md)) |
+| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `clipboard` e `store` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
 | `docs/IPC.md` | Guia completo do IPC |
@@ -61,7 +63,7 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 | `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
 | `Examples/Editor/` | Editor de texto com Vite + JS puro, feito só com os plugins oficiais ([README](Examples/Editor/README.md)) |
-| `Examples/Menu/`, `Tray/`, `App/` | Um exemplo pequeno para cada plugin `menu`, `tray` e `app`, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md)) |
+| `Examples/Menu/`, `Tray/`, `App/`, `Clipboard/`, `Store/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
 Para usar num projeto: adicione as units do `WebView2/` e do `Borion/` e ponha a pasta da
@@ -71,13 +73,16 @@ Para usar num projeto: adicione as units do `WebView2/` e do `Borion/` e ponha a
 
 **[`Examples/Editor/`](Examples/Editor/README.md):** um editor de texto (abrir, salvar, recentes)
 sem nenhum comando Delphi próprio, só com os plugins oficiais. Mostra o escopo de arquivos na
-prática, a barra de menu nativa com atalhos e o ícone na bandeja.
+prática, a barra de menu nativa com atalhos, o ícone na bandeja e preferências no `store`.
 
-**[`Examples/Menu/`](Examples/Menu/README.md), [`Tray/`](Examples/Tray/README.md) e
-[`App/`](Examples/App/README.md):** um exemplo isolado para cada plugin, com página em HTML/JS
+**[`Examples/Menu/`](Examples/Menu/README.md), [`Tray/`](Examples/Tray/README.md),
+[`App/`](Examples/App/README.md), [`Clipboard/`](Examples/Clipboard/README.md) e
+[`Store/`](Examples/Store/README.md):** um exemplo isolado para cada plugin, com página em HTML/JS
 puro e uma janela Delphi de poucas linhas. Mostram tudo o que o plugin faz: barra de menu,
 atalhos, `update` e `popup`; ícone, menu, notificações e minimizar para a bandeja; `app.info`,
-minimizar, esconder e sair passando pelo `OnCloseQuery`.
+minimizar, esconder e sair passando pelo `OnCloseQuery`; copiar e colar texto com emoji e
+copiar HTML; preferências que sobrevivem entre execuções, inclusive a posição da janela,
+gravada pelo Delphi no mesmo store.
 
 **[`Examples/ViteReact/`](Examples/ViteReact/README.md):** um app React com Vite. O `build.bat`
 gera um único exe com o frontend embutido; o `dev.bat` abre o app ligado ao servidor do Vite,
@@ -108,14 +113,16 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **151 testes DUnit** e **40 testes JS** (`node:test`):
+Roda **173 testes DUnit** e **49 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
   modo dev);
   e os plugins (escopo contra `..`, prefixo vizinho, dispositivos e streams; todo o `fs` pelo IPC,
   inclusive uma junção apontando para fora do escopo; política do `shell`; `Ipc.Later`; menu
-  montado a partir do JSON, atalhos e popup; bandeja com o `Shell_NotifyIcon` capturado; `app`);
-- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray` e `app`.
+  montado a partir do JSON, atalhos e popup; bandeja com o `Shell_NotifyIcon` capturado; `app`;
+  `clipboard` com a área de transferência real e emoji; `store` com arquivo corrompido,
+  editado à mão e sem `AutoSave`; o JSON só com ASCII);
+- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `clipboard` e `store`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão
 `C:\dev\lib\dunit\src`) e do Node.js 18+. Detalhes no [guia do IPC](docs/IPC.md#testes).

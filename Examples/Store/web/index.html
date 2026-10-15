@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: store</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/store": "./borion-api/store.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>store</code></h2>
+      <p>Tudo nesta página fica em <code>%APPDATA%\Borion Store Demo\prefs.json</code>. Feche e
+        abra o exemplo: os valores (e a posição da janela, gravada pelo Delphi) continuam lá.</p>
+      <p>Esta é a <b id="aberturas">?</b>ª vez que o exemplo é aberto.</p>
+    </header>
+
+    <section>
+      <h3>1. Preferências (<code>get</code> / <code>set</code>)</h3>
+      <div class="linha">
+        <label for="nome">Seu nome</label>
+        <input id="nome" placeholder="digite (é salvo a cada tecla)">
+      </div>
+      <div class="linha">
+        <label for="tema">Tema</label>
+        <select id="tema">
+          <option value="claro">claro</option>
+          <option value="escuro">escuro</option>
+        </select>
+      </div>
+    </section>
+
+    <section>
+      <h3>2. Uma lista (qualquer valor JSON)</h3>
+      <div class="linha">
+        <input id="nova-nota" placeholder="uma nota, com emoji se quiser 😀">
+        <button id="adicionar">Adicionar</button>
+      </div>
+      <ul id="notas"></ul>
+    </section>
+
+    <section>
+      <h3>3. O arquivo (<code>entries</code>, <code>onChange</code>)</h3>
+      <p class="dica">Atualizado pelo evento <code>store:change</code> a cada alteração, venha ela
+        desta página ou do Delphi.</p>
+      <pre id="conteudo" class="saida"></pre>
+      <div class="linha">
+        <button id="reler">Reler do disco (<code>reload</code>)</button>
+        <button id="apagar">Apagar tudo (<code>clear</code>)</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -220,7 +220,9 @@ begin
   { como o JS manda: Unicode de verdade (\u201c), não o \u0093 interno da Jsons }
   Check(FIpc.ProcessMessage(AnsiJsonToWide(Json + '}'), ORIGEM));
   Bombear(Antes + 1);  { comandos Later respondem depois }
-  CheckEquals(Antes + 1, FPosts.Count, 'sem resposta para ' + Cmd);
+  { eventos emitidos pelo comando (store:change...) saem antes da resposta }
+  Check((FPosts.Count > Antes) and (Pos('"kind":"event"', FPosts[FPosts.Count - 1]) = 0),
+    'sem resposta para ' + Cmd);
   Result := TJsonObject.Create;
   Result.Parse(FPosts[FPosts.Count - 1]);
 end;

@@ -1,13 +1,13 @@
 # Exemplo: Borion Editor
 
 Um editor de texto feito **só com os plugins oficiais** (`dialog`, `fs`, `shell`, `menu`, `tray`,
-`app`): não há nenhum
+`app`, `store`): não há nenhum
 comando Delphi próprio. O frontend é Vite + JS puro, sem framework.
 
 | | |
 |---|---|
 | `frontend/src/main.js` | Toda a lógica: abrir, salvar, recentes, menus, bandeja |
-| `uPrincipal.pas` | A janela: browser, IPC, assets, escopo e os 6 plugins (~25 linhas úteis) |
+| `uPrincipal.pas` | A janela: browser, IPC, assets, escopo e os 7 plugins (~25 linhas úteis) |
 | `build.bat` / `dev.bat` | Build de produção / modo dev com hot-reload (porta 5174) |
 
 ## O que ele faz
@@ -25,6 +25,8 @@ comando Delphi próprio. O frontend é Vite + JS puro, sem framework.
 - **Bandeja** (`tray`): ícone com o nome do arquivo no tooltip, menu Mostrar/Novo/Sair e
   notificação ao salvar. Minimizar esconde a janela na bandeja (`MinimizeToTray`).
 - **Sair** (menu ou bandeja) pergunta antes de descartar alterações e fecha com `app.exit`.
+- **Preferências** (`store`): a quebra de linha fica em
+  `%APPDATA%\Borion Editor\preferencias.json` e volta como estava na próxima execução.
 - Texto gravado em UTF-8.
 
 ## Segurança na prática
