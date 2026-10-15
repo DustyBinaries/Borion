@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Borion Demo</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <img src="img/logo.svg" alt="" width="44" height="44">
+    <div>
+      <h1>Borion <span class="tag">Native Application Engine</span></h1>
+      <p class="sub">Interface em HTML, lógica em Delphi 7. Ponte <code id="versao">—</code>
+        em <code id="origem"></code></p>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>1. Comandos <code>borion.invoke(cmd, args)</code></h2>
+    <p class="dica">Cada botão chama um comando registrado em <code>uComandos.pas</code> e mostra o
+      valor devolvido pela Promise.</p>
+    <div class="linha">
+      <input id="a" type="number" value="20"> +
+      <input id="b" type="number" value="22">
+      <button onclick="executar('somar', { a: num('a'), b: num('b') })">somar</button>
+    </div>
+    <div class="linha">
+      <input id="nome" value="João">
+      <button onclick="executar('saudacao', { nome: valor('nome') })">saudacao</button>
+      <span class="nota">texto com acentos, “aspas” e € nos dois sentidos</span>
+    </div>
+    <div class="linha">
+      <button onclick="executar('info')">info</button>
+      <button onclick="listarArquivos()">listarArquivos</button>
+    </div>
+    <pre id="saida-comandos" class="saida"></pre>
+    <ul id="arquivos" class="arquivos"></ul>
+  </section>
+
+  <section class="card">
+    <h2>2. Erros</h2>
+    <p class="dica">Exceções no Delphi rejeitam a Promise com <code>error.code</code> e
+      <code>error.message</code>.</p>
+    <div class="linha">
+      <button onclick="executar('falhar', null, 'saida-erros')">EBorionError</button>
+      <button onclick="executar('saudacao', { nome: '' }, 'saida-erros')">validação</button>
+      <button onclick="executar('naoExiste', null, 'saida-erros')">comando inexistente</button>
+      <button onclick="timeout()">timeout no JS</button>
+    </div>
+    <pre id="saida-erros" class="saida"></pre>
+  </section>
+
+  <section class="card">
+    <h2>3. Comando assíncrono</h2>
+    <p class="dica"><code>tarefaLonga</code> chama <code>Call.Defer</code> e roda numa thread, que
+      emite <code>tarefa:progresso</code> e resolve a Promise no fim. A página continua livre.</p>
+    <div class="linha">
+      <button id="btn-tarefa" onclick="tarefaLonga()">iniciar tarefaLonga</button>
+      <progress id="progresso" max="10" value="0"></progress>
+      <span id="contador" class="nota"></span>
+    </div>
+    <pre id="saida-tarefa" class="saida"></pre>
+  </section>
+
+  <section class="card">
+    <h2>4. Eventos</h2>
+    <div class="colunas">
+      <div>
+        <h3>Página → Delphi <code>borion.emit</code></h3>
+        <div class="linha">
+          <input id="evento-texto" value="clicou em salvar">
+          <button onclick="emitir()">emitir</button>
+        </div>
+        <p class="nota">Aparece no log da janela (<code>Ipc.Listen</code>).</p>
+      </div>
+      <div>
+        <h3>Delphi → página <code>borion.listen</code></h3>
+        <ul id="eventos" class="eventos"><li><em>use "Emitir" no painel da janela</em></li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>5. Segurança</h2>
+    <p class="dica">Só a origem <code>https://app.local</code> foi liberada com
+      <code>AllowOrigin</code>. A ponte também é injetada em sites externos, mas lá todo
+      <code>invoke</code> é recusado com <code>FORBIDDEN_ORIGIN</code> e o <code>emit</code> é
+      ignorado. Para testar, abra o DevTools, navegue para outro site
+      (<code>location.href = "https://example.com"</code>) e rode
+      <code>borion.invoke("info")</code>.</p>
+  </section>
+
+<script src="app.js"></script>
+</body>
+</html>

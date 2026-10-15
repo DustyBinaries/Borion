@@ -1,0 +1,10 @@
+/*
+  Interface do exemplo do Borion, embutida no executável (compilada para
+  web.res pelo build.bat). Nome do recurso = caminho na URL em maiúsculas,
+  com o que não for letra ou dígito trocado por "_".
+*/
+
+INDEX_HTML    RCDATA "web\\index.html"
+STYLE_CSS     RCDATA "web\\style.css"
+APP_JS        RCDATA "web\\app.js"
+IMG_LOGO_SVG  RCDATA "web\\img\\logo.svg"

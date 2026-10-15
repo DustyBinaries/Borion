@@ -1,6 +1,6 @@
-# Roadmap: de protótipo a framework "estilo Tauri" para Delphi 7
+# Roadmap do Borion — Native Application Engine
 
-O objetivo é que alguém crie um app desktop escrevendo a **interface em HTML/CSS/JS** (inclusive
+De protótipo a framework "estilo Tauri" para Delphi 7. O objetivo é que alguém crie um app desktop escrevendo a **interface em HTML/CSS/JS** (inclusive
 com React, Vue ou Svelte via Vite) e a **lógica nativa em Delphi 7**. A ponte entre os dois deve
 ser simples, segura e tipada, e o resultado deve ser **um único `.exe` pequeno** usando o
 WebView2 do sistema.
@@ -13,9 +13,9 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 |---|---|---|
 | WRY (WebView do sistema) | `TWebView2Browser` + `WebView2.pas` | ✅ básico pronto |
 | Assets embutidos (protocolo customizado) | `ServeEmbeddedResources` + `web.rc` | ✅ básico pronto |
-| `invoke('comando', args)` → `#[tauri::command]` | Registro de comandos Delphi + `invoke()` em JS | ⬜ Fase 1 |
-| Eventos `emit`/`listen` | Eventos nos dois sentidos sobre a ponte | ⬜ Fase 1 |
-| `@tauri-apps/api` | Biblioteca JS injetada (`window.__APP__`) | ⬜ Fase 1 |
+| `invoke('comando', args)` → `#[tauri::command]` | `borion.invoke()` → `TBorionIpc.RegisterCommand` | ✅ Fase 1 |
+| Eventos `emit`/`listen` | `borion.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
+| `@tauri-apps/api` | Ponte JS injetada (`window.borion`) + `js/borion.d.ts` | ✅ básico (falta pacote ESM) |
 | `tauri.conf.json` | `app.json` embutido | ⬜ Fase 3 |
 | Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ⬜ Fase 4 |
 | Capabilities / permissões | Lista de comandos permitidos por janela e origem | ⬜ Fase 5 |
@@ -23,20 +23,16 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 | Bundler + updater | Inno Setup + atualizador | ⬜ Fase 7 |
 | Multiplataforma | **Fora de escopo**: WebView2 é só Windows, e o Delphi 7 só gera 32 bits | — |
 
-## Decisões a tomar antes (ou logo no início)
+## Decisões
 
-- [ ] **Nome** do framework (e prefixo das units e classes; hoje `WebView2*` / `TWV2*`).
-- [ ] **Biblioteca JSON** para Delphi 7. Candidatas: *lkJSON* (uma unit, D5+) ou *SuperObject*. É
-      pré-requisito do IPC.
-- [ ] **Transporte do IPC**:
-  - `postMessage`/`WebMessageReceived`: assíncrono, não bloqueia a página;
-  - `fetch` para `https://ipc.local/` via `WebResourceRequested`: dá request/response de graça,
-    mas roda na thread da UI.
-  - Sugestão: `postMessage` com id de correlação, como o Tauri v1.
-- [ ] **Linguagem da CLI**: um console app em Delphi 7 (sem dependências) ou Node (quem usa
-      Vite já tem).
-- [ ] **Delphi suportado**: só o 7, ou 7 + versões modernas via `{$IFDEF}`. Isso afeta
-      `WideString` × `string` e o suporte a Win64.
+- [x] **Nome:** Borion — Native Application Engine. Prefixo `Borion` nas units e `TBorion` nas
+      classes (o Delphi 7 não aceita units com ponto no nome). As units antigas (`WebView2*`,
+      `TWV2*`) serão renomeadas na Fase 0.
+- [x] **Biblioteca JSON:** `Jsons.pas` (json4delphi, distribuída com o ACBr), com as correções de
+      Unicode do `BorionJson.pas`.
+- [x] **Transporte do IPC:** `postMessage` / `PostWebMessageAsJson` com id de correlação.
+- [x] **Linguagem da CLI:** console app em Delphi 7.
+- [x] **Delphi suportado:** só o Delphi 7.
 - [ ] **Versão mínima** do Windows e do runtime WebView2.
 - [ ] **Licença** do projeto.
 
@@ -47,14 +43,17 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 O núcleo atual precisa ser robusto antes de crescer em cima dele.
 
 **Organização**
-- [ ] Separar em pastas: `src/core` (WebView2, browser), `src/ipc`, `src/plugins`, `js/`,
-      `examples/`, `templates/`, `tools/`.
-- [ ] Transformar a demo atual em `examples/demo`.
+- [x] Separar o WebView2 do Borion: `WebView2/` (controle, sem dependências) e `Borion/`
+      (framework), cada um com `docs/` e `Examples/`.
+- [x] Transformar a demo atual em exemplos: `WebView2/Examples/Demo` (só o controle) e
+      `Borion/Examples/Demo` (só o framework).
+- [ ] Renomear as units do controle para o padrão do projeto, se fizer sentido
+      (`WebView2Browser` → ?), e criar `Borion/plugins/`, `templates/` e `tools/` quando surgirem.
 - [ ] Pacote `.dpk` opcional para instalar o componente na paleta da IDE.
 
 **Robustez do `TWebView2Browser`**
-- [ ] Proteger **todos** os callbacks COM com `try/except`. Hoje só o `WebResourceRequested` faz
-      isso.
+- [ ] Proteger **todos** os callbacks COM com `try/except`. Hoje só o `WebResourceRequested` e o
+      `WebMessageReceived` fazem isso.
 - [ ] Evento `ProcessFailed`: o renderer ou o browser caiu, então recriar ou avisar.
 - [ ] Tratar `RecreateWnd` (`put_ParentWindow` no novo handle).
 - [ ] Expor `GetDeferral` para respostas assíncronas no `WebResourceRequested`.
@@ -70,28 +69,34 @@ O núcleo atual precisa ser robusto antes de crescer em cima dele.
 
 ## Fase 1: IPC no estilo Tauri (o coração)
 
+Documentação: [IPC.md](IPC.md).
+
 **Lado Delphi**
-- [ ] Integrar a biblioteca JSON escolhida.
-- [ ] `TAppCommands`: registro de comandos por nome, com a assinatura
-      `function(Args: TJSONObject; Ctx: TInvokeContext): TJSONValue`.
-- [ ] Protocolo das mensagens: `{id, cmd, args}` → `{id, ok, result | error}`.
-- [ ] Erros: uma exceção Delphi vira a rejeição da Promise, com `message` e `code`.
-- [ ] Comandos **assíncronos**: `Ctx.Resolve` e `Ctx.Reject` chamados depois, de uma thread de
-      trabalho com sincronização para a UI.
-- [ ] Eventos Delphi → JS: `App.Emit('download-progress', Payload)`.
-- [ ] Eventos JS → Delphi: `App.Listen('nome', Handler)`.
-- [ ] Validar a **origem** de cada mensagem (`get_Source` do `WebMessageReceived`).
+- [x] Integrar a biblioteca JSON (`Jsons.pas`) e corrigir o Unicode na fronteira
+      (`BorionJson.pas`: cp1252 $80–$9F na saída, `\uXXXX` > $FF na entrada).
+- [x] `TBorionIpc`: registro de comandos por nome, `RegisterCommand` (método) e
+      `RegisterCommandProc` (procedure solta), com `procedure(Call: TBorionCall)`.
+- [x] Protocolo das mensagens: `{__borion, kind, id, cmd, args}` → `{id, ok, result | error}`.
+- [x] Erros: exceção Delphi → Promise rejeitada com `message` e `code` (`EBorionError`).
+- [x] Comandos **assíncronos**: `Call.Defer` + `Resolve`/`Reject` de qualquer thread
+      (encaminhados para a thread da UI).
+- [x] Eventos Delphi → JS: `Ipc.Emit` / `EmitJson`, de qualquer thread.
+- [x] Eventos JS → Delphi: `Ipc.Listen` / `Unlisten`, com curinga `*`.
+- [x] Validar a **origem** de cada mensagem (`Source` do WebView2), negando por padrão
+      (`AllowOrigin`).
+- [ ] Testes DUnit do `BorionJson` e do roteamento de comandos.
 
 **Lado JS**
-- [ ] Declarar `AddScriptToExecuteOnDocumentCreated` (e seu handler) para injetar a ponte antes
-      de qualquer script da página.
-- [ ] `window.__APP__.invoke(cmd, args): Promise`, com tabela de pendentes por id e timeout.
-- [ ] `listen(evento, cb)` / `emit(evento, payload)`, que devolve uma função para cancelar o
-      `listen`.
-- [ ] Arquivo `app-api.js` (ESM) e `app-api.d.ts` para uso com bundlers e TypeScript.
+- [x] Declarar `AddScriptToExecuteOnDocumentCreated` e injetar a ponte antes de qualquer script
+      da página (`TWebView2Browser.AddScriptOnDocumentCreated`).
+- [x] `borion.invoke(cmd, args, {timeout})`: Promise, com tabela de pendentes por id.
+- [x] `listen` / `once` / `emit`; `listen` devolve a função para cancelar.
+- [x] Mensagens do Borion isoladas dos listeners da página (`stopImmediatePropagation`).
+- [x] Tipos TypeScript: `js/borion.d.ts`.
+- [ ] Pacote ESM (`import { invoke } from 'borion'`) para bundlers, que use a ponte injetada.
 
-**Marco 1:** `await invoke('somar', {a: 20, b: 22})` devolve `42` vindo de um comando Delphi
-registrado em uma linha.
+**Marco 1:** ✅ `await borion.invoke('somar', {a: 20, b: 22})` devolve `42` vindo de um comando
+Delphi registrado em uma linha.
 
 ---
 
@@ -232,17 +237,20 @@ liberados.
 - [x] Navegação, histórico, DevTools
 - [x] Eventos: `NavigationStarting`, `NavigationCompleted`, `NewWindowRequested`,
       `SourceChanged`, `DocumentTitleChanged`
-- [x] Mensagens nos dois sentidos (`postMessage`, `PostWebMessage`, `ExecuteScript`), ainda sem
-      protocolo
+- [x] Mensagens nos dois sentidos (`postMessage`, `PostWebMessage`, `ExecuteScript`)
 - [x] Página embutida no executável (`RCDATA` + host virtual)
-- [x] `WebResourceRequested` genérico, base para "API local" e para o IPC por `fetch`
-- [x] Documentação: `README.md`, `docs/WebResourceRequested.md`
+- [x] `WebResourceRequested` genérico, base para "API local"
+- [x] **Borion IPC**: `invoke` / `emit` / `listen`, comandos assíncronos, validação de origem
+- [x] Repositório separado em `WebView2/` e `Borion/`, cada um com exemplo próprio
+- [x] Documentação: READMEs de cada parte, `WebView2/docs/WebResourceRequested.md`,
+      `Borion/docs/IPC.md`
 
 ## Ordem sugerida para começar
 
-1. Tomar as decisões de nome, biblioteca JSON e transporte do IPC.
+1. ~~Tomar as decisões de nome, biblioteca JSON e transporte do IPC.~~ ✅
 2. Fase 0, só os itens de robustez dos callbacks e a reorganização de pastas.
-3. **Fase 1 inteira**: é o que transforma o protótipo num framework.
+3. ~~**Fase 1 inteira**: é o que transforma o protótipo num framework.~~ ✅ (faltam testes DUnit
+   e o pacote ESM)
 4. Fase 2: gerar o `.rc` da pasta, SPA fallback e modo dev.
 5. Fase 4: só `dialog`, `fs` e `shell`, junto com o mínimo da Fase 5 (escopo do `fs` e validação
    de origem).

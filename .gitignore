@@ -2,3 +2,5 @@
 *.exe
 *.res
 *.RES
+# copias do loader feitas pelos build.bat dos exemplos
+**/Examples/**/WebView2Loader.dll
