@@ -175,7 +175,7 @@ Documentação: [PLUGINS.md](PLUGINS.md).
       `plugin:comando`), adicionado com `Ipc.AddPlugin(...)` numa linha. `CommandLater` /
       `Ipc.Later` para comandos que abrem janelas modais fora do callback do WebView2.
 - [ ] Script JS opcional por plugin (injetado junto com a ponte).
-- [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`.
+- [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`.
 
 Plugins, em ordem de utilidade:
 - [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
@@ -186,11 +186,15 @@ Plugins, em ordem de utilidade:
       `showInFolder`.
 - [ ] `clipboard`: texto (e imagem, depois).
 - [ ] `store`: chave-valor persistido em JSON no `%APPDATA%`.
-- [ ] `os` / `app`: versão, caminhos (`appData`, `documents`...), sair, reiniciar.
+- [ ] `os` / `app`: versão, caminhos (`appData`, `documents`...), sair, reiniciar. **Parcial:** o
+      `app` mínimo já tem sair, mostrar, esconder, minimizar e `info` (nome, versão, exe, pid).
 - [ ] `http`: requisições pelo Delphi (WinInet), sem CORS.
-- [ ] `notification`: balão do tray ou toast do Windows.
-- [ ] `tray`: ícone, menu e cliques.
-- [ ] `menu`: menu da janela e menu de contexto nativos.
+- [x] `notification`: por enquanto é o `tray.notify` (balão; toast no Windows 10/11).
+- [x] `tray`: ícone, tooltip, menu, cliques, notificações, minimizar para a bandeja e
+      recolocar o ícone quando o Explorer reinicia.
+- [x] `menu`: barra de menu (submenus, separadores, itens com marcação, `update`) e menu de
+      contexto (`popup`) nativos. Atalhos funcionam com o foco na página, pelo
+      `AcceleratorKeyPressed` do WebView2 (novo evento `OnAcceleratorKeyPressed` do controle).
 - [ ] `global-shortcut`: atalhos globais (`RegisterHotKey`).
 - [ ] `single-instance`: segunda execução foca a primeira e repassa os argumentos.
 - [ ] `deep-link`: registrar `meuapp://` e receber os links.
@@ -199,9 +203,10 @@ Plugins, em ordem de utilidade:
 - [ ] `sql` (opcional): SQLite ou o banco que o Delphi já acessa, um diferencial para o público
       Delphi.
 
-**Marco 4:** um editor de texto de exemplo (abrir, salvar, menu, tray) feito só com plugins
-oficiais. **Parcial:** o `Examples/Editor` já abre, salva, guarda recentes e mostra na pasta só
-com `dialog`, `fs` e `shell`; faltam os plugins `menu` e `tray`.
+**Marco 4:** ✅ um editor de texto de exemplo (abrir, salvar, menu, tray) feito só com plugins
+oficiais: o `Examples/Editor` abre, salva, guarda recentes e mostra na pasta (`dialog`, `fs`,
+`shell`), tem barra de menu com atalhos e menu de contexto (`menu`), ícone, menu e notificação na
+bandeja (`tray`) e sai pelo menu (`app`).
 
 ---
 
@@ -295,5 +300,6 @@ liberados.
 
 Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distribuição vêm depois.
 
-**Situação:** os cinco passos estão feitos: **v0.1 completa.** Próximos candidatos: plugins `menu` e
-`tray` (para fechar o Marco 4), configuração e janelas (Fase 3) e a CLI `borion dev`/`build` (Fase 6).
+**Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
+`app` mínimo fecharam o Marco 4. Próximos candidatos: configuração e janelas (Fase 3), a CLI
+`borion dev`/`build` (Fase 6) e os plugins `clipboard` e `store`.

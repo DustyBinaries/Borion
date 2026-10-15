@@ -21,7 +21,11 @@ uses
   BorionDialog in '..\Plugins\BorionDialog.pas',
   BorionShell in '..\Plugins\BorionShell.pas',
   TestBorionPack in 'TestBorionPack.pas',
-  TestBorionPlugins in 'TestBorionPlugins.pas';
+  BorionMenu in '..\Plugins\BorionMenu.pas',
+  BorionTray in '..\Plugins\BorionTray.pas',
+  BorionApp in '..\Plugins\BorionApp.pas',
+  TestBorionPlugins in 'TestBorionPlugins.pas',
+  TestBorionUi in 'TestBorionUi.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

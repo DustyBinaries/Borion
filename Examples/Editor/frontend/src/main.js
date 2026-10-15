@@ -1,10 +1,13 @@
 // Borion Editor: um editor de texto feito só com os plugins oficiais do Borion
-// (dialog, fs, shell). Não há nenhum comando Delphi próprio no exemplo.
+// (dialog, fs, shell, menu, tray, app). Não há nenhum comando Delphi próprio no exemplo.
 import './style.css';
 import { isBorion } from '@borion/api';
 import { open, save, ask, message } from '@borion/api/dialog';
 import { readTextFile, writeTextFile, BaseDirectory } from '@borion/api/fs';
 import { open as abrirExterno, showInFolder } from '@borion/api/shell';
+import * as menu from '@borion/api/menu';
+import * as tray from '@borion/api/tray';
+import * as app from '@borion/api/app';
 
 const FILTROS = [
   { name: 'Texto', extensions: ['txt', 'md', 'log', 'csv', 'json', 'ini'] },
@@ -26,6 +29,10 @@ function atualizarTela() {
   document.title = titulo + ' - Borion Editor';
   $('arquivo').textContent = estado.caminho || 'sem título';
   $('mostrar').disabled = !estado.caminho;
+  if (isBorion()) {
+    menu.update('mostrar', { enabled: !!estado.caminho }).catch(() => {});
+    tray.setTooltip(titulo + ' - Borion Editor').catch(() => {});
+  }
   const linhas = texto.value === '' ? 0 : texto.value.split('\n').length;
   $('contagem').textContent = `${texto.value.length} caracteres · ${linhas} linhas`;
 }
@@ -66,6 +73,7 @@ async function mostrarRecentes() {
     li.textContent = nome(caminho);
     li.title = caminho;
     li.onclick = () => abrirCaminho(caminho, true);
+    li.oncontextmenu = (e) => menuDoRecente(e, caminho).catch((err) => erro(err, 'Lista de recentes'));
     ul.appendChild(li);
   }
 }
@@ -129,6 +137,7 @@ async function gravar(caminho) {
     estado.salvo = texto.value;
     atualizarTela();
     await lembrar(caminho);
+    tray.notify('Arquivo salvo', caminho, { kind: 'info' }).catch(() => {});
   } catch (e) {
     await erro(e, `Não foi possível salvar ${caminho}`);
   }
@@ -143,14 +152,98 @@ async function novo() {
   texto.focus();
 }
 
+const mostrarNaPasta = () => showInFolder(estado.caminho).catch((e) => erro(e, 'Não foi possível mostrar o arquivo'));
+const sobreWebView2 = () => abrirExterno('https://developer.microsoft.com/microsoft-edge/webview2/');
+
+async function sair() {
+  if (await podeDescartar()) await app.exit();
+}
+
+async function sobre() {
+  const i = await app.info();
+  await message(`Borion Editor ${i.version}\n\nFeito com o Borion: interface web no WebView2, lógica nativa em Delphi.\n\n${i.exe}`,
+    { title: 'Sobre', kind: 'info' });
+}
+
+function quebraDeLinha(ligada) {
+  texto.wrap = ligada ? 'soft' : 'off';
+}
+
+// --- menu e bandeja (plugins menu, tray e app) ------------------------------------
+// Os atalhos do menu (Ctrl+S etc.) são tratados no Delphi antes da página, mesmo
+// com o foco no texto, então o keydown mais abaixo nem chega a disparar para eles.
+
+async function montarMenu() {
+  await menu.setMenu([
+    { label: '&Arquivo', items: [
+      { id: 'novo', label: '&Novo', accelerator: 'Ctrl+N' },
+      { id: 'abrir', label: '&Abrir...', accelerator: 'Ctrl+O' },
+      { id: 'salvar', label: '&Salvar', accelerator: 'Ctrl+S' },
+      { id: 'salvar-como', label: 'Salvar &como...', accelerator: 'Ctrl+Shift+S' },
+      { type: 'separator' },
+      { id: 'mostrar', label: '&Mostrar na pasta', enabled: false },
+      { type: 'separator' },
+      { id: 'sair', label: 'Sai&r' },
+    ] },
+    { label: '&Exibir', items: [
+      { id: 'quebra', label: '&Quebra de linha', type: 'checkbox', checked: true },
+    ] },
+    { label: 'Aj&uda', items: [
+      { id: 'webview2', label: 'Sobre o &WebView2' },
+      { type: 'separator' },
+      { id: 'sobre', label: '&Sobre o Borion Editor', accelerator: 'F1' },
+    ] },
+  ]);
+  menu.onItems({
+    novo, abrir, salvar, 'salvar-como': salvarComo, mostrar: mostrarNaPasta, sair,
+    quebra: quebraDeLinha, webview2: sobreWebView2, sobre,
+  });
+}
+
+// menu de contexto nativo na lista de recentes (o texto fica com o do WebView2,
+// que já tem recortar/copiar/colar)
+async function menuDoRecente(e, caminho) {
+  e.preventDefault();
+  const id = await menu.popup([
+    { id: 'abrir', label: '&Abrir' },
+    { type: 'separator' },
+    { id: 'remover', label: '&Remover da lista' },
+    { id: 'limpar', label: '&Limpar lista' },
+  ]);
+  if (id === 'abrir') {
+    await abrirCaminho(caminho, true);
+  } else if (id === 'remover' || id === 'limpar') {
+    const lista = id === 'limpar' ? [] : (await lerRecentes()).filter((c) => c !== caminho);
+    await writeTextFile(RECENTES, JSON.stringify(lista, null, 2), { baseDir: BaseDirectory.AppData });
+    await mostrarRecentes();
+  }
+}
+
+async function montarBandeja() {
+  // clicar no ícone restaura a janela; minimizar esconde na bandeja (MinimizeToTray)
+  await tray.setMenu([
+    { id: 'mostrar', label: '&Mostrar' },
+    { id: 'novo', label: '&Novo' },
+    { type: 'separator' },
+    { id: 'sair', label: 'Sai&r' },
+  ]);
+  await tray.show({ tooltip: 'Borion Editor' });
+  tray.onMenu((id) => {
+    if (id === 'mostrar') app.show();
+    else if (id === 'novo') app.show().then(novo);
+    else if (id === 'sair') app.show().then(sair);
+  });
+  tray.onNotificationClick(() => app.show());
+}
+
 // --- ligação com a tela ------------------------------------------------------------
 
 $('novo').onclick = novo;
 $('abrir').onclick = abrir;
 $('salvar').onclick = salvar;
 $('salvar-como').onclick = salvarComo;
-$('mostrar').onclick = () => showInFolder(estado.caminho).catch((e) => erro(e, 'Não foi possível mostrar o arquivo'));
-$('ajuda').onclick = () => abrirExterno('https://developer.microsoft.com/microsoft-edge/webview2/');
+$('mostrar').onclick = mostrarNaPasta;
+$('ajuda').onclick = sobreWebView2;
 texto.addEventListener('input', atualizarTela);
 
 document.addEventListener('keydown', (e) => {
@@ -163,10 +256,12 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-atualizarTela();
 if (isBorion()) {
-  mostrarRecentes();
+  Promise.all([montarMenu(), montarBandeja()])
+    .catch((e) => console.warn('menu/bandeja:', e))
+    .then(() => { atualizarTela(); mostrarRecentes(); });
 } else {
+  atualizarTela();
   texto.value = 'Abra pelo app (Editor.exe ou dev.bat): fora do Borion os plugins não existem.';
   texto.disabled = true;
 }

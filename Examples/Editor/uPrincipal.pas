@@ -1,7 +1,8 @@
 unit uPrincipal;
 
 { Borion Editor: a janela só monta o browser, o IPC, os assets e os plugins
-  oficiais. Toda a lógica do editor está no frontend (frontend\src\main.js). }
+  oficiais (dialog, fs, shell, menu, tray, app). Toda a lógica do editor, inclusive
+  a barra de menu e o ícone da bandeja, está no frontend (frontend\src\main.js). }
 
 interface
 
@@ -32,7 +33,7 @@ implementation
 {$R *.dfm}
 
 uses
-  BorionScope, BorionFs, BorionDialog, BorionShell;
+  BorionScope, BorionFs, BorionDialog, BorionShell, BorionMenu, BorionTray, BorionApp;
 
 procedure TfrmPrincipal.FormCreate(Sender: TObject);
 var
@@ -58,6 +59,11 @@ begin
   FIpc.AddPlugin(TBorionFsPlugin.Create(Scope));        { dono do escopo }
   FIpc.AddPlugin(TBorionDialogPlugin.Create(Scope));
   FIpc.AddPlugin(TBorionShellPlugin.Create(Scope));
+
+  { barra de menu (os atalhos funcionam com o foco no texto), bandeja e janela }
+  FIpc.AddPlugin(TBorionMenuPlugin.Create);
+  TBorionTrayPlugin(FIpc.AddPlugin(TBorionTrayPlugin.Create)).MinimizeToTray := True;
+  FIpc.AddPlugin(TBorionAppPlugin.Create);
 
   FAssets := TBorionAssets.Create(Self, FBrowser);
   FIpc.AllowOrigin(BorionOriginOf(FAssets.StartUrl));

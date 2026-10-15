@@ -1,6 +1,7 @@
 # Borion: plugins
 
-Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`), com API tipada no JS
+Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`),
+com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
 linha:
 
@@ -27,6 +28,9 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`fs`](#fs)
 - [`dialog`](#dialog)
 - [`shell`](#shell)
+- [`menu`](#menu)
+- [`tray`](#tray)
+- [`app`](#app)
 - [Escrevendo um plugin](#escrevendo-um-plugin)
 - [Limitações](#limitações)
 
@@ -153,6 +157,113 @@ A política existe para que nenhum script da página consiga **executar programa
   `.dll` e outros (`FORBIDDEN_FILE_TYPE`). Pontos e espaços no fim do nome (`a.exe.`) não
   enganam a verificação.
 
+## `menu`
+
+Exemplo: [`Examples/Menu`](../Examples/Menu/README.md).
+
+`TBorionMenuPlugin.Create([AForm])`. Sem `AForm`, usa o form onde está o browser do `Ipc`. A barra
+de menu é um `TMainMenu` comum da VCL, montado a partir do JSON.
+
+| JS (`@borion/api/menu`) | O que faz |
+|---|---|
+| `setMenu(items)` | Monta a barra de menu (lista vazia remove a barra) |
+| `update(id, {enabled?, checked?, label?, accelerator?})` | Muda um item da barra |
+| `clear()` | Remove a barra |
+| `popup(items, {x?, y?})` | Menu de contexto nativo; devolve o `id` escolhido ou `null` |
+| `onClick((id, checked) => ...)` | Clique num item da barra (ou atalho de teclado) |
+| `onItems({id: handler, ...})` | O mesmo, despachando por `id` |
+
+```js
+import * as menu from '@borion/api/menu';
+
+await menu.setMenu([
+  { label: '&Arquivo', items: [
+    { id: 'salvar', label: '&Salvar', accelerator: 'Ctrl+S' },
+    { type: 'separator' },
+    { id: 'sair', label: 'Sai&r' },
+  ] },
+  { label: '&Exibir', items: [
+    { id: 'quebra', label: '&Quebra de linha', type: 'checkbox', checked: true },
+  ] },
+]);
+menu.onItems({ salvar, sair, quebra: (ligada) => ... });
+
+li.oncontextmenu = async (e) => {
+  e.preventDefault();
+  const id = await menu.popup([{ id: 'abrir', label: '&Abrir' }, { id: 'remover', label: '&Remover' }]);
+};
+```
+
+- **Item:** `{id, label, type?: 'normal' | 'checkbox' | 'separator', enabled?, checked?,
+  accelerator?, items?}`. `items` cria um submenu; `&` marca a letra de acesso. Itens
+  `checkbox` alternam sozinhos e mandam o novo estado em `checked`.
+- **Atalhos** (`'Ctrl+S'`, `'Ctrl+Shift+S'`, `'F5'`, `'Alt+F4'`): com o foco na página, o teclado
+  vai direto para o processo do WebView2 e a VCL nunca vê o `Ctrl+S`. O plugin escuta o evento
+  `OnAcceleratorKeyPressed` do `TWebView2Browser` (o `AcceleratorKeyPressed` do controller),
+  procura um item habilitado com aquele atalho, dispara o clique e marca a tecla como tratada:
+  a página não recebe o `keydown`, então um atalho tratado em JS não dispara duas vezes. Teclas
+  sem item no menu seguem normalmente para a página.
+- **`popup`** roda com `CommandLater` (o `TrackPopupMenu` é modal) e abre no cursor, ou em `x, y`
+  (coordenadas da página). Ao fechar, o foco volta para a página.
+- Use o `popup` para menus próprios do app. Em campos de texto, prefira o menu de contexto do
+  próprio WebView2: um item "Colar" feito em JS precisaria da Clipboard API, e ela pede
+  permissão ao usuário quando chamada fora de um gesto dele na página.
+- **Erros:** `INVALID_MENU` (item ou atalho inválido), `NOT_FOUND` (`update` com id
+  desconhecido), `NO_WINDOW` (sem form).
+
+## `tray`
+
+Exemplo: [`Examples/Tray`](../Examples/Tray/README.md).
+
+`TBorionTrayPlugin.Create`. O ícone é o do executável (recurso `MAINICON`) ou o padrão do Windows;
+troque pela propriedade `Icon`. A página não escolhe o ícone.
+
+| JS (`@borion/api/tray`) | O que faz |
+|---|---|
+| `show({tooltip?})` / `hide()` | Mostra ou tira o ícone |
+| `setTooltip(texto)` | Texto ao passar o mouse (até 127 caracteres) |
+| `setMenu(items)` | Menu do clique direito, no mesmo formato do `menu` (`null` remove) |
+| `notify(titulo, mensagem, {kind?})` | Notificação (balão; toast no Windows 10/11). `kind`: `'info'`, `'warning'`, `'error'`, `'none'` |
+| `onClick`, `onDoubleClick` | Cliques no ícone |
+| `onMenu((id) => ...)` | Item escolhido no menu do ícone |
+| `onNotificationClick` | Clique na notificação |
+
+```pascal
+Tray := TBorionTrayPlugin(Ipc.AddPlugin(TBorionTrayPlugin.Create));
+Tray.MinimizeToTray := True;   // minimizar esconde a janela (e o botão da barra de tarefas)
+```
+
+```js
+import * as tray from '@borion/api/tray';
+import * as app from '@borion/api/app';
+
+await tray.setMenu([{ id: 'mostrar', label: '&Mostrar' }, { type: 'separator' }, { id: 'sair', label: 'Sai&r' }]);
+await tray.show({ tooltip: 'Meu App' });
+tray.onMenu((id) => (id === 'sair' ? app.exit() : app.show()));
+await tray.notify('Arquivo salvo', 'C:\\notas.txt');
+```
+
+- `RestoreOnClick` (padrão `True`): o clique simples no ícone também restaura a janela.
+- `MinimizeToTray` (padrão `False`): minimizar esconde a janela na bandeja e mostra o ícone.
+  `RestoreWindow` (Delphi) ou `app.show()` (JS) a trazem de volta.
+- `notify` mostra o ícone se ele estiver escondido (o Windows exige um ícone para notificar).
+- Se o Explorer reiniciar, o ícone é recolocado sozinho (mensagem `TaskbarCreated`).
+- O menu do ícone roda fora do callback do WebView2 e só existe enquanto está aberto.
+
+## `app`
+
+Exemplo: [`Examples/App`](../Examples/App/README.md).
+
+`TBorionAppPlugin.Create([AForm])`. Por enquanto só a parte de que menus e bandeja precisam: um
+item "Sair" não tem como fechar o app sem ela.
+
+| JS (`@borion/api/app`) | O que faz |
+|---|---|
+| `exit()` | Fecha a janela principal (passa pelo `OnCloseQuery`/`OnClose` do form) |
+| `show()` | Mostra e traz a janela para frente, inclusive se estiver na bandeja |
+| `hide()` / `minimize()` | Esconde / minimiza a janela |
+| `info()` | `{name, version, exe, pid}`; `version` é o `FileVersion` do exe (`''` se não houver) |
+
 ## Escrevendo um plugin
 
 ```pascal
@@ -197,5 +308,7 @@ end;
 - Nomes 8.3 (`PROGRA~1`) não são expandidos: são comparados como estão, o que só pode negar,
   nunca liberar a mais.
 - Caminhos com caracteres fora da página de código do Windows não são suportados (Delphi 7 ANSI).
-- Ainda faltam outros plugins (`clipboard`, `store`, `os`, `http`, `tray`, `menu`...): veja o
+- Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
+  sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
+- Ainda faltam outros plugins (`clipboard`, `store`, `os`, `http`...) e o resto do `app`: veja o
   [roadmap](ROADMAP.md).

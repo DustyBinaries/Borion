@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: menu</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/menu": "./borion-api/menu.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <aside id="lateral">
+    <h2>Plugin <code>menu</code></h2>
+    <p>A barra de menu desta janela é nativa (um <code>TMainMenu</code>), montada pela página com
+      <code>menu.setMenu</code>. Clique nos itens ou use os atalhos.</p>
+    <p class="dica">Ctrl+B esconde este painel; Ctrl+D troca o tema.</p>
+  </aside>
+
+  <main>
+    <section>
+      <h3>1. Atalhos com o foco na página</h3>
+      <p>Clique no campo e pressione <kbd>Ctrl+S</kbd>. O atalho vai para o menu, e a página
+        <b>não</b> recebe a tecla. Desabilite o item "Salvar" abaixo e tente de novo: aí a tecla
+        chega à página.</p>
+      <input id="campo" placeholder="foco aqui e pressione Ctrl+S, Ctrl+N, F1...">
+      <p class="saida" id="teclas">a página recebeu: (nada ainda)</p>
+    </section>
+
+    <section>
+      <h3>2. Alterar itens (<code>menu.update</code>)</h3>
+      <div class="linha">
+        <label><input type="checkbox" id="salvar-habilitado" checked> "Salvar" habilitado</label>
+      </div>
+      <div class="linha">
+        <input id="rotulo" value="&amp;Novo documento">
+        <button id="renomear">Renomear "Novo"</button>
+      </div>
+      <div class="linha">
+        <select id="atalho">
+          <option>Ctrl+S</option>
+          <option>Ctrl+Shift+S</option>
+          <option>F2</option>
+          <option value="">(sem atalho)</option>
+        </select>
+        <button id="trocar-atalho">Trocar o atalho de "Salvar"</button>
+      </div>
+      <div class="linha">
+        <button id="remover">Remover a barra</button>
+        <button id="recriar">Recriar a barra</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>3. Menu de contexto (<code>menu.popup</code>)</h3>
+      <p>Clique com o botão direito numa cor. O <code>popup</code> devolve o id escolhido
+        (ou <code>null</code> se fechar sem escolher).</p>
+      <ul id="cores">
+        <li style="--cor:#e5484d">Vermelho</li>
+        <li style="--cor:#30a46c">Verde</li>
+        <li style="--cor:#0090ff">Azul</li>
+      </ul>
+      <button id="popup-aqui">Abrir um menu embaixo deste botão</button>
+      <p class="saida" id="escolha">popup: (nada ainda)</p>
+    </section>
+
+    <section>
+      <h3>Eventos <code>menu:click</code></h3>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+</body>
+</html>

@@ -5,9 +5,13 @@ import assert from 'node:assert/strict';
 import * as dialog from '../dialog.js';
 import * as fs from '../fs.js';
 import * as shell from '../shell.js';
+import * as menu from '../menu.js';
+import * as tray from '../tray.js';
+import * as app from '../app.js';
 
 let chamadas;
 let respostas;
+let ouvintes;
 
 function ponteFalsa() {
   return {
@@ -16,13 +20,23 @@ function ponteFalsa() {
       chamadas.push([cmd, args]);
       return Promise.resolve(cmd in respostas ? respostas[cmd] : null);
     },
-    listen() {}, once() {}, emit() {},
+    listen(evento, cb) {
+      (ouvintes[evento] = ouvintes[evento] || []).push(cb);
+      return () => { ouvintes[evento] = ouvintes[evento].filter((c) => c !== cb); };
+    },
+    once() {}, emit() {},
   };
+}
+
+// simula um evento vindo do Delphi
+function delphiEmite(evento, payload) {
+  (ouvintes[evento] || []).forEach((cb) => cb(payload, evento));
 }
 
 beforeEach(() => {
   chamadas = [];
   respostas = {};
+  ouvintes = {};
   globalThis.__BORION__ = ponteFalsa();
 });
 afterEach(() => { delete globalThis.__BORION__; });
@@ -110,5 +124,76 @@ describe('@borion/api/shell', () => {
       ['shell:open', { target: 'https://borion.dev' }],
       ['shell:showInFolder', { baseDir: 'document', path: 'nota.txt' }],
     ]);
+  });
+});
+
+describe('@borion/api/menu', () => {
+  test('setMenu, update, clear e popup', async () => {
+    const itens = [{ label: '&Arquivo', items: [{ id: 'salvar', label: 'Salvar', accelerator: 'Ctrl+S' }] }];
+    await menu.setMenu(itens);
+    await menu.update('salvar', { enabled: false });
+    await menu.clear();
+    respostas['menu:popup'] = 'copiar';
+    assert.equal(await menu.popup([{ id: 'copiar', label: 'Copiar' }], { x: 10, y: 20 }), 'copiar');
+    assert.deepEqual(chamadas, [
+      ['menu:setMenu', { items: itens }],
+      ['menu:update', { enabled: false, id: 'salvar' }],
+      ['menu:clear', undefined],
+      ['menu:popup', { x: 10, y: 20, items: [{ id: 'copiar', label: 'Copiar' }] }],
+    ]);
+  });
+
+  test('onClick recebe id e checked; o retorno para de escutar', () => {
+    const cliques = [];
+    const parar = menu.onClick((id, checked) => cliques.push([id, checked]));
+    delphiEmite('menu:click', { id: 'salvar' });
+    delphiEmite('menu:click', { id: 'quebra', checked: false });
+    parar();
+    delphiEmite('menu:click', { id: 'depois' });
+    assert.deepEqual(cliques, [['salvar', undefined], ['quebra', false]]);
+  });
+
+  test('onItems despacha por id e ignora os outros', () => {
+    const feitos = [];
+    menu.onItems({ salvar: () => feitos.push('salvar'), quebra: (c) => feitos.push('quebra=' + c) });
+    delphiEmite('menu:click', { id: 'salvar' });
+    delphiEmite('menu:click', { id: 'quebra', checked: true });
+    delphiEmite('menu:click', { id: 'desconhecido' });
+    delphiEmite('menu:click', { id: 'toString' });  // não pode cair no prototype
+    assert.deepEqual(feitos, ['salvar', 'quebra=true']);
+  });
+});
+
+describe('@borion/api/tray', () => {
+  test('comandos', async () => {
+    await tray.show({ tooltip: 'Editor' });
+    await tray.setTooltip('nota.txt');
+    await tray.setMenu([{ id: 'sair', label: 'Sair' }]);
+    await tray.notify('Salvo', 'nota.txt', { kind: 'info' });
+    await tray.hide();
+    assert.deepEqual(chamadas.map((c) => c[0]), ['tray:show', 'tray:setTooltip', 'tray:setMenu', 'tray:notify', 'tray:hide']);
+    assert.deepEqual(chamadas[3][1], { kind: 'info', title: 'Salvo', message: 'nota.txt' });
+  });
+
+  test('eventos', () => {
+    const ev = [];
+    tray.onClick(() => ev.push('click'));
+    tray.onDoubleClick(() => ev.push('dbl'));
+    tray.onMenu((id) => ev.push('menu:' + id));
+    tray.onNotificationClick(() => ev.push('balao'));
+    delphiEmite('tray:click', null);
+    delphiEmite('tray:doubleClick', null);
+    delphiEmite('tray:menu', { id: 'sair' });
+    delphiEmite('tray:balloonClick', null);
+    assert.deepEqual(ev, ['click', 'dbl', 'menu:sair', 'balao']);
+  });
+});
+
+describe('@borion/api/app', () => {
+  test('comandos', async () => {
+    respostas['app:info'] = { name: 'Editor', version: '0.1.0.0', exe: 'C:/x.exe', pid: 1 };
+    assert.equal((await app.info()).name, 'Editor');
+    for (const fn of [app.exit, app.show, app.hide, app.minimize]) assert.equal(await fn(), undefined);
+    assert.deepEqual(chamadas.map((c) => c[0]), ['app:info', 'app:exit', 'app:show', 'app:hide', 'app:minimize']);
   });
 });

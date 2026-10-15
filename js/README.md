@@ -65,6 +65,9 @@ Os plugins oficiais têm módulos próprios, com tipos:
 import { open, save, message, confirm, ask } from '@borion/api/dialog';
 import { readTextFile, writeTextFile, readDir, BaseDirectory } from '@borion/api/fs';
 import { open as abrir, showInFolder } from '@borion/api/shell';
+import { setMenu, update, popup, onItems } from '@borion/api/menu';
+import { show, setMenu as menuDaBandeja, notify, onMenu } from '@borion/api/tray';
+import { exit, show as mostrarJanela, minimize, info } from '@borion/api/app';
 ```
 
 Cada módulo só funciona se o plugin correspondente tiver sido adicionado no Delphi

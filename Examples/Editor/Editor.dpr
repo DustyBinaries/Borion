@@ -1,7 +1,7 @@
 program Editor;
 
 { Borion Editor: editor de texto com frontend Vite + JS puro (pasta frontend\)
-  feito só com os plugins oficiais dialog, fs e shell.
+  feito só com os plugins oficiais (dialog, fs, shell, menu, tray, app).
     build.bat  -> npm run build, borion pack frontend\dist app.res, compila
     dev.bat    -> servidor do Vite com hot-reload + o app com --dev-url }
 
@@ -18,6 +18,9 @@ uses
   BorionFs in '..\..\Plugins\BorionFs.pas',
   BorionDialog in '..\..\Plugins\BorionDialog.pas',
   BorionShell in '..\..\Plugins\BorionShell.pas',
+  BorionMenu in '..\..\Plugins\BorionMenu.pas',
+  BorionTray in '..\..\Plugins\BorionTray.pas',
+  BorionApp in '..\..\Plugins\BorionApp.pas',
   uPrincipal in 'uPrincipal.pas' {frmPrincipal};
 
 { Jsons (json4delphi) vem do ACBr: veja JSON4DELPHI / ACBR_COMUM no build.bat

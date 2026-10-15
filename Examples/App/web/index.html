@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: app</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/app": "./borion-api/app.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>app</code></h2>
+      <p>Dados do executável e controle da janela pela página.</p>
+    </header>
+
+    <section>
+      <h3>1. <code>app.info()</code></h3>
+      <table id="info"><tr><td>carregando...</td></tr></table>
+      <p class="dica">A versão vem do recurso de versão do exe (<code>AppDemo.rc</code>).</p>
+    </section>
+
+    <section>
+      <h3>2. A janela</h3>
+      <p>A página continua rodando com a janela minimizada ou escondida: os botões com
+        "volta em 3 s" usam um <code>setTimeout</code> que chama <code>app.show()</code>.</p>
+      <div class="linha">
+        <button id="minimizar">Minimizar</button>
+        <button id="minimizar-volta">Minimizar (volta em 3 s)</button>
+        <button id="esconder-volta">Esconder (volta em 3 s)</button>
+      </div>
+      <p class="dica">Escondida, a janela some da tela e da barra de tarefas. Sem um
+        <code>setTimeout</code> ou um ícone na bandeja (plugin <code>tray</code>), não haveria
+        como trazê-la de volta.</p>
+    </section>
+
+    <section>
+      <h3>3. Sair</h3>
+      <p><code>app.exit()</code> fecha a janela principal como o X: passa pelo
+        <code>OnCloseQuery</code> do form, que aqui pergunta antes. Responda "Não" e o app
+        continua aberto.</p>
+      <div class="linha"><button id="sair">Sair</button></div>
+    </section>
+
+    <section>
+      <h3>Log</h3>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+</body>
+</html>

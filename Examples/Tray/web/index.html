@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: tray</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/tray": "./borion-api/tray.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>tray</code></h2>
+      <p>O ícone fica na área de notificação, ao lado do relógio (talvez dentro da setinha
+        <b>^</b>). <b>Minimize esta janela:</b> ela some da barra de tarefas e vai para a bandeja
+        (<code>MinimizeToTray</code>). Um clique no ícone a traz de volta.</p>
+    </header>
+
+    <section>
+      <h3>1. Ícone e tooltip</h3>
+      <div class="linha">
+        <button id="mostrar">Mostrar o ícone</button>
+        <button id="esconder">Esconder o ícone</button>
+        <span id="estado" class="saida"></span>
+      </div>
+      <div class="linha">
+        <input id="tooltip" value="Borion: exemplo tray" maxlength="127">
+        <button id="aplicar-tooltip">Trocar o tooltip</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>2. Menu do ícone (clique direito)</h3>
+      <p>O menu é montado com <code>tray.setMenu</code> e cada escolha chega em
+        <code>tray.onMenu</code>. O item "Não perturbe" é um checkbox: a página guarda o estado e
+        manda o menu de novo.</p>
+      <p>Contador (mude pelo menu do ícone): <b id="contador">0</b></p>
+    </section>
+
+    <section>
+      <h3>3. Notificações (<code>tray.notify</code>)</h3>
+      <div class="linha">
+        <input id="titulo" value="Borion">
+        <select id="tipo">
+          <option value="info">info</option>
+          <option value="warning">warning</option>
+          <option value="error">error</option>
+          <option value="none">none</option>
+        </select>
+      </div>
+      <div class="linha">
+        <input id="mensagem" value="Olá da bandeja! Clique aqui." class="largo">
+      </div>
+      <div class="linha">
+        <button id="notificar">Notificar agora</button>
+        <button id="notificar-depois">Notificar em 5 s (dá tempo de minimizar)</button>
+      </div>
+      <p class="dica">Com "Não perturbe" marcado no menu do ícone, a página não notifica.</p>
+    </section>
+
+    <section>
+      <h3>Eventos</h3>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+</body>
+</html>
