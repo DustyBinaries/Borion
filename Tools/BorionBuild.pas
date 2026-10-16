@@ -1,16 +1,16 @@
 unit BorionBuild;
 
 (*
-  Borion ‚Äî Native Application Engine
+  Borion ó Native Application Engine
   borion build / borion dev: as etapas, sobre um TBorionProject.
 
-  build: frontend (npm run build, ou a c√≥pia do @borion/api para web\) ->
-         pacote de assets (o .res do .dpr) -> .rc com brcc32 (se mudou) ->
-         dcc32 -> WebView2Loader.dll ao lado do exe.
+  build: frontend (npm run build, ou a cÛpia do @borion/api para web\) ->
+         pacote de assets e app.json (o .res do .dpr) -> .rc com brcc32 (se
+         mudou) -> dcc32 -> WebView2Loader.dll ao lado do exe.
   dev:   o mesmo Delphi, mas o frontend vem do servidor do Vite (--dev-url) ou
-         direto da pasta web\ (--dev-dir, com recarga autom√°tica). Se um .pas,
-         .dpr ou .rc mudar, fecha o app, recompila e abre de novo. Fechar o app
-         encerra o dev (e o Vite).
+         direto da pasta web\ (--dev-dir, com recarga autom·tica). Se um .pas,
+         .dpr, .rc ou o app.json mudar, fecha o app, recompila e abre de novo.
+         Fechar o app encerra o dev (e o Vite).
 
   Os processos filhos (npm, Vite, o app) ficam num Job Object do Windows: se a
   CLI terminar (Ctrl+C, fechar o console), eles terminam junto.
@@ -30,24 +30,27 @@ type
   end;
 
 var
-  { Sa√≠da das etapas (a CLI troca pela que converte para o console) }
+  { SaÌda das etapas (a CLI troca pela que converte para o console) }
   BorionOut: TBorionOutput;
 
 { Compila o projeto inteiro. Levanta EBorionProject se uma etapa falhar. }
 procedure BorionBuildProject(P: TBorionProject; const BorionHome: string);
-{ Modo dev; volta quando o app √© fechado. }
+{ Modo dev; volta quando o app È fechado. }
 procedure BorionDevProject(P: TBorionProject; const BorionHome: string; const Options: TBorionDevOptions);
-{ S√≥ a parte Delphi (brcc32 + dcc32 + loader) }
+{ SÛ a parte Delphi (brcc32 + dcc32 + loader) }
 procedure BorionCompileDelphi(P: TBorionProject; const BorionHome: string);
-{ Empacota a pasta no .res de assets do projeto }
-procedure BorionPackAssets(const Pasta, Saida: string);
-{ Copia os m√≥dulos do @borion/api (BorionHome\js\*.js) para web\borion-api\ }
+{ Empacota a pasta (BORION_ASSETS) e o app.json (BORION_CONFIG, se ConfigFile
+  <> '') no .res de assets do projeto. Pasta = '': sÛ o app.json. }
+procedure BorionPackAssets(const Pasta, Saida: string; const ConfigFile: string = '');
+{ Troca sÛ o app.json do .res de assets, mantendo o pacote que j· est· nele }
+procedure BorionUpdateConfigRes(P: TBorionProject);
+{ Copia os mÛdulos do @borion/api (BorionHome\js\*.js) para web\borion-api\ }
 procedure BorionCopyApi(P: TBorionProject; const BorionHome: string);
 
 implementation
 
 uses
-  WinInet, BorionPack;
+  WinInet, BorionPack, BorionConfig;
 
 { --- Job Object: os filhos morrem com a CLI ------------------------------------ }
 
@@ -119,14 +122,14 @@ begin
   C := CmdLine;
   UniqueString(C);
   if not CreateProcess(nil, PChar(C), nil, nil, True, CREATE_SUSPENDED, nil, PChar(Dir), SI, Result) then
-    raise EBorionProject.CreateFmt('n√£o foi poss√≠vel executar %s: %s', [CmdLine, SysErrorMessage(GetLastError)]);
+    raise EBorionProject.CreateFmt('n„o foi possÌvel executar %s: %s', [CmdLine, SysErrorMessage(GetLastError)]);
   if Job <> 0 then
     AssignProcessToJobObject_(Job, Result.hProcess);  { falha num job aninhado (Windows 7): segue sem }
   ResumeThread(Result.hThread);
   CloseHandle(Result.hThread);
 end;
 
-{ Executa e espera; devolve o c√≥digo de sa√≠da }
+{ Executa e espera; devolve o cÛdigo de saÌda }
 function Executar(const CmdLine, Dir: string; Job: THandle = 0): DWORD;
 var
   PI: TProcessInformation;
@@ -153,22 +156,88 @@ end;
 
 { --- etapas -------------------------------------------------------------------- }
 
-procedure BorionPackAssets(const Pasta, Saida: string);
+{ Grava o .res com o pacote (Pack.Size = 0: sem pacote) e o app.json }
+procedure GravarRes(const Saida: string; Pack: TStream; const ConfigFile: string);
+var
+  Config: TMemoryStream;
+begin
+  Config := TMemoryStream.Create;
+  try
+    if ConfigFile <> '' then
+      Config.LoadFromFile(ConfigFile);
+    if (Pack.Size > 0) and (ConfigFile <> '') then
+      BorionWriteResources(Saida, [BORION_PACK_RESOURCE, BORION_CONFIG_RESOURCE], [Pack, Config])
+    else if ConfigFile <> '' then
+      BorionWriteResources(Saida, [BORION_CONFIG_RESOURCE], [Config])
+    else
+      BorionWriteRes(Saida, BORION_PACK_RESOURCE, Pack);
+  finally
+    Config.Free;
+  end;
+end;
+
+procedure BorionPackAssets(const Pasta, Saida: string; const ConfigFile: string);
 var
   Op: TBorionPackOptions;
   M: TMemoryStream;
   N: Integer;
+  Extra: string;
 begin
   Op.Compress := True;
   M := TMemoryStream.Create;
   try
-    N := BorionPackFolder(Pasta, M, Op);
-    BorionWriteRes(Saida, BORION_PACK_RESOURCE, M);
-    Out(Format('%d arquivo(s) de %s -> %s (%d KB)', [N, ExtractFileName(Pasta), ExtractFileName(Saida),
-      (M.Size + 1023) div 1024]));
+    N := 0;
+    if Pasta <> '' then
+      N := BorionPackFolder(Pasta, M, Op);
+    GravarRes(Saida, M, ConfigFile);
+    if ConfigFile <> '' then
+      Extra := ' + ' + ExtractFileName(ConfigFile)
+    else
+      Extra := '';
+    if Pasta <> '' then
+      Out(Format('%d arquivo(s) de %s%s -> %s (%d KB)', [N, ExtractFileName(Pasta), Extra,
+        ExtractFileName(Saida), (M.Size + 1023) div 1024]))
+    else
+      Out(Format('%s -> %s', [ExtractFileName(ConfigFile), ExtractFileName(Saida)]));
   finally
     M.Free;
   end;
+end;
+
+function ConfigDoProjeto(P: TBorionProject): string;
+begin
+  if P.HasConfig then
+    Result := P.ConfigFile
+  else
+    Result := '';
+end;
+
+procedure BorionUpdateConfigRes(P: TBorionProject);
+var
+  Saida: string;
+  M: TMemoryStream;
+begin
+  if P.AssetsRes = '' then
+    Exit;
+  Saida := P.Dir + '\' + P.AssetsRes;
+  M := TMemoryStream.Create;
+  try
+    if FileExists(Saida) then
+      BorionReadRes(Saida, BORION_PACK_RESOURCE, M);
+    GravarRes(Saida, M, ConfigDoProjeto(P));
+  finally
+    M.Free;
+  end;
+end;
+
+procedure AvisosDoConfig(P: TBorionProject);
+var
+  I: Integer;
+begin
+  for I := 0 to P.Config.Warnings.Count - 1 do
+    Out('aviso: ' + P.Config.Warnings[I]);
+  if P.HasConfig and (P.AssetsRes = '') then
+    Out('aviso: o app.json n„o vai para o exe: o .dpr n„o inclui um {$R ....res} de assets');
 end;
 
 procedure BorionCopyApi(P: TBorionProject; const BorionHome: string);
@@ -182,12 +251,12 @@ begin
   begin
     repeat
       if not CopyFile(PChar(BorionHome + '\js\' + R.Name), PChar(Destino + '\' + R.Name), False) then
-        raise EBorionProject.CreateFmt('n√£o foi poss√≠vel copiar %s', [R.Name]);
+        raise EBorionProject.CreateFmt('n„o foi possÌvel copiar %s', [R.Name]);
     until FindNext(R) <> 0;
     FindClose(R);
   end
   else
-    raise EBorionProject.CreateFmt('@borion/api n√£o encontrado em %s\js', [BorionHome]);
+    raise EBorionProject.CreateFmt('@borion/api n„o encontrado em %s\js', [BorionHome]);
 end;
 
 procedure NpmInstall(P: TBorionProject; Job: THandle);
@@ -195,7 +264,7 @@ begin
   if not DirectoryExists(P.FrontendDir + '\node_modules') then
   begin
     Etapa('npm install');
-    ExecutarOuFalhar('cmd.exe /c npm install', P.FrontendDir, 'npm install (o Node.js est√° instalado?)', Job);
+    ExecutarOuFalhar('cmd.exe /c npm install', P.FrontendDir, 'npm install (o Node.js est· instalado?)', Job);
   end;
 end;
 
@@ -209,7 +278,7 @@ begin
   if Origem = '' then
     Origem := ExpandFileName(BorionHome + '\..\WebView2');
   if not CopyFile(PChar(Origem + '\WebView2Loader.dll'), PChar(P.Dir + '\WebView2Loader.dll'), False) then
-    Out('aviso: WebView2Loader.dll n√£o encontrado (ponha a pasta do WebView2 no search path do .dof)');
+    Out('aviso: WebView2Loader.dll n„o encontrado (ponha a pasta do WebView2 no search path do .dof)');
 end;
 
 procedure BorionCompileDelphi(P: TBorionProject; const BorionHome: string);
@@ -237,6 +306,7 @@ var
   Job: THandle;
 begin
   Inicio := GetTickCount;
+  AvisosDoConfig(P);
   Job := CriarJob;
   try
     case P.Kind of
@@ -256,14 +326,19 @@ begin
     if P.Kind <> fkNone then
     begin
       if P.AssetsRes = '' then
-        Out('aviso: o .dpr n√£o inclui um {$R ....res} de assets; a interface n√£o vai dentro do exe')
+        Out('aviso: o .dpr n„o inclui um {$R ....res} de assets; a interface n„o vai dentro do exe')
       else
       begin
         Etapa('Assets (borion pack)');
         if not DirectoryExists(P.DistDir) then
-          raise EBorionProject.CreateFmt('pasta %s n√£o encontrada', [P.DistDir]);
-        BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes);
+          raise EBorionProject.CreateFmt('pasta %s n„o encontrada', [P.DistDir]);
+        BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P));
       end;
+    end
+    else if P.HasConfig and (P.AssetsRes <> '') then
+    begin
+      Etapa('ConfiguraÁ„o (app.json)');
+      BorionPackAssets('', P.Dir + '\' + P.AssetsRes, P.ConfigFile);
     end;
     BorionCompileDelphi(P, BorionHome);
   finally
@@ -299,30 +374,43 @@ end;
 { data do Delphi mais recente (o que, mudando, pede recompilar) }
 function FontesDelphi(P: TBorionProject): TDateTime;
 begin
-  Result := BorionNewestFile(P.Dir, '*.dpr;*.pas;*.rc;*.inc');
+  Result := BorionNewestFile(P.Dir, '*.dpr;*.pas;*.rc;*.inc;' + BORION_CONFIG_FILE);
 end;
 
-{ o .res de assets precisa existir para compilar; no dev ele n√£o √© usado }
+{ o .res de assets precisa existir para compilar; no dev ele n„o È usado }
 procedure GarantirAssets(P: TBorionProject);
 var
   Temp: string;
   F: TStringList;
 begin
-  if (P.AssetsRes = '') or FileExists(P.Dir + '\' + P.AssetsRes) then
+  if P.AssetsRes = '' then
     Exit;
-  if P.Kind = fkStatic then
+  if FileExists(P.Dir + '\' + P.AssetsRes) then
   begin
-    BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes);
+    { o app.json mudou desde o ˙ltimo pacote: troca sÛ ele }
+    if P.HasConfig and BorionIsStale(P.Dir + '\' + P.AssetsRes, P.ConfigFile) then
+      BorionUpdateConfigRes(P);
     Exit;
   end;
-  { npm sem build ainda: um pacote provis√≥rio (o "borion build" gera o de verdade) }
+  if P.Kind = fkNone then
+  begin
+    if P.HasConfig then
+      BorionPackAssets('', P.Dir + '\' + P.AssetsRes, P.ConfigFile);
+    Exit;
+  end;
+  if P.Kind = fkStatic then
+  begin
+    BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P));
+    Exit;
+  end;
+  { npm sem build ainda: um pacote provisÛrio (o "borion build" gera o de verdade) }
   Temp := IncludeTrailingPathDelimiter(GetEnvironmentVariable('TEMP')) + 'borion-dev-' + IntToStr(GetCurrentProcessId);
   ForceDirectories(Temp);
   F := TStringList.Create;
   try
-    F.Text := '<!doctype html><meta charset="utf-8"><p>Interface n√£o empacotada: rode <code>borion build</code>.</p>';
+    F.Text := '<!doctype html><meta charset="utf-8"><p>Interface n„o empacotada: rode <code>borion build</code>.</p>';
     F.SaveToFile(Temp + '\index.html');
-    BorionPackAssets(Temp, P.Dir + '\' + P.AssetsRes);
+    BorionPackAssets(Temp, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P));
   finally
     F.Free;
     DeleteFile(Temp + '\index.html');
@@ -353,6 +441,7 @@ var
   end;
 
 begin
+  AvisosDoConfig(P);
   Porta := Options.Port;
   if Porta = 0 then
     Porta := P.DevPort;
@@ -365,7 +454,10 @@ begin
       fkNpm:
         begin
           NpmInstall(P, Job);
-          Url := Format('http://localhost:%d', [Porta]);
+          if Options.Port = 0 then
+            Url := P.DevUrl  { build.devUrl do app.json, ou localhost:<porta do vite.config.js> }
+          else
+            Url := Format('http://localhost:%d', [Porta]);
           Etapa('Vite em ' + Url);
           Vite := Iniciar(Format('cmd.exe /c npm run dev -- --port %d --strictPort', [Porta]), P.FrontendDir, Job);
           ArgDev := ' --dev-url=' + Url;
@@ -380,7 +472,7 @@ begin
       ArgDev := '';
     end;
 
-    { Delphi: s√≥ se mudou desde o √∫ltimo build }
+    { Delphi: sÛ se mudou desde o ˙ltimo build }
     if not FileExists(P.ExeFile) or (FontesDelphi(P) > FileDateToDateTime(FileAge(P.ExeFile))) or
       ((P.AssetsRes <> '') and not FileExists(P.Dir + '\' + P.AssetsRes)) then
       Compilar
@@ -393,18 +485,18 @@ begin
       while not Respondendo(Url + '/') do
       begin
         if WaitForSingleObject(Vite.hProcess, 0) = WAIT_OBJECT_0 then
-          raise EBorionProject.Create('o Vite terminou sem subir (a porta est√° em uso? veja a sa√≠da acima)');
+          raise EBorionProject.Create('o Vite terminou sem subir (a porta est· em uso? veja a saÌda acima)');
         if GetTickCount - Inicio > 60000 then
-          raise EBorionProject.Create('o Vite n√£o respondeu em ' + Url);
+          raise EBorionProject.Create('o Vite n„o respondeu em ' + Url);
         Sleep(300);
       end;
     end;
 
     Etapa('App em modo dev');
     if P.Kind = fkStatic then
-      Out('edite os arquivos de web\: a p√°gina recarrega sozinha');
+      Out('edite os arquivos de web\: a p·gina recarrega sozinha');
     if Options.Watch then
-      Out('mudou um .pas/.dpr? o app √© recompilado e reaberto; feche o app para encerrar')
+      Out('mudou um .pas/.dpr ou o app.json? o app È recompilado e reaberto; feche o app para encerrar')
     else
       Out('feche o app para encerrar');
     AbrirApp;
@@ -414,7 +506,7 @@ begin
       begin
         CloseHandle(App.hProcess);
         AppAberto := False;
-        Break;  { fechado pelo usu√°rio: fim do dev }
+        Break;  { fechado pelo usu·rio: fim do dev }
       end;
       if not AppAberto then
         Sleep(500);
@@ -425,10 +517,10 @@ begin
       Agora := FontesDelphi(P);
       if Agora > Base then
       begin
-        Sleep(300);  { o editor pode estar gravando v√°rios arquivos }
+        Sleep(300);  { o editor pode estar gravando v·rios arquivos }
         Base := FontesDelphi(P);
         Out('');
-        Etapa('O Delphi mudou: recompilando');
+        Etapa('O Delphi ou o app.json mudou: recompilando');
         if AppAberto then
         begin
           TerminateProcess(App.hProcess, 0);
@@ -437,6 +529,12 @@ begin
           AppAberto := False;
         end;
         try
+          if P.HasConfig then
+          begin
+            P.ReloadConfig;  { um app.json inv·lido para aqui, com a mensagem }
+            AvisosDoConfig(P);
+          end;
+          GarantirAssets(P);
           BorionCompileDelphi(P, BorionHome);
           AbrirApp;
         except

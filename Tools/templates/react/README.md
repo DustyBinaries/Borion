@@ -22,6 +22,7 @@ rode o `borion build` antes uma vez: ele gera o `app.res` com a interface.
 | | |
 |---|---|
 | `{{PROGRAM}}.dpr` | O app inteiro: o `TBorionBuilder` monta a janela, os plugins e os comandos Delphi |
+| `app.json` | Nome, versão, identificador, a janela (tamanho, limites, borda) e onde fica a interface; vai embutido no exe ([referência]({{BORION_HOME}}\docs\CONFIG.md)) |
 | `frontend\` | A interface: `index.html` e `src\` (Vite); `@borion/api` instalado da pasta do Borion |
 | `build.bat` / `dev.bat` | `borion build` (`npm run build`, empacota `frontend\dist` em `app.res` e compila) / `borion dev` |
 | `{{PROGRAM}}.rc` | Versão do exe (FileDescription, FileVersion...) |

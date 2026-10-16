@@ -1,7 +1,8 @@
 program {{PROGRAM}};
 
 // {{TITLE_COMMENT}}: app Borion. A interface é um projeto React + Vite em frontend\; a
-// lógica nativa, aqui. O app inteiro é montado pelo TBorionBuilder, sem form.
+// lógica nativa, aqui. O app inteiro é montado pelo TBorionBuilder, sem form, com o
+// título, a janela e a CSP do app.json (embutido no exe pelo borion build).
 //   borion dev    -> servidor do Vite com hot-reload + o app ligado a ele
 //   borion build  -> npm run build, empacota frontend\dist e compila o exe
 
@@ -24,8 +25,7 @@ begin
 end;
 
 begin
-  TBorionBuilder.Create('{{TITLE_PAS}}')
-    .Size(900, 640)
+  TBorionBuilder.Create  // título e janela: app.json
     .Plugin(TBorionDialogPlugin.Create)  // diálogos nativos: @borion/api/dialog
     .Command('saudar', Saudar)
     .Run;

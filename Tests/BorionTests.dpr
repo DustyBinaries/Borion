@@ -14,6 +14,7 @@ uses
   BorionIpc in '..\BorionIpc.pas',
   TestBorionJson in 'TestBorionJson.pas',
   BorionPack in '..\BorionPack.pas',
+  BorionConfig in '..\BorionConfig.pas',
   BorionAssets in '..\BorionAssets.pas',
   TestBorionIpc in 'TestBorionIpc.pas',
   BorionScope in '..\Plugins\BorionScope.pas',
@@ -48,7 +49,8 @@ uses
   TestBorionTools in 'TestBorionTools.pas',
   TestBorionBuilder in 'TestBorionBuilder.pas',
   TestBorionNew in 'TestBorionNew.pas',
-  TestBorionProject in 'TestBorionProject.pas';
+  TestBorionProject in 'TestBorionProject.pas',
+  TestBorionConfig in 'TestBorionConfig.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

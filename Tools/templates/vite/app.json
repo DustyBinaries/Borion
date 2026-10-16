@@ -1,0 +1,19 @@
+{
+  "productName": "{{TITLE_JSON}}",
+  "version": "0.1.0",
+  "identifier": "{{IDENTIFIER}}",
+  "build": {
+    "frontendDist": "frontend/dist",
+    "devUrl": "http://localhost:{{DEV_PORT}}"
+  },
+  "app": {
+    "windows": [
+      {
+        "width": 900,
+        "height": 640,
+        "minWidth": 480,
+        "minHeight": 360
+      }
+    ]
+  }
+}

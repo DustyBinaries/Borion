@@ -2,15 +2,20 @@ unit BorionProject;
 
 (*
   Borion — Native Application Engine
-  Projeto Borion visto pela CLI (borion build / borion dev), por convenção,
-  sem arquivo de configuração:
+  Projeto Borion visto pela CLI (borion build / borion dev): o app.json, se
+  houver, e o resto por convenção:
 
     programa     o único .dpr da pasta
-    frontend     frontend\package.json -> npm (build: frontend\dist)
+    config       app.json (opcional): vai embutido no .res de assets
+    frontend     build.frontendDist do app.json: npm se a pasta acima dela tiver
+                 um package.json (ui\dist -> ui\), senão estático (a pasta)
+                 sem frontendDist:
+                 frontend\package.json -> npm (build: frontend\dist)
                  web\                  -> estático (a própria pasta)
     assets       o {$R xxx.res} do .dpr que não é o *.res do projeto
     search path  o SearchPath do .dof (o mesmo que a IDE usa)
-    porta (dev)  o "port:" do frontend\vite.config.js (padrão 5173)
+    dev          build.devUrl do app.json, ou o "port:" do
+                 frontend\vite.config.js (padrão 5173)
     Delphi       %DELPHI%, ou o RootDir do Delphi 7 no registro
 
   É a estrutura que o "borion new" gera e que os exemplos usam.
@@ -19,7 +24,7 @@ unit BorionProject;
 interface
 
 uses
-  Windows, SysUtils, Classes, Registry;
+  Windows, SysUtils, Classes, Registry, BorionConfig;
 
 type
   EBorionProject = class(Exception);
@@ -32,13 +37,17 @@ type
     FProgramName: string;
     FKind: TBorionFrontendKind;
     FFrontendDir: string;
+    FDistDir: string;
     FAssetsRes: string;
+    FConfig: TBorionConfig;
     FDevPort: Integer;
     FSearchPath: TStringList;
     FUsesBorionApi: Boolean;
     procedure LerDpr;
     procedure LerDof;
     procedure LerViteConfig;
+    procedure LerConfig;
+    procedure AcharFrontend;
   public
     { Dir: pasta do projeto. Levanta EBorionProject se não achar um .dpr só. }
     constructor Create(const Dir: string);
@@ -47,6 +56,13 @@ type
     function RcFile: string;
     function ResFile: string;
     function ExeFile: string;
+    { app.json (pode não existir) }
+    function ConfigFile: string;
+    function HasConfig: Boolean;
+    { Relê o app.json (o dev chama quando ele muda). Levanta EBorionProject. }
+    procedure ReloadConfig;
+    { build.devUrl do app.json, ou http://localhost:<DevPort> }
+    function DevUrl: string;
     { Pasta que vai para o pacote de assets (web\ ou frontend\dist) }
     function DistDir: string;
     { O search path com os caminhos relativos expandidos, separados por ';' }
@@ -62,6 +78,8 @@ type
     property AssetsRes: string read FAssetsRes;
     property DevPort: Integer read FDevPort write FDevPort;
     property SearchPath: TStringList read FSearchPath;
+    { O app.json lido (Loaded = False se não houver) }
+    property Config: TBorionConfig read FConfig;
     { Estático: o index.html usa o @borion/api copiado em web\borion-api\ }
     property UsesBorionApi: Boolean read FUsesBorionApi;
   end;
@@ -188,6 +206,7 @@ begin
   inherited Create;
   FDir := ExcludeTrailingPathDelimiter(ExpandFileName(Dir));
   FSearchPath := TStringList.Create;
+  FConfig := TBorionConfig.Create;
   FDevPort := 5173;
   if not DirectoryExists(FDir) then
     raise EBorionProject.CreateFmt('pasta não encontrada: %s', [FDir]);
@@ -209,31 +228,90 @@ begin
     Dprs.Free;
   end;
 
-  if FileExists(FDir + '\frontend\package.json') then
+  LerConfig;
+  AcharFrontend;
+  LerDpr;
+  LerDof;
+  if FKind = fkNpm then
+    LerViteConfig;
+  if FConfig.DevPort > 0 then
+    FDevPort := FConfig.DevPort;
+end;
+
+destructor TBorionProject.Destroy;
+begin
+  FConfig.Free;
+  FSearchPath.Free;
+  inherited;
+end;
+
+procedure TBorionProject.LerConfig;
+begin
+  if not HasConfig then
+  begin
+    FConfig.Clear;
+    Exit;
+  end;
+  try
+    FConfig.LoadFromFile(ConfigFile);
+  except
+    on E: EBorionConfig do
+      raise EBorionProject.Create(E.Message);
+  end;
+end;
+
+procedure TBorionProject.ReloadConfig;
+begin
+  LerConfig;
+  if FConfig.DevPort > 0 then
+    FDevPort := FConfig.DevPort;
+end;
+
+function Absoluto(const Base, Caminho: string): string;
+var
+  C: string;
+begin
+  C := StringReplace(Caminho, '/', '\', [rfReplaceAll]);
+  if not ((Length(C) > 1) and ((C[2] = ':') or (C[1] = '\'))) then
+    C := Base + '\' + C;
+  Result := ExcludeTrailingPathDelimiter(ExpandFileName(C));
+end;
+
+procedure TBorionProject.AcharFrontend;
+var
+  Acima: string;
+begin
+  FKind := fkNone;
+  if FConfig.FrontendDist <> '' then
+  begin
+    FDistDir := Absoluto(FDir, FConfig.FrontendDist);
+    Acima := ExtractFileDir(FDistDir);
+    if FileExists(Acima + '\package.json') then
+    begin
+      FKind := fkNpm;
+      FFrontendDir := Acima;
+    end
+    else
+    begin
+      FKind := fkStatic;
+      FFrontendDir := FDistDir;
+    end;
+  end
+  else if FileExists(FDir + '\frontend\package.json') then
   begin
     FKind := fkNpm;
     FFrontendDir := FDir + '\frontend';
+    FDistDir := FFrontendDir + '\dist';
   end
   else if DirectoryExists(FDir + '\web') then
   begin
     FKind := fkStatic;
     FFrontendDir := FDir + '\web';
+    FDistDir := FFrontendDir;
+  end;
+  if FKind = fkStatic then
     FUsesBorionApi := FileExists(FFrontendDir + '\index.html') and
       (Pos('borion-api/', LerTexto(FFrontendDir + '\index.html')) > 0);
-  end
-  else
-    FKind := fkNone;
-
-  LerDpr;
-  LerDof;
-  if FKind = fkNpm then
-    LerViteConfig;
-end;
-
-destructor TBorionProject.Destroy;
-begin
-  FSearchPath.Free;
-  inherited;
 end;
 
 procedure TBorionProject.LerDpr;
@@ -335,14 +413,28 @@ begin
   Result := FDir + '\' + FProgramName + '.exe';
 end;
 
+function TBorionProject.ConfigFile: string;
+begin
+  Result := FDir + '\' + BORION_CONFIG_FILE;
+end;
+
+function TBorionProject.HasConfig: Boolean;
+begin
+  Result := FileExists(ConfigFile);
+end;
+
+function TBorionProject.DevUrl: string;
+begin
+  Result := FConfig.DevUrl;
+  while (Result <> '') and (Result[Length(Result)] = '/') do
+    SetLength(Result, Length(Result) - 1);
+  if Result = '' then
+    Result := Format('http://localhost:%d', [FDevPort]);
+end;
+
 function TBorionProject.DistDir: string;
 begin
-  case FKind of
-    fkNpm: Result := FFrontendDir + '\dist';
-    fkStatic: Result := FFrontendDir;
-  else
-    Result := '';
-  end;
+  Result := FDistDir;
 end;
 
 function TBorionProject.SearchPathText: string;

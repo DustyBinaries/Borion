@@ -1,7 +1,9 @@
 export interface AppInfo {
   name: string;
-  /** FileVersion do recurso de versão do exe ('' se não houver) */
+  /** "version" do app.json; sem ela, o FileVersion do exe ('' se não houver) */
   version: string;
+  /** "identifier" do app.json ('' se não houver) */
+  identifier: string;
   exe: string;
   pid: number;
 }

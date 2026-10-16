@@ -21,7 +21,7 @@ export function minimize() {
   return invoke('app:minimize').then(ok);
 }
 
-/** { name, version, exe, pid } */
+/** { name, version, identifier, exe, pid } */
 export function info() {
   return invoke('app:info');
 }

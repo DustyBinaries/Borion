@@ -21,6 +21,7 @@ rode o `borion build` antes uma vez: ele gera o `web.res` com a interface.
 | | |
 |---|---|
 | `{{PROGRAM}}.dpr` | O app inteiro: o `TBorionBuilder` monta a janela, os plugins e os comandos Delphi |
+| `app.json` | Nome, versão, identificador, a janela (tamanho, limites, borda) e onde fica a interface; vai embutido no exe ([referência]({{BORION_HOME}}\docs\CONFIG.md)) |
 | `web\` | A interface: `index.html`, `app.js` e `style.css` |
 | `build.bat` / `dev.bat` | `borion build` / `borion dev` (copiam o `@borion/api` para `web\borion-api\`, empacotam `web\` em `web.res` e compilam) |
 | `{{PROGRAM}}.rc` | Versão do exe (FileDescription, FileVersion...) |

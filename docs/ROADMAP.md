@@ -16,7 +16,7 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 | `invoke('comando', args)` → `#[tauri::command]` | `borion.invoke()` → `TBorionIpc.RegisterCommand` | ✅ Fase 1 |
 | Eventos `emit`/`listen` | `borion.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
 | `@tauri-apps/api` | Ponte injetada (`window.borion`) + pacote ESM `@borion/api` | ✅ Fase 1 |
-| `tauri.conf.json` | `app.json` embutido | ⬜ Fase 3 |
+| `tauri.conf.json` | `app.json` embutido | ✅ Fase 3 (janela principal) |
 | Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ✅ Fase 4 |
 | Capabilities / permissões | Lista de comandos permitidos por janela e origem | ⬜ Fase 5 |
 | `create-tauri-app` / `tauri dev` / `tauri build` | CLI própria: `borion new`, `borion dev` e `borion build` | ✅ Fase 6 |
@@ -143,21 +143,29 @@ Documentação: [ASSETS.md](ASSETS.md).
 
 ## Fase 3: Configuração e janelas
 
+Documentação: [CONFIG.md](CONFIG.md).
+
 **Configuração (`app.json`, embutido no exe)**
-- [ ] `identifier`, `productName`, `version`.
-- [ ] Janela principal: `title`, `width`/`height`, `minWidth`, `resizable`, `center`,
-      `maximized`, `decorations`.
-- [ ] `build.devUrl`, `build.frontendDist`.
-- [ ] `security.csp`, permissões (Fase 5).
+- [x] `identifier`, `productName`, `version` (validados; o `app:info` devolve a versão e o
+      identificador).
+- [x] Janela principal (`app.windows[0]`): `title`, `width`/`height`, `minWidth`/`minHeight`,
+      `maxWidth`/`maxHeight`, `resizable`, `center`, `maximized`, `decorations`, `alwaysOnTop`.
+- [x] `build.devUrl`, `build.frontendDist` (lidos pelo `borion build` e pelo `borion dev`).
+- [x] `app.security.csp`. As permissões ficam para a Fase 5.
+- [x] Embutido pelo `borion build` no `.res` da interface (recurso `BORION_CONFIG`, fora do `*.res`
+      que a IDE regrava). O `borion dev` reabre o app quando ele muda. Tipo errado é erro, chave
+      desconhecida é aviso, e os métodos do builder no `.dpr` vencem o arquivo.
 - [x] O app sobe **sem código de form**: o `TBorionBuilder` (unit `Borion`) monta a janela, o IPC,
-      os assets, o escopo e os plugins a partir do `.dpr`, como o `tauri::Builder`. Falta ler a
-      configuração de um `app.json`.
+      os assets, o escopo e os plugins a partir do `.dpr`, como o `tauri::Builder`, partindo do
+      `app.json`.
+- [ ] `beforeDevCommand` / `beforeBuildCommand` (hoje, sempre `npm run dev` / `npm run build`).
 
 **Janelas**
 - [ ] `TAppWindow`: um form com browser, criado pela configuração ou em tempo de execução.
 - [ ] API JS de janela: `setTitle`, `minimize`, `maximize`, `close`, `setSize`, `center`,
       `setFullscreen`, `setAlwaysOnTop`, `show`/`hide`.
-- [ ] Múltiplas janelas, com rótulo e mensagens entre elas.
+- [ ] Múltiplas janelas, com rótulo e mensagens entre elas (`app.windows[1..]`, que hoje só geram
+      aviso; `TBorionWindow.ApplyConfig` já aplica uma `TBorionWindowConfig` a qualquer janela).
 - [ ] Evento `close-requested` interceptável pelo JS ("deseja salvar?").
 - [ ] Persistir tamanho, posição e estado (plugin *window-state*).
 - [ ] **Janela sem borda** com barra de título em HTML: arrastar pela região
@@ -251,16 +259,17 @@ liberados.
 ## Fase 6: CLI e templates
 
 - [x] `borion new <pasta> [--template vanilla|vite|react]`: cria o projeto (o `.dpr` com o
-      `TBorionBuilder`, a interface, `build.bat`/`dev.bat`, `.rc`, `.dof`, `.gitignore`, README) a
-      partir dos templates em `Tools/templates`. Falta o `app.json` (Fase 3).
+      `TBorionBuilder`, a interface, `build.bat`/`dev.bat`, `.rc`, `.dof`, `.gitignore`, README e o
+      `app.json`) a partir dos templates em `Tools/templates`.
 - [x] `borion dev`: sobe o Vite e abre o app com `--dev-url`, ou, numa interface estática, abre
       com `--dev-dir` (servida do disco, com live reload); compila só se preciso e, quando o
       Delphi muda, recompila e reabre. Fechar o app encerra tudo. Pendente: a página servida
       pelo `WebResourceRequested` leva ~2 s para trocar a cada recarga (veja
       [ASSETS](ASSETS.md#limitações)).
 - [x] `borion build`: build do frontend → `borion pack` → `brcc32` (se o `.rc` mudou) → `dcc32`
-      → exe na pasta do projeto, com o `WebView2Loader.dll`. O projeto é achado por convenção
-      (`.dpr`, `web\`/`frontend\`, `.dof`); falta o `app.json` (Fase 3) e a saída em `dist/`.
+      → exe na pasta do projeto, com o `WebView2Loader.dll`. O projeto vem do `app.json`
+      (`build.frontendDist`, `build.devUrl`) e, sem ele, da convenção (`.dpr`,
+      `web\`/`frontend\`, `.dof`). Falta a saída em `dist/`.
 - [ ] `app info`: versões de Delphi, runtime WebView2 e Node, para diagnóstico.
 - [x] Detectar o Delphi pelo registro, sem caminho fixo (a variável `DELPHI` vence).
 - [ ] Gerar os tipos TypeScript dos comandos a partir do registro Delphi (opcional e ambicioso).
@@ -306,11 +315,12 @@ recompila e reabre, e fechar o app encerra o Vite).
 - [x] `WebResourceRequested` genérico, base para "API local"
 - [x] **Borion IPC**: `invoke` / `emit` / `listen`, comandos assíncronos, validação de origem
 - [x] **Assets**: `borion pack` + `TBorionAssets` (fallback de SPA, zlib, headers) e modo dev com hot-reload
+- [x] **Configuração**: `app.json` embutido no exe (nome, versão, janela principal, CSP, build)
 - [x] **Plugins** `dialog`, `fs` e `shell`, com escopo de arquivos negado por padrão
 - [x] **Robustez** do `TWebView2Browser`: callbacks protegidos, queda de processo, recriação de handle
 - [x] Repositório separado em `WebView2/` e `Borion/`, cada um com exemplo próprio
 - [x] Documentação: READMEs de cada parte, `WebView2/docs/WebResourceRequested.md`,
-      `Borion/docs/IPC.md`, `Borion/docs/ASSETS.md`
+      `Borion/docs/IPC.md`, `Borion/docs/ASSETS.md`, `Borion/docs/CONFIG.md`
 
 ## Ordem sugerida para começar
 
@@ -324,5 +334,6 @@ recompila e reabre, e fechar o app encerra o Vite).
 Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distribuição vêm depois.
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
-`app` mínimo fecharam o Marco 4. Próximos candidatos: configuração e janelas (Fase 3), a CLI
-`borion dev`/`build` (Fase 6) e o `sql` (opcional) e os caminhos do `os`/`app`.
+`app` mínimo fecharam o Marco 4, a CLI `borion new`/`dev`/`build` fechou o Marco 6, e o `app.json`
+configura o app e a janela principal. Próximos candidatos: as janelas da Fase 3 (`TAppWindow`, API
+JS de janela, várias janelas, rumo ao Marco 3), o `sql` (opcional) e os caminhos do `os`/`app`.

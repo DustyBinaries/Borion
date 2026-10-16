@@ -6,7 +6,7 @@ unit TestBorionNew;
 interface
 
 uses
-  Windows, SysUtils, Classes, TestFramework, BorionNew;
+  Windows, SysUtils, Classes, TestFramework, BorionNew, BorionConfig;
 
 type
   TTestBorionNew = class(TTestCase)
@@ -136,17 +136,32 @@ procedure TTestBorionNew.TestGeraVanilla;
 var
   Criados: TStringList;
   P, S: string;
+  Config: TBorionConfig;
 begin
   Criados := TStringList.Create;
   try
     BorionNewProject(Opcoes('meu-app', 'vanilla'), Criados);
     P := FSaida + '\meu-app';
-    CheckEquals('.gitignore,build.bat,dev.bat,MeuApp.dof,MeuApp.dpr,MeuApp.rc,README.md,web\app.js,' +
+    CheckEquals('.gitignore,app.json,build.bat,dev.bat,MeuApp.dof,MeuApp.dpr,MeuApp.rc,README.md,web\app.js,' +
       'web\index.html,web\style.css', StringReplace(Criados.CommaText, '"', '', [rfReplaceAll]));
     SemPlaceholders(P, Criados);
     S := Ler(P + '\MeuApp.dpr');
     Check(Pos('program MeuApp;', S) = 1, 'program');
-    Check(Pos('TBorionBuilder.Create(''D''''Ávila & Cia "Gestão"'')', S) > 0, 'título em Pascal, cp1252');
+    Check(Pos('TBorionBuilder.Create  //', S) > 0, 'título e janela do app.json');
+    S := Ler(P + '\app.json');
+    Check(Pos('"productName": "D''' + #$C3#$81 + 'vila & Cia \"Gest' + #$C3#$A3 + 'o\""', S) > 0,
+      'título em JSON, UTF-8: ' + S);
+    Check(Pos('"identifier": "com.exemplo.meu-app"', S) > 0, S);
+    Check(Pos('"frontendDist": "web"', S) > 0, S);
+    Config := TBorionConfig.Create;
+    try
+      Config.LoadFromFile(P + '\app.json');
+      CheckEquals(TITULO, Config.ProductName, 'o app.json gerado é válido');
+      CheckEquals(0, Config.Warnings.Count, Config.Warnings.Text);
+      CheckEquals(900, Config.Window.Width);
+    finally
+      Config.Free;
+    end;
     S := Ler(P + '\web\index.html');
     Check(Pos('<title>D''' + #$C3#$81 + 'vila &amp; Cia &quot;Gest' + #$C3#$A3 + 'o&quot;</title>', S) > 0,
       'título em HTML, UTF-8: ' + Copy(S, Pos('<title>', S), 80));
@@ -179,6 +194,9 @@ begin
     Check(Pos('"@borion/api": "file:C:/Borion/js"', S) > 0, 'caminho com barras para o npm');
     Check(Pos('port: 5190,', Ler(FSaida + '\app-vite\frontend\vite.config.js')) > 0);
     Check(Pos('borion.exe" dev', Ler(FSaida + '\app-vite\dev.bat')) > 0, 'chama o borion dev');
+    S := Ler(FSaida + '\app-vite\app.json');
+    Check(Pos('"frontendDist": "frontend/dist"', S) > 0, S);
+    Check(Pos('"devUrl": "http://localhost:5190"', S) > 0, 'a porta do --port: ' + S);
 
     Criados.Clear;
     BorionNewProject(Opcoes('app react', 'react'), Criados);

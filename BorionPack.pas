@@ -82,6 +82,9 @@ function BorionPackFolder(const Folder: string; Dest: TStream; const Options: TB
 
 { .res com um único recurso RCDATA }
 procedure BorionWriteRes(const FileName, ResName: string; Data: TStream);
+{ .res com vários recursos RCDATA (ResNames[I] -> Data[I], do início de cada stream) }
+procedure BorionWriteResources(const FileName: string; const ResNames: array of string;
+  const Data: array of TStream);
 { Lê o recurso RCDATA ResName de um .res; False se não existir }
 function BorionReadRes(const FileName, ResName: string; Dest: TStream): Boolean;
 
@@ -452,17 +455,20 @@ end;
   MemoryFlags, LanguageId, Version, Characteristics, dados (alinhados a 4). }
 
 procedure BorionWriteRes(const FileName, ResName: string; Data: TStream);
+begin
+  BorionWriteResources(FileName, [ResName], [Data]);
+end;
+
+procedure BorionWriteResources(const FileName: string; const ResNames: array of string;
+  const Data: array of TStream);
 var
   S: TFileStream;
   Nome: WideString;
   NomeBytes, HeaderSize: Cardinal;
+  I: Integer;
 begin
-  Nome := WideString(UpperCase(ResName));
-  NomeBytes := (Length(Nome) + 1) * 2;
-  HeaderSize := 8 + 4 + NomeBytes;
-  if HeaderSize mod 4 <> 0 then
-    Inc(HeaderSize, 4 - HeaderSize mod 4);
-  Inc(HeaderSize, 16);
+  if Length(ResNames) <> Length(Data) then
+    raise EBorionPack.Create('BorionWriteResources: nomes e dados em quantidades diferentes');
   S := TFileStream.Create(FileName, fmCreate);
   try
     { entrada vazia obrigatória no início do arquivo }
@@ -470,20 +476,28 @@ begin
     WriteWord(S, $FFFF); WriteWord(S, 0);
     WriteWord(S, $FFFF); WriteWord(S, 0);
     WriteCard(S, 0); WriteCard(S, 0); WriteCard(S, 0); WriteCard(S, 0);
-    { o recurso }
-    WriteCard(S, Data.Size);
-    WriteCard(S, HeaderSize);
-    WriteWord(S, $FFFF); WriteWord(S, RT_RCDATA_ID);
-    S.WriteBuffer(Nome[1], NomeBytes);  { inclui o #0 final }
-    WritePad(S);
-    WriteCard(S, 0);         { DataVersion }
-    WriteWord(S, $0030);     { MemoryFlags: MOVEABLE | PURE }
-    WriteWord(S, 0);         { LanguageId: neutro }
-    WriteCard(S, 0);         { Version }
-    WriteCard(S, 0);         { Characteristics }
-    if Data.Size > 0 then
-      S.CopyFrom(Data, 0);
-    WritePad(S);
+    for I := 0 to High(ResNames) do
+    begin
+      Nome := WideString(UpperCase(ResNames[I]));
+      NomeBytes := (Length(Nome) + 1) * 2;
+      HeaderSize := 8 + 4 + NomeBytes;
+      if HeaderSize mod 4 <> 0 then
+        Inc(HeaderSize, 4 - HeaderSize mod 4);
+      Inc(HeaderSize, 16);
+      WriteCard(S, Data[I].Size);
+      WriteCard(S, HeaderSize);
+      WriteWord(S, $FFFF); WriteWord(S, RT_RCDATA_ID);
+      S.WriteBuffer(Nome[1], NomeBytes);  { inclui o #0 final }
+      WritePad(S);
+      WriteCard(S, 0);         { DataVersion }
+      WriteWord(S, $0030);     { MemoryFlags: MOVEABLE | PURE }
+      WriteWord(S, 0);         { LanguageId: neutro }
+      WriteCard(S, 0);         { Version }
+      WriteCard(S, 0);         { Characteristics }
+      if Data[I].Size > 0 then
+        S.CopyFrom(Data[I], 0);
+      WritePad(S);
+    end;
   finally
     S.Free;
   end;

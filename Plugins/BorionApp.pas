@@ -11,7 +11,8 @@ unit BorionApp;
     app:show       mostra e traz a janela para frente (inclusive se estiver na bandeja)
     app:hide       esconde a janela
     app:minimize   minimiza
-    app:info       {name, version, exe, pid}
+    app:info       {name, version, identifier, exe, pid} (version e identifier
+                   do app.json; sem eles, a versão do exe e '')
 
   É a parte do plugin "app" do roadmap que os menus e a bandeja precisam (um
   item "Sair" não tem como fechar o app sem ela). Caminhos, reiniciar etc.
@@ -51,7 +52,7 @@ procedure BorionShowMainWindow(Ipc: TBorionIpc; Form: TCustomForm = nil);
 implementation
 
 uses
-  BorionTray;
+  BorionTray, BorionConfig;
 
 function BorionExeVersion: string;
 var
@@ -162,7 +163,11 @@ var
 begin
   O := Call.Result.AsObject;
   O.Put('name', Application.Title);
-  O.Put('version', BorionExeVersion);
+  if BorionAppConfig.Version <> '' then
+    O.Put('version', BorionAppConfig.Version)
+  else
+    O.Put('version', BorionExeVersion);
+  O.Put('identifier', BorionAppConfig.Identifier);
   O.Put('exe', ParamStr(0));
   O.Put('pid', Integer(GetCurrentProcessId));
 end;

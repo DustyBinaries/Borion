@@ -241,6 +241,21 @@ begin
   Result := StringReplace(Result, '"', '&quot;', [rfReplaceAll]);
 end;
 
+{ Texto para dentro de uma string JSON (sem as aspas) }
+function Json(const S: string): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := 1 to Length(S) do
+    case S[I] of
+      '"', '\': Result := Result + '\' + S[I];
+      #0..#31: Result := Result + Format('\u%.4x', [Ord(S[I])]);
+    else
+      Result := Result + S[I];
+    end;
+end;
+
 { Placeholders: Nome=Valor (o valor em ANSI; nos arquivos UTF-8 vai convertido) }
 procedure MontarValores(const O: TBorionNewOptions; const Programa, Titulo, Npm: string;
   Valores: TStrings);
@@ -256,7 +271,9 @@ begin
   Valores.Add('TITLE_COMMENT=' + Comentario);
   Valores.Add('TITLE_JS=' + StringReplace(StringReplace(Titulo, '\', '\\', [rfReplaceAll]),
     '''', '\''', [rfReplaceAll]));
+  Valores.Add('TITLE_JSON=' + Json(Titulo));
   Valores.Add('NPM_NAME=' + Npm);
+  Valores.Add('IDENTIFIER=com.exemplo.' + Npm);
   Valores.Add('BORION_HOME=' + O.BorionHome);
   Valores.Add('WEBVIEW2_HOME=' + O.WebView2Home);
   Valores.Add('JSON4DELPHI=' + O.Json4Delphi);

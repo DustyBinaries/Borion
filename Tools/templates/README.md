@@ -9,7 +9,8 @@ tiver um arquivo com o mesmo caminho).
 | `vite` | Projeto Vite com JS puro em `frontend\`; no dev, hot-reload do Vite | Sim |
 | `react` | Projeto React + Vite em `frontend\`; no dev, hot-reload do Vite | Sim |
 
-Todos geram o app inteiro num `.dpr` com o `TBorionBuilder`, um comando Delphi de exemplo
+Todos geram o app inteiro num `.dpr` com o `TBorionBuilder`, o `app.json` (título, versão,
+janela e `build.frontendDist`; cada template tem o seu), um comando Delphi de exemplo
 (`saudar`) e o plugin `dialog`, além do `build.bat` e do `dev.bat`, que só chamam o
 `borion build` e o `borion dev` (para funcionar sem o `borion` no PATH). O `borion build`/`dev`
 acha o projeto por convenção (veja o [README do Borion](../../README.md#borion-dev-e-borion-build)):
@@ -34,7 +35,9 @@ um template novo deve manter o único `.dpr`, a interface em `web\` ou `frontend
 | `TITLE_JS` | O título para uma string JS entre aspas simples |
 | `TITLE_RC` | O título para uma string do `.rc` (aspas duplas dobradas) |
 | `TITLE_COMMENT` | O título numa linha só, para comentários |
+| `TITLE_JSON` | O título para uma string JSON (`"` e `\` escapados) |
 | `NPM_NAME` | Nome de pacote npm (`Meu App` → `meu-app`) |
+| `IDENTIFIER` | Identificador do `app.json` (`com.exemplo.` + o nome npm) |
 | `BORION_HOME`, `WEBVIEW2_HOME` | Pastas do Borion e do WebView2 |
 | `JSON4DELPHI`, `ACBR_COMUM` | Pastas da `Jsons.pas` e do `ACBr.inc` |
 | `SEARCH_PATH` | *Search path* completo para o `.dof` |

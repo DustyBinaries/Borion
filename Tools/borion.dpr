@@ -15,7 +15,8 @@ program borion;
         scripts de build, a partir de Tools\templates.
 
     borion build [pasta]
-        Compila o projeto: frontend, pacote de assets, recursos e o exe.
+        Compila o projeto: frontend, pacote de assets (com o app.json),
+        recursos e o exe.
 
     borion dev [pasta] [--port 5173] [--no-watch]
         Modo dev: o app ligado ao servidor do Vite (ou à pasta web\, com
@@ -31,12 +32,14 @@ uses
   SysUtils,
   Classes,
   BorionPack in '..\BorionPack.pas',
+  BorionJson in '..\BorionJson.pas',
+  BorionConfig in '..\BorionConfig.pas',
   BorionNew in 'BorionNew.pas',
   BorionProject in 'BorionProject.pas',
   BorionBuild in 'BorionBuild.pas';
 
 const
-  VERSAO = '0.3.0';
+  VERSAO = '0.4.0';
 
 var
   Args: TStringList;
@@ -61,7 +64,7 @@ begin
   Writeln('  borion new <pasta> [--template vanilla|vite|react] [--title "Titulo"] [--port 5173]');
   Writeln('      Cria um app Borion (padrao: template vanilla, HTML/JS puro, sem Node).');
   Writeln('  borion build [pasta]');
-  Writeln('      Compila o projeto (frontend, assets, recursos e o exe).');
+  Writeln('      Compila o projeto (frontend, assets e app.json, recursos e o exe).');
   Writeln('  borion dev [pasta] [--port 5173] [--no-watch]');
   Writeln('      Abre o app em modo dev; recompila e reabre quando o Delphi muda.');
   Writeln('  borion version');

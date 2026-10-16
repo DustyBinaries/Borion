@@ -37,6 +37,8 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 
 - **App sem form** (`TBorionBuilder`): o app inteiro escrito no `.dpr`, como o `tauri::Builder`.
   A janela, o IPC e o frontend embutido são montados pelo `Run`. Veja [Criando um app](#criando-um-app).
+- **Configuração** (`app.json`): nome, versão, identificador, a janela principal e a CSP num
+  arquivo embutido no exe, como o `tauri.conf.json`. Veja [CONFIG.md](docs/CONFIG.md).
 - **Comandos**: `borion.invoke(cmd, args)` → procedure Delphi, com resultado numa Promise.
 - **Erros** com código: exceção Delphi → Promise rejeitada com `error.code`.
 - **Comandos assíncronos**: `Call.Defer` + `Resolve`/`Reject`, inclusive de outras threads.
@@ -82,6 +84,7 @@ borion build                                      :: o MeuApp.exe com a interfac
 `borion new <pasta> [--template vanilla|vite|react] [--title "Título"] [--port 5173]` cria:
 
 - o `.dpr` com o `TBorionBuilder` e um comando Delphi de exemplo;
+- o `app.json`, com o nome, a versão, a janela e onde fica a interface ([docs](docs/CONFIG.md));
 - a interface (`web\` ou `frontend\`);
 - o `build.bat` e o `dev.bat` (atalhos para o `borion build` e o `borion dev`);
 - o `.rc` com a versão do exe;
@@ -93,21 +96,23 @@ O projeto aponta para esta pasta do Borion (`BORION_HOME` no `build.bat`). Os te
 
 ### `borion dev` e `borion build`
 
-Os dois recebem a pasta do projeto (padrão: a atual) e acham tudo por convenção, sem arquivo de
-configuração:
+Os dois recebem a pasta do projeto (padrão: a atual). Leem o [`app.json`](docs/CONFIG.md), se
+houver, e acham o resto por convenção:
 
 | O quê | Como é achado |
 |---|---|
 | Programa | O único `.dpr` da pasta |
-| Interface | `frontend\package.json` (npm, sai em `frontend\dist`) ou a pasta `web\` (estática) |
+| Configuração | O `app.json` (opcional): validado e embutido no pacote da interface |
+| Interface | O `build.frontendDist` do `app.json`; sem ele, `frontend\package.json` (npm, sai em `frontend\dist`) ou a pasta `web\` (estática) |
 | Pacote da interface | O primeiro `{$R x.res}` do `.dpr` (fora o `*.res`) |
 | *Search path* | O `SearchPath` do `.dof` |
-| Porta do Vite | O `port:` do `vite.config.js` (padrão 5173) |
+| Servidor de dev | O `build.devUrl` do `app.json`; sem ele, o `port:` do `vite.config.js` (padrão 5173) |
 | Delphi | A variável `DELPHI`, senão o registro (`Software\Borland\Delphi\7.0`), senão os caminhos padrão |
 
 **`borion build`:** `npm install` (se faltar o `node_modules`) e `npm run build`, ou, na interface
-estática, a cópia do `@borion/api` para `web\borion-api`; o pacote da interface; o `brcc32`, se o
-`.rc` mudou; o `dcc32`; e a cópia do `WebView2Loader.dll`.
+estática, a cópia do `@borion/api` para `web\borion-api`; o pacote da interface, com o
+`app.json`; o `brcc32`, se o `.rc` mudou; o `dcc32`; e a cópia do `WebView2Loader.dll`. Um
+`app.json` inválido para o build; uma chave desconhecida só gera aviso.
 
 **`borion dev [--port N] [--no-watch]`:**
 
@@ -115,17 +120,21 @@ estática, a cópia do `@borion/api` para `web\borion-api`; o pacote da interfac
   com `--dev-url`. O hot-reload é o do Vite.
 - **estática:** abre o exe com `--dev-dir=web`. O `TBorionAssets` serve a pasta direto do disco
   e recarrega a página quando um arquivo muda.
-- Compila antes só se as fontes mudaram. Enquanto roda, vigia `*.dpr`, `*.pas`, `*.rc` e `*.inc`:
-  mudou, fecha o app, recompila e reabre (`--no-watch` desliga).
+- Compila antes só se as fontes mudaram. Enquanto roda, vigia `*.dpr`, `*.pas`, `*.rc`, `*.inc`
+  e o `app.json`: mudou, fecha o app, recompila e reabre (`--no-watch` desliga).
 - Fechar o app encerra o `borion dev` e o Vite junto (os processos ficam num *job object*).
 
 O `TBorionBuilder` (unit `Borion`) monta o app a partir do `.dpr`, encadeando a configuração e
-terminando no `Run`:
+terminando no `Run`. Ele parte do `app.json` embutido, e os métodos chamados no `.dpr` vencem o
+arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 
 | Método | O que faz |
 |---|---|
-| `TBorionBuilder.Create(Titulo)` | Título do app e da janela (já vale para os plugins criados na mesma expressão) |
-| `.Size(L, A)`, `.MinSize(L, A)`, `.Maximized` | Tamanho da janela (padrão 1000×700, centralizada) |
+| `TBorionBuilder.Create` / `.Create(Titulo)` | Título do app e da janela: o `productName` do `app.json` ou o informado (já vale para os plugins criados na mesma expressão) |
+| `.Config(C)` | Usa outra `TBorionConfig` no lugar da embutida (chame logo depois do `Create`) |
+| `.Size(L, A)`, `.MinSize(L, A)`, `.MaxSize(L, A)`, `.Maximized` | Tamanho da janela (padrão 1000×700, centralizada) |
+| `.Resizable(B)`, `.Centered(B)`, `.Decorations(B)`, `.AlwaysOnTop(B)` | Borda, posição e camada da janela |
+| `.Csp(politica)` | Header `Content-Security-Policy` dos assets |
 | `.FixedTitle` | O caption não acompanha o `document.title` da página |
 | `.Plugin(P)` | Adiciona um plugin |
 | `.Command(nome, Proc)` / `.Commands(Registrar)` | Um comando (`procedure Proc(Call: TBorionCall)`) ou uma procedure que registra vários (`procedure Registrar(Ipc: TBorionIpc)`) |
@@ -168,11 +177,13 @@ terminando no `Run`:
 | `BorionJson.pas` | Correções de Unicode na fronteira JSON entre o JS e o Delphi 7 |
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
 | `BorionPack.pas` | Formato do pacote de assets, compressão e leitura/escrita de `.res` |
+| `BorionConfig.pas` | `TBorionConfig`: leitura e validação do `app.json`, e o `BorionAppConfig` embutido no exe |
 | `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion new` (com os templates em `Tools/templates`), `borion dev`, `borion build`, `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
 | `docs/IPC.md` | Guia completo do IPC |
 | `docs/ASSETS.md` | Assets do frontend, `borion pack`, fallback de SPA e modo dev |
+| `docs/CONFIG.md` | O `app.json`: referência das chaves, precedência e como ele vai para o exe |
 | `docs/ROADMAP.md` | Roadmap do framework |
 | `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, num form Delphi tradicional, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
@@ -236,7 +247,7 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **255 testes DUnit** e **67 testes JS** (`node:test`):
+Roda **275 testes DUnit** e **67 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
@@ -250,8 +261,10 @@ Roda **255 testes DUnit** e **67 testes JS** (`node:test`):
   `notification`; entrega dos argumentos do `single-instance` com Unicode; registro do
   `deep-link` e do `autostart` no HKCU, com caminho Unicode e o "Desabilitado" do Gerenciador de
   Tarefas; atalhos globais (sintaxe, conflito com outro programa, WM_HOTKEY); log com níveis,
-  rotação, várias threads e Unicode; o `TBorionBuilder` e o escopo de arquivos do app; o `borion new` com os templates de verdade;
-  a detecção do projeto do `borion build` e um build de verdade de um projeto gerado);
+  rotação, várias threads e Unicode; o `TBorionBuilder` e o escopo de arquivos do app; o `app.json`
+  (tipos, valores, avisos, UTF-8, o recurso no `.res` e a aplicação no builder e na janela); o
+  `borion new` com os templates de verdade; a detecção do projeto do `borion build`, com e sem
+  `app.json`, e um build de verdade de um projeto gerado);
 - JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`,
   `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão

@@ -7,7 +7,8 @@ unit TestBorionProject;
 interface
 
 uses
-  Windows, SysUtils, Classes, TestFramework, BorionProject, BorionBuild, BorionNew;
+  Windows, SysUtils, Classes, TestFramework, BorionProject, BorionBuild, BorionNew, BorionConfig,
+  BorionPack;
 
 type
   TTestBorionProject = class(TTestCase)
@@ -20,6 +21,10 @@ type
     procedure TestProjetoEstatico;
     procedure TestProjetoNpm;
     procedure TestSemFrontend;
+    procedure TestAppJsonNpm;
+    procedure TestAppJsonEstatico;
+    procedure TestAppJsonInvalido;
+    procedure TestPacoteComAppJson;
     procedure TestSemDprOuComDois;
     procedure TestDelphiPelaVariavel;
     procedure TestDatas;
@@ -134,6 +139,113 @@ begin
   end;
 end;
 
+procedure TTestBorionProject.TestAppJsonNpm;
+var
+  P: TBorionProject;
+begin
+  Criar('Loja.dpr', 'program Loja;'#13#10'{$R *.res}'#13#10'{$R app.res}'#13#10'begin end.');
+  Criar('ui\package.json', '{}');
+  Criar('frontend\package.json', '{}');  { a convenção perde para o app.json }
+  Criar('app.json', '{"build": {"frontendDist": "ui/dist", "devUrl": "http://localhost:5300/"}}');
+  P := TBorionProject.Create(FDir);
+  try
+    Check(P.HasConfig);
+    Check(P.Config.Loaded);
+    Check(P.Kind = fkNpm, 'package.json acima do frontendDist');
+    CheckEquals(FDir + '\ui', P.FrontendDir);
+    CheckEquals(FDir + '\ui\dist', P.DistDir);
+    CheckEquals(5300, P.DevPort, 'porta do devUrl');
+    CheckEquals('http://localhost:5300', P.DevUrl, 'sem a barra final');
+    CheckEquals(FDir + '\app.json', P.ConfigFile);
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TTestBorionProject.TestAppJsonEstatico;
+var
+  P: TBorionProject;
+begin
+  Criar('Site.dpr', 'program Site;'#13#10'{$R *.res}'#13#10'{$R web.res}'#13#10'begin end.');
+  Criar('public\index.html', '<script type="importmap">{"imports":{"@borion/api":"./borion-api/index.js"}}</script>');
+  Criar('app.json', '{"build": {"frontendDist": "public"}}');
+  P := TBorionProject.Create(FDir);
+  try
+    Check(P.Kind = fkStatic);
+    CheckEquals(FDir + '\public', P.FrontendDir);
+    CheckEquals(FDir + '\public', P.DistDir);
+    Check(P.UsesBorionApi);
+    CheckEquals('http://localhost:5173', P.DevUrl, 'sem devUrl');
+  finally
+    P.Free;
+  end;
+end;
+
+procedure TTestBorionProject.TestAppJsonInvalido;
+begin
+  Criar('App.dpr', 'program App; begin end.');
+  Criar('app.json', '{"app": {"windows": [{"width": "grande"}]}}');
+  try
+    TBorionProject.Create(FDir).Free;
+    Fail('app.json inválido');
+  except
+    on E: EBorionProject do
+      Check(Pos('"app.windows[0].width"', E.Message) > 0, E.Message);
+  end;
+end;
+
+function LerRecurso(const Arquivo, Nome: string): string;
+var
+  M: TMemoryStream;
+begin
+  Result := '';
+  M := TMemoryStream.Create;
+  try
+    if BorionReadRes(Arquivo, Nome, M) then
+    begin
+      SetLength(Result, M.Size);
+      if M.Size > 0 then
+        Move(M.Memory^, Result[1], M.Size);
+    end;
+  finally
+    M.Free;
+  end;
+end;
+
+procedure TTestBorionProject.TestPacoteComAppJson;
+var
+  P: TBorionProject;
+  Res, Pacote: string;
+begin
+  Criar('App.dpr', 'program App;'#13#10'{$R *.res}'#13#10'{$R web.res}'#13#10'begin end.');
+  Criar('web\index.html', '<p>oi</p>');
+  Criar('app.json', '{"productName": "Primeiro"}');
+  Res := FDir + '\web.res';
+  Saida := TStringList.Create;
+  BorionOut := Capturar;
+  P := TBorionProject.Create(FDir);
+  try
+    BorionPackAssets(P.DistDir, Res, P.ConfigFile);
+    Pacote := LerRecurso(Res, BORION_PACK_RESOURCE);
+    Check(Pacote <> '', 'o pacote');
+    Check(Pos('"Primeiro"', LerRecurso(Res, BORION_CONFIG_RESOURCE)) > 0, 'o app.json');
+    Check(Pos('+ app.json', Saida.Text) > 0, Saida.Text);
+    { o dev troca só o app.json, sem refazer o pacote }
+    Criar('app.json', '{"productName": "Segundo"}');
+    BorionUpdateConfigRes(P);
+    CheckEquals(Pacote, LerRecurso(Res, BORION_PACK_RESOURCE), 'o mesmo pacote');
+    Check(Pos('"Segundo"', LerRecurso(Res, BORION_CONFIG_RESOURCE)) > 0, 'o app.json novo');
+    { sem frontend: só o app.json }
+    BorionPackAssets('', Res, P.ConfigFile);
+    CheckEquals('', LerRecurso(Res, BORION_PACK_RESOURCE));
+    Check(Pos('"Segundo"', LerRecurso(Res, BORION_CONFIG_RESOURCE)) > 0);
+  finally
+    P.Free;
+    BorionOut := nil;
+    FreeAndNil(Saida);
+  end;
+end;
+
 procedure TTestBorionProject.TestSemDprOuComDois;
 begin
   try
@@ -236,6 +348,8 @@ begin
       Check(FileExists(O.Folder + '\MeuApp.res'), '.rc compilado');
       Check(FileExists(O.Folder + '\WebView2Loader.dll'), 'loader copiado');
       Check(FileExists(O.Folder + '\web\borion-api\index.js'), '@borion/api copiado');
+      Check(Pos('"Teste do Build"', LerRecurso(O.Folder + '\web.res', BORION_CONFIG_RESOURCE)) > 0,
+        'app.json embutido junto da interface');
       Check(Pos('OK: MeuApp.exe', Saida.Text) > 0, Saida.Text);
     finally
       P.Free;
