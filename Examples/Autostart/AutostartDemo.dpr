@@ -1,34 +1,21 @@
 program AutostartDemo;
 
-{ Exemplo do plugin "autostart" do Borion: iniciar o app junto com o Windows.
-    build.bat -> copia o @borion/api para web\, borion pack web web.res, compila }
+{ Exemplo do plugin "autostart" do Borion: iniciar o app junto com o Windows. }
 
 uses
-  Forms,
-  XPMan,
-  WebView2 in '..\..\WebView2\WebView2.pas',
-  WebView2Browser in '..\..\WebView2\WebView2Browser.pas',
-  BorionJson in '..\..\BorionJson.pas',
-  BorionIpc in '..\..\BorionIpc.pas',
-  BorionPack in '..\..\BorionPack.pas',
-  BorionAssets in '..\..\BorionAssets.pas',
-  BorionSingleInstance in '..\..\Plugins\BorionSingleInstance.pas',  { argumentos com Unicode }
-  BorionMenu in '..\..\Plugins\BorionMenu.pas',  { usadas pelo BorionSingleInstance }
-  BorionTray in '..\..\Plugins\BorionTray.pas',
-  BorionApp in '..\..\Plugins\BorionApp.pas',
-  BorionRegistry in '..\..\Plugins\BorionRegistry.pas',
-  BorionAutostart in '..\..\Plugins\BorionAutostart.pas',
-  uPrincipal in 'uPrincipal.pas';
+  Borion, BorionAutostart;
 
-{ Jsons (json4delphi) vem do ACBr: veja JSON4DELPHI / ACBR_COMUM no build.bat
-  e o Search path do projeto (AutostartDemo.dof) }
+{ Jsons (json4delphi) vem do ACBr; as pastas do Borion e do WebView2 estão no
+  search path (build.bat e AutostartDemo.dof) }
 
 {$R *.res}
-{$R web.res}  { pacote BORION_ASSETS com a pasta web\ (gerado pelo build.bat) }
+{$R web.res}  { pacote BORION_ASSETS com o frontend (gerado pelo build.bat) }
 
 begin
-  Application.Initialize;
-  Application.Title := 'Borion: autostart';
-  Application.CreateForm(TfrmPrincipal, frmPrincipal);
-  Application.Run;
+  TBorionBuilder.Create('Borion: autostart')
+    .Size(900, 640)
+    { nome na aba Inicializar do Gerenciador de Tarefas; --autostart marca a
+      execução que veio do login }
+    .Plugin(TBorionAutostartPlugin.Create('Borion Autostart Demo', '--autostart'))
+    .Run;
 end.

@@ -7,7 +7,7 @@ comando Delphi próprio. O frontend é Vite + JS puro, sem framework.
 | | |
 |---|---|
 | `frontend/src/main.js` | Toda a lógica: abrir, salvar, recentes, menus, bandeja |
-| `uPrincipal.pas` | A janela: browser, IPC, assets, escopo e os 7 plugins (~25 linhas úteis) |
+| `Editor.dpr` | O app inteiro, sem form: o `TBorionBuilder` com o escopo e os 7 plugins (~25 linhas úteis) |
 | `build.bat` / `dev.bat` | Build de produção / modo dev com hot-reload (porta 5174) |
 
 ## O que ele faz

@@ -1,30 +1,20 @@
 program OsDemo;
 
 { Exemplo do plugin "os" do Borion: versão real do Windows, arquitetura,
-  idioma e nome do computador.
-    build.bat -> copia o @borion/api para web\, borion pack web web.res, compila }
+  idioma e nome do computador. }
 
 uses
-  Forms,
-  XPMan,
-  WebView2 in '..\..\WebView2\WebView2.pas',
-  WebView2Browser in '..\..\WebView2\WebView2Browser.pas',
-  BorionJson in '..\..\BorionJson.pas',
-  BorionIpc in '..\..\BorionIpc.pas',
-  BorionPack in '..\..\BorionPack.pas',
-  BorionAssets in '..\..\BorionAssets.pas',
-  BorionOs in '..\..\Plugins\BorionOs.pas',
-  uPrincipal in 'uPrincipal.pas';
+  Borion, BorionOs;
 
-{ Jsons (json4delphi) vem do ACBr: veja JSON4DELPHI / ACBR_COMUM no build.bat
-  e o Search path do projeto (OsDemo.dof) }
+{ Jsons (json4delphi) vem do ACBr; as pastas do Borion e do WebView2 estão no
+  search path (build.bat e OsDemo.dof) }
 
 {$R *.res}
-{$R web.res}  { pacote BORION_ASSETS com a pasta web\ (gerado pelo build.bat) }
+{$R web.res}  { pacote BORION_ASSETS com o frontend (gerado pelo build.bat) }
 
 begin
-  Application.Initialize;
-  Application.Title := 'Borion: os';
-  Application.CreateForm(TfrmPrincipal, frmPrincipal);
-  Application.Run;
+  TBorionBuilder.Create('Borion: os')
+    .Size(900, 640)
+    .Plugin(TBorionOsPlugin.Create)
+    .Run;
 end.

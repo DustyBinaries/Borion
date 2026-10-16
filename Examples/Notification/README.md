@@ -1,9 +1,20 @@
 # Exemplo: plugin `notification`
 
-Notificações nativas do Windows (toast) mandadas pela página. No Delphi:
+Notificações nativas do Windows (toast) mandadas pela página.
+
+O app inteiro é o `NotificationDemo.dpr` (sem form):
 
 ```pascal
-FIpc.AddPlugin(TBorionNotificationPlugin.Create('Borion.Exemplo.Notification'));
+uses
+  Borion, BorionNotification;
+
+begin
+  TBorionBuilder.Create('Borion: notification')
+    .Size(900, 640)
+    { AppId: identifica o app nas notificações e nas Configurações do Windows }
+    .Plugin(TBorionNotificationPlugin.Create('Borion.Exemplo.Notification'))
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -31,7 +42,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `NotificationDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#notification).

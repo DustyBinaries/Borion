@@ -7,7 +7,7 @@ Um app React (Vite) com lógica em Delphi 7: o frontend chama comandos Delphi co
 |---|---|
 | `frontend/` | App React + Vite. Roteamento no cliente (`/clientes/2`), chamadas a comandos Delphi, eventos de uma thread |
 | `uComandos.pas` | Comandos: `info`, `saudacao`, `listarClientes`, `cliente`, `tarefaLonga` |
-| `uPrincipal.pas` | A janela: só o browser, `TBorionIpc` e `TBorionAssets` |
+| `ViteReact.dpr` | O app inteiro, sem form: o `TBorionBuilder` com os comandos de `uComandos.pas` |
 | `build.bat` | Build de produção |
 | `dev.bat` | Modo dev com hot-reload |
 

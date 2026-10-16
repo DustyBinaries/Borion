@@ -1,17 +1,21 @@
 # Exemplo: plugin `deep-link`
 
-Links `borion-exemplo://...` abrem este app. No `.dpr`, como no exemplo do `single-instance`:
+Links `borion-exemplo://...` abrem este app. O plugin `single-instance` vem antes, para os
+links abertos com o app já rodando.
+
+O app inteiro é o `DeepLinkDemo.dpr` (sem form):
 
 ```pascal
-if BorionIsSecondInstance('Borion.Exemplo.DeepLink') then
-  Exit;
-```
+uses
+  Borion, BorionSingleInstance, BorionDeepLink;
 
-e no form:
-
-```pascal
-FIpc.AddPlugin(TBorionSingleInstancePlugin.Create);  // antes: links com o app aberto
-FIpc.AddPlugin(TBorionDeepLinkPlugin.Create(['borion-exemplo']));
+begin
+  TBorionBuilder.Create('Borion: deep-link')
+    .Size(900, 640)
+    .Plugin(TBorionSingleInstancePlugin.Create('Borion.Exemplo.DeepLink'))  { antes: links com o app aberto }
+    .Plugin(TBorionDeepLinkPlugin.Create(['borion-exemplo']))  { registra o esquema ao iniciar }
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -39,7 +43,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `DeepLinkDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#deep-link).

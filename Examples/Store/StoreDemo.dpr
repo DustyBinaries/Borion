@@ -1,31 +1,54 @@
 program StoreDemo;
 
-{ Exemplo do plugin "store" do Borion: preferências persistidas em JSON no
-  %APPDATA%, usadas pela página e pelo Delphi.
-    build.bat -> copia o @borion/api para web\, borion pack web web.res, compila }
+{ Exemplo do plugin "store" do Borion: a página guarda preferências em
+  %APPDATA%\Borion Store Demo\prefs.json. O Delphi usa o mesmo store pela API
+  nativa: grava a posição da janela ao fechar e a restaura ao abrir. }
 
 uses
-  Forms,
-  XPMan,
-  WebView2 in '..\..\WebView2\WebView2.pas',
-  WebView2Browser in '..\..\WebView2\WebView2Browser.pas',
-  BorionJson in '..\..\BorionJson.pas',
-  BorionIpc in '..\..\BorionIpc.pas',
-  BorionPack in '..\..\BorionPack.pas',
-  BorionAssets in '..\..\BorionAssets.pas',
-  BorionScope in '..\..\Plugins\BorionScope.pas',  { pasta %APPDATA% do app }
-  BorionStore in '..\..\Plugins\BorionStore.pas',
-  uPrincipal in 'uPrincipal.pas';
+  SysUtils, Forms, Jsons, Borion, BorionStore;
 
-{ Jsons (json4delphi) vem do ACBr: veja JSON4DELPHI / ACBR_COMUM no build.bat
-  e o Search path do projeto (StoreDemo.dof) }
+{ Jsons (json4delphi) vem do ACBr; as pastas do Borion e do WebView2 estão no
+  search path (build.bat e StoreDemo.dof) }
 
 {$R *.res}
-{$R web.res}  { pacote BORION_ASSETS com a pasta web\ (gerado pelo build.bat) }
+{$R web.res}  { pacote BORION_ASSETS com o frontend (gerado pelo build.bat) }
+
+var
+  Store: TBorionStorePlugin;
+
+{ a posição da janela fica no mesmo prefs.json da página, na chave "janela" }
+procedure RestaurarJanela(Window: TBorionWindow);
+var
+  Json: string;
+  J: TJsonObject;
+begin
+  if not Store.ReadJson('prefs', 'janela', Json) then
+    Exit;
+  J := TJsonObject.Create;
+  try
+    J.Parse(Json);
+    Window.Position := poDesigned;
+    Window.SetBounds(J['left'].AsInteger, J['top'].AsInteger, J['width'].AsInteger, J['height'].AsInteger);
+  except
+    { valor estranho (editado à mão?): fica a posição padrão }
+  end;
+  J.Free;
+end;
+
+procedure GuardarJanela(Window: TBorionWindow);
+begin
+  if Window.WindowState = wsNormal then
+    Store.WriteJson('prefs', 'janela', Format('{"left":%d,"top":%d,"width":%d,"height":%d}',
+      [Window.Left, Window.Top, Window.Width, Window.Height]));
+end;
 
 begin
-  Application.Initialize;
-  Application.Title := 'Borion: store';
-  Application.CreateForm(TfrmPrincipal, frmPrincipal);
-  Application.Run;
+  Store := TBorionStorePlugin.Create('Borion Store Demo');
+  { Store.AutoSave := False;  grava só no store.save() / ao fechar }
+  TBorionBuilder.Create('Borion: store')
+    .Size(900, 640)
+    .Plugin(Store)
+    .Setup(RestaurarJanela)
+    .OnClose(GuardarJanela)
+    .Run;
 end.

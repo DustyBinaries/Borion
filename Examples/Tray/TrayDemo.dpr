@@ -1,31 +1,26 @@
 program TrayDemo;
 
 { Exemplo do plugin "tray" do Borion: ícone na bandeja com tooltip, menu e
-  notificações; minimizar esconde a janela na bandeja.
-    build.bat -> copia o @borion/api para web\, borion pack web web.res, compila }
+  notificações; minimizar esconde a janela na bandeja. }
 
 uses
-  Forms,
-  XPMan,
-  WebView2 in '..\..\WebView2\WebView2.pas',
-  WebView2Browser in '..\..\WebView2\WebView2Browser.pas',
-  BorionJson in '..\..\BorionJson.pas',
-  BorionIpc in '..\..\BorionIpc.pas',
-  BorionPack in '..\..\BorionPack.pas',
-  BorionAssets in '..\..\BorionAssets.pas',
-  BorionMenu in '..\..\Plugins\BorionMenu.pas',  { o BorionTray monta o menu do ícone com ela }
-  BorionTray in '..\..\Plugins\BorionTray.pas',
-  uPrincipal in 'uPrincipal.pas';
+  Borion, BorionTray;
 
-{ Jsons (json4delphi) vem do ACBr: veja JSON4DELPHI / ACBR_COMUM no build.bat
-  e o Search path do projeto (TrayDemo.dof) }
+{ Jsons (json4delphi) vem do ACBr; as pastas do Borion e do WebView2 estão no
+  search path (build.bat e TrayDemo.dof) }
 
 {$R *.res}
-{$R web.res}  { pacote BORION_ASSETS com a pasta web\ (gerado pelo build.bat) }
+{$R web.res}  { pacote BORION_ASSETS com o frontend (gerado pelo build.bat) }
+
+var
+  Tray: TBorionTrayPlugin;
 
 begin
-  Application.Initialize;
-  Application.Title := 'Borion: tray';
-  Application.CreateForm(TfrmPrincipal, frmPrincipal);
-  Application.Run;
+  Tray := TBorionTrayPlugin.Create;
+  Tray.MinimizeToTray := True;  { minimizar esconde a janela; clicar no ícone a traz de volta }
+  { Tray.RestoreOnClick := False;  para tratar o clique só na página (tray:click) }
+  TBorionBuilder.Create('Borion: tray')
+    .Size(900, 640)
+    .Plugin(Tray)
+    .Run;
 end.

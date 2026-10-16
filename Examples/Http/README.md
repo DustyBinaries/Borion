@@ -1,15 +1,28 @@
 # Exemplo: plugin `http`
 
-O `fetch` feito pelo Delphi (WinInet), sem CORS e com escopo de URLs. No Delphi:
+O `fetch` feito pelo Delphi (WinInet), sem CORS e com escopo de URLs. Precisa de internet.
+
+O app inteiro é o `HttpDemo.dpr` (sem form):
 
 ```pascal
-Http := TBorionHttpPlugin(Ipc.AddPlugin(TBorionHttpPlugin.Create));
-Http.Allow('https://example.com/*');
-Http.Allow('https://api.github.com/*');
-Http.Allow('https://httpbin.org/*');
-```
+uses
+  Borion, BorionHttp;
 
-Precisa de internet.
+var
+  Http: TBorionHttpPlugin;
+
+begin
+  Http := TBorionHttpPlugin.Create;
+  { escopo: tudo negado por padrão; só estas URLs }
+  Http.Allow('https://example.com/*');
+  Http.Allow('https://api.github.com/*');
+  Http.Allow('https://httpbin.org/*');
+  TBorionBuilder.Create('Borion: http')
+    .Size(900, 680)
+    .Plugin(Http)
+    .Run;
+end.
+```
 
 ## O que ele mostra
 
@@ -33,7 +46,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `HttpDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#http).

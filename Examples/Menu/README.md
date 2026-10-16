@@ -1,10 +1,20 @@
 # Exemplo: plugin `menu`
 
 A barra de menu da janela é **nativa** (um `TMainMenu` da VCL) e é montada pela página com
-`menu.setMenu`. No Delphi, só uma linha:
+`menu.setMenu`.
+
+O app inteiro é o `MenuDemo.dpr` (sem form):
 
 ```pascal
-Ipc.AddPlugin(TBorionMenuPlugin.Create);
+uses
+  Borion, BorionMenu;
+
+begin
+  TBorionBuilder.Create('Borion: menu')
+    .Size(900, 640)
+    .Plugin(TBorionMenuPlugin.Create)  { a barra vai para a janela do app }
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -31,7 +41,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `MenuDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#menu).

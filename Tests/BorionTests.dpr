@@ -35,13 +35,15 @@ uses
   BorionAutostart in '..\Plugins\BorionAutostart.pas',
   BorionGlobalShortcut in '..\Plugins\BorionGlobalShortcut.pas',
   BorionLog in '..\Plugins\BorionLog.pas',
+  Borion in '..\Borion.pas',
   TestBorionPlugins in 'TestBorionPlugins.pas',
   TestBorionUi in 'TestBorionUi.pas',
   TestBorionData in 'TestBorionData.pas',
   TestBorionNet in 'TestBorionNet.pas',
   TestBorionSystem in 'TestBorionSystem.pas',
   TestBorionStartup in 'TestBorionStartup.pas',
-  TestBorionTools in 'TestBorionTools.pas';
+  TestBorionTools in 'TestBorionTools.pas',
+  TestBorionBuilder in 'TestBorionBuilder.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

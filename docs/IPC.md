@@ -47,7 +47,10 @@ Units do Borion:
 | `BorionJson.pas` | Conversões de JSON entre ANSI e Unicode (veja [Texto e Unicode](#texto-e-unicode)) |
 | `js/borion.d.ts` | Tipos TypeScript da API JS |
 
-Criando o IPC:
+Num app feito com o [`TBorionBuilder`](../README.md#criando-um-app), o IPC já vem montado: os
+comandos entram com `.Command('somar', Somar)` e, no `.Setup`, `Window.Ipc` dá acesso a ele.
+
+Num form existente, criando o IPC à mão:
 
 ```pascal
 FBrowser := TWebView2Browser.Create(Self);

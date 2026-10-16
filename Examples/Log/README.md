@@ -1,12 +1,26 @@
 # Exemplo: plugin `log`
 
 O Delphi e a página gravando no mesmo arquivo,
-`%LOCALAPPDATA%\Borion Log Demo\logs\Borion Log Demo.log`. No Delphi:
+`%LOCALAPPDATA%\Borion Log Demo\logs\Borion Log Demo.log`.
+
+O app inteiro é o `LogDemo.dpr` (sem form):
 
 ```pascal
-Log := TBorionLogPlugin(FIpc.AddPlugin(TBorionLogPlugin.Create('Borion Log Demo')));
-Log.MinLevel := llDebug;
-Log.Info('janela criada (linha gravada pelo Delphi)');
+uses
+  Borion, BorionLog;
+
+var
+  Log: TBorionLogPlugin;
+
+begin
+  Log := TBorionLogPlugin.Create('Borion Log Demo');
+  Log.MinLevel := llDebug;
+  Log.Info('app iniciando (linha gravada pelo Delphi)');
+  TBorionBuilder.Create('Borion: log')
+    .Size(900, 680)
+    .Plugin(Log)
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -32,7 +46,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `LogDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#log).

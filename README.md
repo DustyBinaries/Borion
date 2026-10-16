@@ -9,18 +9,34 @@ const soma = await borion.invoke('somar', { a: 20, b: 22 });   // comando Delphi
 ```
 
 ```pascal
-FIpc := TBorionIpc.Create(Self, FBrowser);   // antes do CreateWebView
-FIpc.AllowOrigin('https://app.local');        // IPC negado por padrão
-FIpc.RegisterCommand('somar', CmdSomar);
+program MeuApp;   // o app inteiro: sem form, a janela é montada pelo builder
 
-procedure TForm1.CmdSomar(Call: TBorionCall);
+uses
+  Borion, BorionIpc, BorionFs, BorionDialog;
+
+{$R *.res}
+{$R web.res}   // o frontend, empacotado pelo "borion pack"
+
+procedure Somar(Call: TBorionCall);
 begin
   Call.Result.AsNumber := Call.ArgNum('a') + Call.ArgNum('b');
 end;
+
+begin
+  TBorionBuilder.Create('Meu App')
+    .Size(1000, 700)
+    .AllowDir('$APPDATA')                 // escopo de arquivos: negado por padrão
+    .Plugin(TBorionFsPlugin.Create)
+    .Plugin(TBorionDialogPlugin.Create)
+    .Command('somar', Somar)
+    .Run;
+end.
 ```
 
 O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 
+- **App sem form** (`TBorionBuilder`): o app inteiro escrito no `.dpr`, como o `tauri::Builder`.
+  A janela, o IPC e o frontend embutido são montados pelo `Run`. Veja [Criando um app](#criando-um-app).
 - **Comandos**: `borion.invoke(cmd, args)` → procedure Delphi, com resultado numa Promise.
 - **Erros** com código: exceção Delphi → Promise rejeitada com `error.code`.
 - **Comandos assíncronos**: `Call.Defer` + `Resolve`/`Reject`, inclusive de outras threads.
@@ -45,6 +61,39 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 - **Log**: `log` em arquivo com níveis e rotação, o mesmo para o Delphi e para a página, com o
   `console` da página repassado.
 
+## Criando um app
+
+O `TBorionBuilder` (unit `Borion`) monta o app a partir do `.dpr`, encadeando a configuração e
+terminando no `Run`:
+
+| Método | O que faz |
+|---|---|
+| `TBorionBuilder.Create(Titulo)` | Título do app e da janela (já vale para os plugins criados na mesma expressão) |
+| `.Size(L, A)`, `.MinSize(L, A)`, `.Maximized` | Tamanho da janela (padrão 1000×700, centralizada) |
+| `.FixedTitle` | O caption não acompanha o `document.title` da página |
+| `.Plugin(P)` | Adiciona um plugin |
+| `.Command(nome, Proc)` / `.Commands(Registrar)` | Um comando (`procedure Proc(Call: TBorionCall)`) ou uma procedure que registra vários (`procedure Registrar(Ipc: TBorionIpc)`) |
+| `.AllowDir(pasta)` / `.AllowFile(arquivo)` | Escopo de arquivos do app, usado pelos plugins `fs`, `dialog` e `shell` criados sem escopo |
+| `.Url(url)` / `.AllowOrigin(origem)` | Abrir uma URL em vez do frontend embutido; liberar mais uma origem no IPC |
+| `.UserDataFolder(pasta)` | Pasta de dados do WebView2 |
+| `.Setup(Proc)` | `procedure Proc(Window: TBorionWindow)`, depois de montar e antes de abrir a página: acesso ao form, ao browser, ao IPC e aos plugins |
+| `.OnCloseQuery(Proc)` / `.OnClose(Proc)` | Confirmar ou guardar algo ao fechar |
+| `.Run` | Roda o app e libera o builder |
+
+- **Plugins com configuração** são criados antes, numa variável:
+  `Tray := TBorionTrayPlugin.Create; Tray.MinimizeToTray := True;` e depois `.Plugin(Tray)`.
+- **Uma instância só:** `.Plugin(TBorionSingleInstancePlugin.Create('Empresa.MeuApp'))`. Numa
+  segunda execução, o plugin entrega os argumentos à primeira e o `Run` termina sem criar janela.
+- A janela (`TBorionWindow`) tem o browser ocupando tudo, o ícone do exe, e no modo dev mostra a
+  URL do servidor no título.
+- O `.dpr` só lista as units que o app usa (`Borion` e os plugins); as pastas do Borion, de
+  `Borion/Plugins` e do WebView2 vão no *Search path* (os exemplos fazem isso no `build.bat` e no
+  `.dof`).
+
+**Num form existente:** para pôr o Borion dentro de um app Delphi que já tem forms, crie o
+`TWebView2Browser`, o `TBorionIpc` e o `TBorionAssets` no próprio form, como no
+[`Examples/Demo`](#exemplos) e no [guia do IPC](docs/IPC.md#configuração).
+
 ## Requisitos
 
 - Os requisitos do [WebView2](WebView2/README.md#requisitos) (Delphi 7, WebView2 Runtime,
@@ -58,6 +107,7 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 
 | Arquivo | O que é |
 |---|---|
+| `Borion.pas` | `TBorionBuilder` e `TBorionWindow`: o app montado a partir do `.dpr`, sem form |
 | `BorionIpc.pas` | `TBorionIpc` (comandos, eventos, origens), `TBorionCall`, `EBorionError` e a ponte JS injetada |
 | `BorionJson.pas` | Correções de Unicode na fronteira JSON entre o JS e o Delphi 7 |
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
@@ -68,14 +118,15 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 | `docs/IPC.md` | Guia completo do IPC |
 | `docs/ASSETS.md` | Assets do frontend, `borion pack`, fallback de SPA e modo dev |
 | `docs/ROADMAP.md` | Roadmap do framework |
-| `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, página em HTML/JS puro (veja abaixo) |
+| `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, num form Delphi tradicional, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
 | `Examples/Editor/` | Editor de texto com Vite + JS puro, feito só com os plugins oficiais ([README](Examples/Editor/README.md)) |
 | `Examples/Menu/`, `Tray/`, `App/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/`, `GlobalShortcut/`, `Log/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md), [GlobalShortcut](Examples/GlobalShortcut/README.md), [Log](Examples/Log/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
-Para usar num projeto: adicione as units do `WebView2/` e do `Borion/` e ponha a pasta da
-`Jsons.pas` e a do `ACBr.inc` no *Search path*.
+Para usar num projeto: ponha no *Search path* as pastas `WebView2/`, `Borion/` e
+`Borion/Plugins/`, a da `Jsons.pas` e a do `ACBr.inc`. Os exemplos (exceto o `Demo`) são um
+`.dpr` só, com o `TBorionBuilder`.
 
 ## Exemplos
 
@@ -90,7 +141,7 @@ prática, a barra de menu nativa com atalhos, o ícone na bandeja e preferência
 [`SingleInstance/`](Examples/SingleInstance/README.md), [`DeepLink/`](Examples/DeepLink/README.md),
 [`Autostart/`](Examples/Autostart/README.md), [`GlobalShortcut/`](Examples/GlobalShortcut/README.md) e
 [`Log/`](Examples/Log/README.md):** um exemplo isolado para cada plugin, com página em HTML/JS
-puro e uma janela Delphi de poucas linhas. Mostram tudo o que o plugin faz: barra de menu,
+puro e o app inteiro num `.dpr` de poucas linhas (`TBorionBuilder`). Mostram tudo o que o plugin faz: barra de menu,
 atalhos, `update` e `popup`; ícone, menu, notificações e minimizar para a bandeja; `app.info`,
 minimizar, esconder e sair passando pelo `OnCloseQuery`; copiar e colar texto com emoji e
 copiar HTML; preferências que sobrevivem entre execuções, inclusive a posição da janela,
@@ -104,7 +155,7 @@ em segundo plano; e o log do Delphi e da página no mesmo arquivo.
 gera um único exe com o frontend embutido; o `dev.bat` abre o app ligado ao servidor do Vite,
 com hot-reload.
 
-**`Examples/Demo/`:** mostra o modelo de app do Borion sem bundler. A janela Delphi tem só o
+**`Examples/Demo/`:** mostra o Borion dentro de um form Delphi tradicional, sem bundler. A janela Delphi tem só o
 browser e um painel de log; a interface inteira é a página `web\` (HTML/JS puro, empacotada pelo
 `borion pack`), e a lógica nativa são os comandos de `uComandos.pas`, escritos como procedures
 soltas.
@@ -129,7 +180,7 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **231 testes DUnit** e **67 testes JS** (`node:test`):
+Roda **237 testes DUnit** e **67 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
@@ -143,7 +194,7 @@ Roda **231 testes DUnit** e **67 testes JS** (`node:test`):
   `notification`; entrega dos argumentos do `single-instance` com Unicode; registro do
   `deep-link` e do `autostart` no HKCU, com caminho Unicode e o "Desabilitado" do Gerenciador de
   Tarefas; atalhos globais (sintaxe, conflito com outro programa, WM_HOTKEY); log com níveis,
-  rotação, várias threads e Unicode);
+  rotação, várias threads e Unicode; o `TBorionBuilder` e o escopo de arquivos do app);
 - JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`,
   `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão

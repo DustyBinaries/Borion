@@ -3,18 +3,22 @@
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
 `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut`, `log`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
-linha:
+linha no [`TBorionBuilder`](../README.md#criando-um-app):
 
 ```pascal
-uses BorionScope, BorionFs, BorionDialog, BorionShell;
+uses Borion, BorionFs, BorionDialog, BorionShell;
 
-Scope := TBorionScope.Create('Meu App');
-Scope.AllowDir('$APPDATA');                       // %APPDATA%\Meu App
-
-Ipc.AddPlugin(TBorionFsPlugin.Create(Scope));     // dono do escopo
-Ipc.AddPlugin(TBorionDialogPlugin.Create(Scope));
-Ipc.AddPlugin(TBorionShellPlugin.Create(Scope));
+begin
+  TBorionBuilder.Create('Meu App')
+    .AllowDir('$APPDATA')                 // %APPDATA%\Meu App: o escopo de arquivos do app
+    .Plugin(TBorionFsPlugin.Create)       // sem escopo próprio: usam o do app
+    .Plugin(TBorionDialogPlugin.Create)
+    .Plugin(TBorionShellPlugin.Create)
+    .Run;
+end.
 ```
+
+Num form existente, o mesmo com o IPC criado à mão: `Ipc.AddPlugin(TBorionFsPlugin.Create)`.
 
 ```js
 import { open } from '@borion/api/dialog';
@@ -48,6 +52,10 @@ if (caminho) console.log(await readTextFile(caminho));
 ## Escopo de arquivos
 
 O `TBorionScope` define o que os plugins podem tocar no disco. **Tudo é negado por padrão.**
+
+O app tem um escopo só, compartilhado pelos plugins `fs`, `dialog` e `shell`: o que o
+`TBorionBuilder` libera com `.AllowDir`/`.AllowFile` (fica em `Ipc.Scope`, liberado pelo IPC).
+Plugins criados com um `TBorionScope` próprio continuam usando o deles.
 
 ```pascal
 Scope.AllowDir('$APPDATA');                 // a pasta e tudo abaixo dela
@@ -96,8 +104,9 @@ Valores: `appData`, `appLocalData`, `document`, `desktop`, `download`, `picture`
 
 ## `fs`
 
-`TBorionFsPlugin.Create(Scope, [OwnsScope = True])`. Por padrão o plugin libera o escopo ao ser
-destruído; passe `False` se o escopo pertencer a outro objeto.
+`TBorionFsPlugin.Create([Scope, OwnsScope = True])`. Sem `Scope`, usa o escopo do app (o do
+`TBorionBuilder`, ou `Ipc.Scope`). Com um escopo próprio, o plugin o libera ao ser destruído;
+passe `OwnsScope = False` se ele pertencer a outro objeto.
 
 | JS (`@borion/api/fs`) | Comando | Resultado |
 |---|---|---|
@@ -123,8 +132,8 @@ destruído; passe `False` se o escopo pertencer a outro objeto.
 
 ## `dialog`
 
-`TBorionDialogPlugin.Create([Scope])`. O escopo é opcional: sem ele, as escolhas não são
-acrescentadas a nenhum escopo.
+`TBorionDialogPlugin.Create([Scope])`. Sem `Scope`, as escolhas do usuário entram no escopo do
+app (o mesmo do `fs`).
 
 | JS (`@borion/api/dialog`) | Resultado |
 |---|---|
@@ -151,7 +160,7 @@ const arquivos = await open({
 
 ## `shell`
 
-`TBorionShellPlugin.Create([Scope])`.
+`TBorionShellPlugin.Create([Scope])`. Sem `Scope`, usa o escopo do app.
 
 | JS (`@borion/api/shell`) | O que faz |
 |---|---|
@@ -654,6 +663,8 @@ Os módulos JS fazem isso sozinhos. Quem chama `invoke` direto precisa seguir o 
 `BorionJson`: `WideToJsonLiteral`, `JsonLiteralToWide` e `IsAsciiJson`.
 
 ## Escrevendo um plugin
+
+Um plugin é uma classe com `Name` e `Install`; no app, entra com `.Plugin(TMeuPlugin.Create)`.
 
 ```pascal
 type

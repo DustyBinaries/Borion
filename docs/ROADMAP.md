@@ -149,7 +149,9 @@ Documentação: [ASSETS.md](ASSETS.md).
       `maximized`, `decorations`.
 - [ ] `build.devUrl`, `build.frontendDist`.
 - [ ] `security.csp`, permissões (Fase 5).
-- [ ] O app sobe **sem código de form**: `TApp.Run` lê a configuração e cria a janela.
+- [x] O app sobe **sem código de form**: o `TBorionBuilder` (unit `Borion`) monta a janela, o IPC,
+      os assets, o escopo e os plugins a partir do `.dpr`, como o `tauri::Builder`. Falta ler a
+      configuração de um `app.json`.
 
 **Janelas**
 - [ ] `TAppWindow`: um form com browser, criado pela configuração ou em tempo de execução.

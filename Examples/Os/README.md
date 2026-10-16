@@ -1,9 +1,19 @@
 # Exemplo: plugin `os`
 
-Informações do sistema pela página. No Delphi:
+Informações do sistema pela página.
+
+O app inteiro é o `OsDemo.dpr` (sem form):
 
 ```pascal
-Ipc.AddPlugin(TBorionOsPlugin.Create);
+uses
+  Borion, BorionOs;
+
+begin
+  TBorionBuilder.Create('Borion: os')
+    .Size(900, 640)
+    .Plugin(TBorionOsPlugin.Create)
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -27,7 +37,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `OsDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#os).

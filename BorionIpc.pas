@@ -140,6 +140,7 @@ type
     FOnLog: TBorionLogEvent;
     FOnPost: TBorionPostEvent;
     FPlugins: TList;
+    FScope: TObject;
     procedure WebMessageJson(Sender: TObject; const Json, Source: WideString; var Handled: Boolean);
     procedure HandleInvoke(Msg: TJsonObject; const Source: WideString);
     procedure HandleEmit(Msg: TJsonObject; const Source: WideString);
@@ -183,6 +184,10 @@ type
     { Cada mensagem enviada à página (respostas e eventos), já no formato final.
       Para diagnóstico e testes; não substitui o envio ao browser. }
     property OnPost: TBorionPostEvent read FOnPost write FOnPost;
+    { Escopo de arquivos do app (TBorionScope), usado pelos plugins fs, dialog e
+      shell criados sem escopo próprio. O TBorionIpc o libera, depois dos plugins.
+      Veja BorionAppScope (BorionScope) e o TBorionBuilder (Borion). }
+    property Scope: TObject read FScope write FScope;
 
     { Adiciona um plugin (o TBorionIpc passa a ser o dono) e registra os comandos
       dele. Devolve o próprio plugin, para configurar na mesma linha. }
@@ -492,6 +497,7 @@ begin
   for I := 0 to FPlugins.Count - 1 do
     TBorionPlugin(FPlugins[I]).Free;
   FPlugins.Free;
+  FScope.Free;
   inherited Destroy;
 end;
 

@@ -1,30 +1,26 @@
 program LogDemo;
 
-{ Exemplo do plugin "log" do Borion: log em arquivo com níveis e rotação,
-  usado pelo Delphi e pela página.
-    build.bat -> copia o @borion/api para web\, borion pack web web.res, compila }
+{ Exemplo do plugin "log" do Borion: o Delphi e a página gravam no mesmo
+  arquivo, %LOCALAPPDATA%\Borion Log Demo\logs\Borion Log Demo.log. }
 
 uses
-  Forms,
-  XPMan,
-  WebView2 in '..\..\WebView2\WebView2.pas',
-  WebView2Browser in '..\..\WebView2\WebView2Browser.pas',
-  BorionJson in '..\..\BorionJson.pas',
-  BorionIpc in '..\..\BorionIpc.pas',
-  BorionPack in '..\..\BorionPack.pas',
-  BorionAssets in '..\..\BorionAssets.pas',
-  BorionLog in '..\..\Plugins\BorionLog.pas',
-  uPrincipal in 'uPrincipal.pas';
+  Borion, BorionLog;
 
-{ Jsons (json4delphi) vem do ACBr: veja JSON4DELPHI / ACBR_COMUM no build.bat
-  e o Search path do projeto (LogDemo.dof) }
+{ Jsons (json4delphi) vem do ACBr; as pastas do Borion e do WebView2 estão no
+  search path (build.bat e LogDemo.dof) }
 
 {$R *.res}
-{$R web.res}  { pacote BORION_ASSETS com a pasta web\ (gerado pelo build.bat) }
+{$R web.res}  { pacote BORION_ASSETS com o frontend (gerado pelo build.bat) }
+
+var
+  Log: TBorionLogPlugin;
 
 begin
-  Application.Initialize;
-  Application.Title := 'Borion: log';
-  Application.CreateForm(TfrmPrincipal, frmPrincipal);
-  Application.Run;
+  Log := TBorionLogPlugin.Create('Borion Log Demo');
+  Log.MinLevel := llDebug;
+  Log.Info('app iniciando (linha gravada pelo Delphi)');
+  TBorionBuilder.Create('Borion: log')
+    .Size(900, 680)
+    .Plugin(Log)
+    .Run;
 end.

@@ -1,10 +1,25 @@
 # Exemplo: plugin `tray`
 
-Ícone na área de notificação (bandeja) do Windows, controlado pela página. No Delphi:
+Ícone na área de notificação (bandeja) do Windows, controlado pela página.
+
+O app inteiro é o `TrayDemo.dpr` (sem form):
 
 ```pascal
-Tray := TBorionTrayPlugin(Ipc.AddPlugin(TBorionTrayPlugin.Create));
-Tray.MinimizeToTray := True;  // minimizar esconde a janela na bandeja
+uses
+  Borion, BorionTray;
+
+var
+  Tray: TBorionTrayPlugin;
+
+begin
+  Tray := TBorionTrayPlugin.Create;
+  Tray.MinimizeToTray := True;  { minimizar esconde a janela; clicar no ícone a traz de volta }
+  { Tray.RestoreOnClick := False;  para tratar o clique só na página (tray:click) }
+  TBorionBuilder.Create('Borion: tray')
+    .Size(900, 640)
+    .Plugin(Tray)
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -34,7 +49,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `TrayDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#tray).

@@ -125,6 +125,8 @@ end;
 
 procedure TBorionShellPlugin.Install;
 begin
+  if FScope = nil then
+    FScope := BorionAppScope(Ipc);
   Command('open', CmdOpen);
   Command('showInFolder', CmdShowInFolder);
 end;

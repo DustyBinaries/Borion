@@ -22,7 +22,7 @@ unit BorionScope;
 interface
 
 uses
-  Windows, SysUtils, Classes;
+  Windows, SysUtils, Classes, BorionIpc;
 
 type
   { Diretórios-base aceitos pelos comandos (argumento "baseDir" no JS) }
@@ -58,6 +58,9 @@ type
 
 { Pasta de um diretório-base, sem barra final. AppData e AppLocalData incluem AppName. }
 function BorionBaseDirPath(Base: TBorionBaseDir; const AppName: string): string;
+{ O escopo do app (Ipc.Scope), criado vazio na primeira vez (nome do app: o do
+  exe). Os plugins fs, dialog e shell criados sem escopo usam este. }
+function BorionAppScope(Ipc: TBorionIpc): TBorionScope;
 { 'appData' -> bdAppData; '' -> bdNone. Levanta EBorionError('INVALID_BASE_DIR') se desconhecido. }
 function BorionBaseDirFromName(const Name: string): TBorionBaseDir;
 { Valida e normaliza um caminho absoluto (ver o cabeçalho). Levanta EBorionError('INVALID_PATH'). }
@@ -66,7 +69,7 @@ function BorionNormalizePath(const Path: string): string;
 implementation
 
 uses
-  ActiveX, ShlObj, BorionIpc;
+  ActiveX, ShlObj;
 
 const
   NOMES_BASE: array[TBorionBaseDir] of string = ('', 'appData', 'appLocalData', 'document',
@@ -315,6 +318,13 @@ begin
   Result := Resolve(Path, BorionBaseDirFromName(BaseDirName));
   if not IsAllowed(Result) then
     raise EBorionError.Create('FORBIDDEN_PATH', 'fora do escopo permitido: ' + Result);
+end;
+
+function BorionAppScope(Ipc: TBorionIpc): TBorionScope;
+begin
+  if Ipc.Scope = nil then
+    Ipc.Scope := TBorionScope.Create(ChangeFileExt(ExtractFileName(ParamStr(0)), ''));
+  Result := Ipc.Scope as TBorionScope;
 end;
 
 end.

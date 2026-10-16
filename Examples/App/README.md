@@ -1,9 +1,27 @@
 # Exemplo: plugin `app`
 
-Dados do executável e controle da janela pela página. No Delphi:
+Dados do executável e controle da janela pela página.
+
+O app inteiro é o `AppDemo.dpr` (sem form):
 
 ```pascal
-Ipc.AddPlugin(TBorionAppPlugin.Create);
+uses
+  Windows, Forms, Borion, BorionApp;
+
+{ vale para o X da janela e para o app.exit() da página (que posta um WM_CLOSE) }
+procedure PerguntarAntes(Window: TBorionWindow; var CanClose: Boolean);
+begin
+  CanClose := Application.MessageBox('Fechar o exemplo?', 'Borion: app',
+    MB_YESNO or MB_ICONQUESTION) = IDYES;
+end;
+
+begin
+  TBorionBuilder.Create('Borion: app')
+    .Size(900, 640)
+    .Plugin(TBorionAppPlugin.Create)
+    .OnCloseQuery(PerguntarAntes)
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -32,7 +50,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `AppDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#app).

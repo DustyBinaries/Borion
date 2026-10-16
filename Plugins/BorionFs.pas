@@ -52,7 +52,8 @@ type
   protected
     procedure Install; override;
   public
-    constructor Create(AScope: TBorionScope; OwnsScope: Boolean = True);
+    { AScope nil: usa o escopo do app (Ipc.Scope, veja BorionAppScope) }
+    constructor Create(AScope: TBorionScope = nil; OwnsScope: Boolean = True);
     destructor Destroy; override;
     function Name: string; override;
     property Scope: TBorionScope read FScope;
@@ -285,6 +286,11 @@ end;
 
 procedure TBorionFsPlugin.Install;
 begin
+  if FScope = nil then
+  begin
+    FScope := BorionAppScope(Ipc);
+    FOwnsScope := False;  { é do Ipc }
+  end;
   Command('readTextFile', CmdReadTextFile);
   Command('writeTextFile', CmdWriteTextFile);
   Command('readFile', CmdReadFile);

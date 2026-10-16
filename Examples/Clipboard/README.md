@@ -1,10 +1,21 @@
 # Exemplo: plugin `clipboard`
 
-A área de transferência do Windows pela página. No Delphi:
+A área de transferência do Windows pela página.
+
+O app inteiro é o `ClipboardDemo.dpr` (sem form):
 
 ```pascal
-Ipc.AddPlugin(TBorionClipboardPlugin.Create);         // ler e escrever
-// TBorionClipboardPlugin.Create(False)              // só escrever
+uses
+  Borion, BorionClipboard;
+
+begin
+  TBorionBuilder.Create('Borion: clipboard')
+    .Size(900, 640)
+    .Plugin(TBorionClipboardPlugin.Create)
+    { TBorionClipboardPlugin.Create(False): a página só copia, não lê o que o
+      usuário copiou de outros programas }
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -28,7 +39,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `ClipboardDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#clipboard).

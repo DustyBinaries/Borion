@@ -1,9 +1,21 @@
 # Exemplo: plugin `autostart`
 
-Iniciar o app junto com o Windows. No Delphi:
+Iniciar o app junto com o Windows.
+
+O app inteiro é o `AutostartDemo.dpr` (sem form):
 
 ```pascal
-FIpc.AddPlugin(TBorionAutostartPlugin.Create('Borion Autostart Demo', '--autostart'));
+uses
+  Borion, BorionAutostart;
+
+begin
+  TBorionBuilder.Create('Borion: autostart')
+    .Size(900, 640)
+    { nome na aba Inicializar do Gerenciador de Tarefas; --autostart marca a
+      execução que veio do login }
+    .Plugin(TBorionAutostartPlugin.Create('Borion Autostart Demo', '--autostart'))
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -28,7 +40,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `AutostartDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#autostart).

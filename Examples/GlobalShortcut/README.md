@@ -1,9 +1,19 @@
 # Exemplo: plugin `global-shortcut`
 
-Atalhos de teclado que funcionam com o app em segundo plano. No Delphi:
+Atalhos de teclado que funcionam com o app em segundo plano.
+
+O app inteiro é o `GlobalShortcutDemo.dpr` (sem form):
 
 ```pascal
-FIpc.AddPlugin(TBorionGlobalShortcutPlugin.Create);
+uses
+  Borion, BorionGlobalShortcut;
+
+begin
+  TBorionBuilder.Create('Borion: global-shortcut')
+    .Size(900, 640)
+    .Plugin(TBorionGlobalShortcutPlugin.Create)  { os atalhos saem ao fechar }
+    .Run;
+end.
 ```
 
 ## O que ele mostra
@@ -27,7 +37,7 @@ cópia local, e o código fica igual ao de um projeto com bundler.
 
 | | |
 |---|---|
-| `uPrincipal.pas` | A janela (sem `.dfm`): browser, IPC, assets e o plugin |
+| `GlobalShortcutDemo.dpr` | O app inteiro: o `TBorionBuilder` monta a janela com o plugin (sem form) |
 | `web\index.html` / `web\app.js` | A página e o uso do plugin |
 
 Referência completa: [docs/PLUGINS.md](../../docs/PLUGINS.md#global-shortcut).

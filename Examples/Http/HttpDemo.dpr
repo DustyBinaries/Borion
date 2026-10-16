@@ -1,32 +1,28 @@
 program HttpDemo;
 
 { Exemplo do plugin "http" do Borion: fetch pelo Delphi, sem CORS, com escopo
-  de URLs, timeout e cancelamento.
-    build.bat -> copia o @borion/api para web\, borion pack web web.res, compila }
+  de URLs, timeout e cancelamento. }
 
 uses
-  Forms,
-  XPMan,
-  WebView2 in '..\..\WebView2\WebView2.pas',
-  WebView2Browser in '..\..\WebView2\WebView2Browser.pas',
-  BorionJson in '..\..\BorionJson.pas',
-  BorionIpc in '..\..\BorionIpc.pas',
-  BorionPack in '..\..\BorionPack.pas',
-  BorionAssets in '..\..\BorionAssets.pas',
-  BorionScope in '..\..\Plugins\BorionScope.pas',
-  BorionFs in '..\..\Plugins\BorionFs.pas',  { base64 }
-  BorionHttp in '..\..\Plugins\BorionHttp.pas',
-  uPrincipal in 'uPrincipal.pas';
+  Borion, BorionHttp;
 
-{ Jsons (json4delphi) vem do ACBr: veja JSON4DELPHI / ACBR_COMUM no build.bat
-  e o Search path do projeto (HttpDemo.dof) }
+{ Jsons (json4delphi) vem do ACBr; as pastas do Borion e do WebView2 estão no
+  search path (build.bat e HttpDemo.dof) }
 
 {$R *.res}
-{$R web.res}  { pacote BORION_ASSETS com a pasta web\ (gerado pelo build.bat) }
+{$R web.res}  { pacote BORION_ASSETS com o frontend (gerado pelo build.bat) }
+
+var
+  Http: TBorionHttpPlugin;
 
 begin
-  Application.Initialize;
-  Application.Title := 'Borion: http';
-  Application.CreateForm(TfrmPrincipal, frmPrincipal);
-  Application.Run;
+  Http := TBorionHttpPlugin.Create;
+  { escopo: tudo negado por padrão; só estas URLs }
+  Http.Allow('https://example.com/*');
+  Http.Allow('https://api.github.com/*');
+  Http.Allow('https://httpbin.org/*');
+  TBorionBuilder.Create('Borion: http')
+    .Size(900, 680)
+    .Plugin(Http)
+    .Run;
 end.

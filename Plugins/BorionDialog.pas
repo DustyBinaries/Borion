@@ -192,6 +192,8 @@ end;
 
 procedure TBorionDialogPlugin.Install;
 begin
+  if FScope = nil then
+    FScope := BorionAppScope(Ipc);  { o que o usuário escolher entra no escopo do app }
   CommandLater('open', CmdOpen);
   CommandLater('save', CmdSave);
   CommandLater('message', CmdMessage);
