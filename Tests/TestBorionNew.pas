@@ -141,7 +141,7 @@ begin
   try
     BorionNewProject(Opcoes('meu-app', 'vanilla'), Criados);
     P := FSaida + '\meu-app';
-    CheckEquals('.gitignore,build.bat,MeuApp.dof,MeuApp.dpr,MeuApp.rc,README.md,web\app.js,' +
+    CheckEquals('.gitignore,build.bat,dev.bat,MeuApp.dof,MeuApp.dpr,MeuApp.rc,README.md,web\app.js,' +
       'web\index.html,web\style.css', StringReplace(Criados.CommaText, '"', '', [rfReplaceAll]));
     SemPlaceholders(P, Criados);
     S := Ler(P + '\MeuApp.dpr');
@@ -156,7 +156,7 @@ begin
     Check(Pos('SearchPath=C:\json;C:\acbr;C:\Borion;C:\Borion\Plugins;C:\WebView2', S) > 0, S);
     S := Ler(P + '\build.bat');
     Check(Pos('set BORION_HOME=C:\Borion', S) > 0);
-    Check(Pos('MeuApp.dpr', S) > 0);
+    Check(Pos('borion.exe" build', S) > 0, 'chama o borion build');
     Check(Pos(#13#10, S) > 0, 'CRLF nos .bat');
   finally
     Criados.Free;
@@ -178,7 +178,7 @@ begin
     Check(Pos('"name": "app-vite"', S) > 0, S);
     Check(Pos('"@borion/api": "file:C:/Borion/js"', S) > 0, 'caminho com barras para o npm');
     Check(Pos('port: 5190,', Ler(FSaida + '\app-vite\frontend\vite.config.js')) > 0);
-    Check(Pos('http://localhost:5190', Ler(FSaida + '\app-vite\dev.bat')) > 0);
+    Check(Pos('borion.exe" dev', Ler(FSaida + '\app-vite\dev.bat')) > 0, 'chama o borion dev');
 
     Criados.Clear;
     BorionNewProject(Opcoes('app react', 'react'), Criados);

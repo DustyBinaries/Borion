@@ -5,12 +5,16 @@ tiver um arquivo com o mesmo caminho).
 
 | Template | Interface | Precisa de Node |
 |---|---|---|
-| `vanilla` | HTML, CSS e JS puros em `web\` (o `@borion/api` vai copiado, via import map) | Não |
-| `vite` | Projeto Vite com JS puro em `frontend\`, com `dev.bat` (hot-reload) | Sim |
-| `react` | Projeto React + Vite em `frontend\`, com `dev.bat` (hot-reload) | Sim |
+| `vanilla` | HTML, CSS e JS puros em `web\` (o `@borion/api` vai copiado, via import map); no dev, a página recarrega ao salvar | Não |
+| `vite` | Projeto Vite com JS puro em `frontend\`; no dev, hot-reload do Vite | Sim |
+| `react` | Projeto React + Vite em `frontend\`; no dev, hot-reload do Vite | Sim |
 
 Todos geram o app inteiro num `.dpr` com o `TBorionBuilder`, um comando Delphi de exemplo
-(`saudar`) e o plugin `dialog`.
+(`saudar`) e o plugin `dialog`, além do `build.bat` e do `dev.bat`, que só chamam o
+`borion build` e o `borion dev` (para funcionar sem o `borion` no PATH). O `borion build`/`dev`
+acha o projeto por convenção (veja o [README do Borion](../../README.md#borion-dev-e-borion-build)):
+um template novo deve manter o único `.dpr`, a interface em `web\` ou `frontend\` e o
+`{$R x.res}` da interface no `.dpr`.
 
 ## Escrevendo um template
 
@@ -35,4 +39,4 @@ Todos geram o app inteiro num `.dpr` com o `TBorionBuilder`, um comando Delphi d
 | `JSON4DELPHI`, `ACBR_COMUM` | Pastas da `Jsons.pas` e do `ACBr.inc` |
 | `SEARCH_PATH` | *Search path* completo para o `.dof` |
 | `BORION_JS` | Pasta `Borion/js` com barras normais (para o npm e o Vite) |
-| `DEV_PORT` | Porta do Vite no `dev.bat` (`--port`, padrão 5173) |
+| `DEV_PORT` | Porta do Vite no `vite.config.js` (`--port`, padrão 5173) |

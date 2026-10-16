@@ -14,6 +14,13 @@ program borion;
         Cria um app Borion: o .dpr com o TBorionBuilder, a interface e os
         scripts de build, a partir de Tools\templates.
 
+    borion build [pasta]
+        Compila o projeto: frontend, pacote de assets, recursos e o exe.
+
+    borion dev [pasta] [--port 5173] [--no-watch]
+        Modo dev: o app ligado ao servidor do Vite (ou à pasta web\, com
+        recarga automática); recompila e reabre quando o Delphi muda.
+
     borion version
 *)
 
@@ -24,10 +31,12 @@ uses
   SysUtils,
   Classes,
   BorionPack in '..\BorionPack.pas',
-  BorionNew in 'BorionNew.pas';
+  BorionNew in 'BorionNew.pas',
+  BorionProject in 'BorionProject.pas',
+  BorionBuild in 'BorionBuild.pas';
 
 const
-  VERSAO = '0.2.0';
+  VERSAO = '0.3.0';
 
 var
   Args: TStringList;
@@ -51,6 +60,10 @@ begin
   Writeln('      Lista o conteudo de um pacote.');
   Writeln('  borion new <pasta> [--template vanilla|vite|react] [--title "Titulo"] [--port 5173]');
   Writeln('      Cria um app Borion (padrao: template vanilla, HTML/JS puro, sem Node).');
+  Writeln('  borion build [pasta]');
+  Writeln('      Compila o projeto (frontend, assets, recursos e o exe).');
+  Writeln('  borion dev [pasta] [--port 5173] [--no-watch]');
+  Writeln('      Abre o app em modo dev; recompila e reabre quando o Delphi muda.');
   Writeln('  borion version');
 end;
 
@@ -201,12 +214,64 @@ begin
   end;
 end;
 
+
 { pasta da variável de ambiente, ou o padrão }
 function Ambiente(const Nome, Padrao: string): string;
 begin
   Result := GetEnvironmentVariable(Nome);
   if Result = '' then
     Result := Padrao;
+end;
+
+procedure Saida(const Line: string);
+begin
+  Writeln(Oem(Line));
+  Flush(Output);  { antes da saída dos processos filhos (npm, dcc32), que escrevem direto no console }
+end;
+
+{ pasta do Borion (com Borion.pas e js\): BORION_HOME ou a pasta acima do borion.exe }
+function BorionHome: string;
+begin
+  Result := Ambiente('BORION_HOME', ExpandFileName(ExtractFilePath(ParamStr(0)) + '..'));
+  Result := ExcludeTrailingPathDelimiter(Result);
+end;
+
+function PastaDoProjeto: string;
+begin
+  Result := Posicional(1);
+  if Result = '' then
+    Result := GetCurrentDir;
+end;
+
+function CmdBuild: Integer;
+var
+  P: TBorionProject;
+begin
+  P := TBorionProject.Create(PastaDoProjeto);
+  try
+    BorionBuildProject(P, BorionHome);
+    Result := 0;
+  finally
+    P.Free;
+  end;
+end;
+
+function CmdDev: Integer;
+var
+  P: TBorionProject;
+  O: TBorionDevOptions;
+begin
+  O.Port := StrToIntDef(ValorOpcao('--port', '0'), -1);
+  if (O.Port < 0) or (O.Port > 65535) then
+    raise EBorionProject.Create('--port deve ser um número de 1 a 65535');
+  O.Watch := not TemOpcao('--no-watch');
+  P := TBorionProject.Create(PastaDoProjeto);
+  try
+    BorionDevProject(P, BorionHome, O);
+    Result := 0;
+  finally
+    P.Free;
+  end;
 end;
 
 function CmdNew: Integer;
@@ -253,9 +318,9 @@ begin
     Writeln;
     Writeln('Proximos passos:');
     Writeln(Oem('  cd "' + O.Folder + '"'));
-    Writeln('  build.bat                compila (a interface vai dentro do exe)');
+    Writeln('  borion build             compila (a interface vai dentro do exe); ou build.bat');
     if Vite then
-      Writeln('  dev.bat                  Vite com hot-reload + o app');
+      Writeln('  borion dev               o app em modo dev, recarregando sozinho; ou dev.bat');
     Result := 0;
   finally
     Criados.Free;
@@ -266,6 +331,7 @@ var
   I: Integer;
   Comando: string;
 begin
+  BorionOut := Saida;
   Args := TStringList.Create;
   try
     for I := 1 to ParamCount do
@@ -278,6 +344,10 @@ begin
         ExitCode := CmdList
       else if Comando = 'new' then
         ExitCode := CmdNew
+      else if Comando = 'build' then
+        ExitCode := CmdBuild
+      else if Comando = 'dev' then
+        ExitCode := CmdDev
       else if (Comando = 'version') or TemOpcao('--version') then
         Writeln('borion ' + VERSAO)
       else

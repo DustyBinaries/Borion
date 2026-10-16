@@ -57,6 +57,9 @@ type
     procedure TestSemPacote404;
     procedure TestMimeTypes;
     procedure TestDevUrlFrom;
+    procedure TestDevDirServeDaPasta;
+    procedure TestDevDirRecusaSairDaPasta;
+    procedure TestLiveReloadAvisaMudanca;
     procedure TestStartUrlEOrigem;
   end;
 
@@ -570,6 +573,104 @@ begin
     CheckEquals('https://meuapp.local/x.js', A.Url('x.js'));
   finally
     A.Free;
+  end;
+end;
+
+procedure TTestBorionAssets.TestDevDirServeDaPasta;
+var
+  L: TStringList;
+begin
+  FAssets.DevDir := FPasta;  { como o --dev-dir=web do "borion dev" }
+  Check(FAssets.IsDev);
+  CheckEquals('https://app.local/', string(FAssets.StartUrl), 'sem servidor: continua no host do app');
+  FAssets.ServePath('', FResp);
+  CheckEquals(200, FResp.StatusCode);
+  CheckEquals(INDEX_HTML, Corpo);
+  CheckEquals('no-store', Header('Cache-Control'), 'sem cache: a edição aparece no reload');
+  { editar o arquivo: a próxima requisição já vem nova, sem reempacotar }
+  L := TStringList.Create;
+  try
+    L.Text := '<h1>editado</h1>';
+    L.SaveToFile(FPasta + '\index.html');
+  finally
+    L.Free;
+  end;
+  FAssets.ServePath('/', FResp);
+  Check(Pos('<h1>editado</h1>', Corpo) = 1, Corpo);
+  FAssets.ServePath('rota/do/app', FResp);
+  Check(Pos('<h1>editado</h1>', Corpo) = 1, 'fallback de SPA também na pasta');
+  FAssets.ServePath('assets/app.js', FResp);
+  CheckEquals('text/javascript; charset=utf-8', Header('Content-Type'));
+  FAssets.ServePath('nao-existe.css', FResp);
+  CheckEquals(404, FResp.StatusCode);
+end;
+
+procedure TTestBorionAssets.TestDevDirRecusaSairDaPasta;
+begin
+  FAssets.DevDir := FPasta + '\assets';
+  FAssets.ServePath('../index.html', FResp);
+  CheckEquals(404, FResp.StatusCode, '..');
+  FAssets.ServePath('%2e%2e/index.html', FResp);
+  CheckEquals(404, FResp.StatusCode, '.. codificado');
+  FAssets.ServePath('C:/Windows/win.ini', FResp);
+  CheckEquals(404, FResp.StatusCode, 'caminho absoluto');
+  FAssets.ServePath('app.js', FResp);
+  CheckEquals(200, FResp.StatusCode, 'dentro da pasta, normal');
+end;
+
+type
+  TContador = class
+    N: Integer;
+    procedure Mudou(Sender: TObject);
+  end;
+
+procedure TContador.Mudou(Sender: TObject);
+begin
+  Inc(N);
+end;
+
+procedure Bombear(Ms: Cardinal);
+var
+  Msg: TMsg;
+  Fim: Cardinal;
+begin
+  Fim := GetTickCount + Ms;
+  while GetTickCount < Fim do
+  begin
+    while PeekMessage(Msg, 0, 0, 0, PM_REMOVE) do
+    begin
+      TranslateMessage(Msg);
+      DispatchMessage(Msg);
+    end;
+    Sleep(20);
+  end;
+end;
+
+procedure TTestBorionAssets.TestLiveReloadAvisaMudanca;
+var
+  C: TContador;
+  L: TStringList;
+begin
+  C := TContador.Create;
+  L := TStringList.Create;
+  try
+    FAssets.DevDir := FPasta;
+    FAssets.OnLiveReload := C.Mudou;
+    FAssets.StartLiveReload;
+    Bombear(300);
+    CheckEquals(0, C.N, 'nada mudou ainda');
+    L.Text := 'novo';
+    L.SaveToFile(FPasta + '\novo.txt');
+    L.SaveToFile(FPasta + '\novo2.txt');
+    Bombear(1000);
+    CheckEquals(1, C.N, 'várias mudanças seguidas viram um reload só');
+    L.SaveToFile(FPasta + '\assets\app.js');  { subpasta também }
+    Bombear(1000);
+    CheckEquals(2, C.N);
+  finally
+    FAssets.OnLiveReload := nil;
+    L.Free;
+    C.Free;
   end;
 end;
 

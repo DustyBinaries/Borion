@@ -2,8 +2,8 @@ program {{PROGRAM}};
 
 // {{TITLE_COMMENT}}: app Borion. A interface é um projeto React + Vite em frontend\; a
 // lógica nativa, aqui. O app inteiro é montado pelo TBorionBuilder, sem form.
-//   build.bat  -> npm run build, empacota frontend\dist (borion pack) e compila
-//   dev.bat    -> servidor do Vite com hot-reload + o app com --dev-url
+//   borion dev    -> servidor do Vite com hot-reload + o app ligado a ele
+//   borion build  -> npm run build, empacota frontend\dist e compila o exe
 
 uses
   SysUtils, Borion, BorionIpc, BorionDialog;

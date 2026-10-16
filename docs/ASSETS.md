@@ -39,13 +39,16 @@ A CLI é um console app Delphi 7 em `Borion/Tools/` (compile com `Borion\Tools\b
 
 ```bat
 borion new <pasta> [--template vanilla|vite|react] [--title "Título"] [--port 5173]
+borion dev [pasta] [--port N] [--no-watch]
+borion build [pasta]
 borion pack <pasta> <saida.res> [--no-compress] [--name NOME] [--verbose]
 borion list <arquivo.res> [--name NOME]
 borion version
 ```
 
-O `borion new` cria um app a partir de um template (veja [Criando um app](../README.md#criando-um-app));
-os `build.bat` gerados chamam o `borion pack`.
+O `borion new` cria um app a partir de um template; o `borion build` compila o projeto inteiro,
+chamando o pack internamente, e o `borion dev` abre o app em modo dev (veja
+[Criando um app](../README.md#borion-dev-e-borion-build)).
 
 ```
 > borion pack frontend\dist app.res --verbose
@@ -130,6 +133,28 @@ Vite) em vez do pacote embutido. O `TBorionAssets` lê a URL na criação:
 
 O parâmetro vence a variável. Com ela definida, `IsDev = True` e `StartUrl` = a URL do servidor.
 
+### Sem servidor: `--dev-dir`
+
+Para uma interface estática (HTML/JS puro, sem Node), o app pode servir uma pasta direto do disco,
+no lugar do pacote embutido:
+
+| Fonte | Exemplo |
+|---|---|
+| Parâmetro | `app.exe --dev-dir=web` (ou `--dev-dir web`) |
+| Variável de ambiente | `set BORION_DEV_DIR=C:\meu-app\web` |
+
+A origem continua `https://app.local/`, então nada muda no IPC. Os arquivos saem com
+`Cache-Control: no-store`, o fallback de SPA vale igual, e caminhos com `..`, `:` ou começando por
+`\` são recusados. Com `LiveReload = True` (o padrão), uma thread vigia a pasta e as subpastas e,
+depois de 200 ms sem novas mudanças, recarrega a página (o evento `OnLiveReload` avisa antes).
+É o que o `borion dev` usa nos projetos `vanilla`.
+
+| Propriedade | O que é |
+|---|---|
+| `DevDir` | A pasta servida (vazia fora do modo dev) |
+| `LiveReload` | Recarregar a página quando um arquivo do `DevDir` muda (padrão `True`) |
+| `OnLiveReload` | Chamado a cada mudança, antes da recarga |
+
 A ponte do Borion é injetada em qualquer origem, então o IPC funciona no modo dev, desde que a
 origem esteja liberada. Por isso o padrão é:
 
@@ -149,6 +174,9 @@ O exemplo [`Examples/ViteReact`](../Examples/ViteReact/README.md) tem o fluxo co
 | `build.bat` | `npm run build` → `borion pack frontend\dist app.res` → compila o exe |
 | `dev.bat` | Sobe o Vite (`npm run dev`, porta fixa 5173), espera ele responder e abre o exe com `--dev-url` |
 
+Nos projetos gerados pelo `borion new`, o `borion build` e o `borion dev` fazem esses passos
+sozinhos.
+
 No `vite.config.js`:
 
 - `server.strictPort: true`, para a porta ser previsível;
@@ -156,7 +184,8 @@ No `vite.config.js`:
   fora da pasta do frontend.
 
 No modo dev, mudanças em `frontend\src` aparecem na hora, com o estado do React preservado.
-Mudanças no Delphi (comandos) exigem fechar o app e rodar o `build.bat`.
+Mudanças no Delphi (comandos) exigem fechar o app e rodar o `build.bat`; no `borion dev`, o app é
+recompilado e reaberto sozinho.
 
 ## Formato do pacote
 
@@ -182,3 +211,7 @@ Win32 (`BorionWriteRes`), e `BorionReadRes` lê de volta (usado por `borion list
 - Nomes de arquivo fora da página de código do Windows (ex.: CJK num Windows em português) não são
   lidos pelo `borion pack`, porque o Delphi 7 lista arquivos em ANSI.
 - `Content-Security-Policy` ainda sem padrão (Fase 5).
+- Páginas servidas pelo `WebResourceRequested` (o pacote ou o `--dev-dir`) levam cerca de 2 s
+  entre a resposta e a troca do documento, na abertura e em cada recarga; um site comum leva
+  ~70 ms. O live reload funciona, mas com esse atraso. Ainda sem causa conhecida (candidato:
+  `SetVirtualHostNameToFolderMapping`).

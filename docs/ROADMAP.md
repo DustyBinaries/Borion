@@ -19,7 +19,7 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 | `tauri.conf.json` | `app.json` embutido | ⬜ Fase 3 |
 | Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ✅ Fase 4 |
 | Capabilities / permissões | Lista de comandos permitidos por janela e origem | ⬜ Fase 5 |
-| `create-tauri-app` / `tauri dev` / `tauri build` | CLI própria: `borion new` (feito), `dev`/`build` (por ora, os `.bat` gerados) | 🟡 Fase 6 |
+| `create-tauri-app` / `tauri dev` / `tauri build` | CLI própria: `borion new`, `borion dev` e `borion build` | ✅ Fase 6 |
 | Bundler + updater | Inno Setup + atualizador | ⬜ Fase 7 |
 | Multiplataforma | **Fora de escopo**: WebView2 é só Windows, e o Delphi 7 só gera 32 bits | — |
 
@@ -133,7 +133,7 @@ Documentação: [ASSETS.md](ASSETS.md).
 - [ ] Exemplo com Vite + JS puro (sem React). Hoje, o mais próximo é o `Examples/Demo`, que é
       JS puro mas sem Vite.
 - [ ] Cache em memória dos arquivos descomprimidos.
-- [ ] `borion dev` / `borion build` na CLI, no lugar dos `.bat` dos exemplos (é a Fase 6).
+- [x] `borion dev` / `borion build` na CLI, no lugar dos `.bat` dos exemplos (feito na Fase 6).
 
 **Marco 2:** ✅ o app React feito com Vite roda em modo dev com hot-reload (testado: edição no
 `App.jsx` aparece sem recarregar a página e sem perder o estado) e, no build, sai embutido no
@@ -253,15 +253,21 @@ liberados.
 - [x] `borion new <pasta> [--template vanilla|vite|react]`: cria o projeto (o `.dpr` com o
       `TBorionBuilder`, a interface, `build.bat`/`dev.bat`, `.rc`, `.dof`, `.gitignore`, README) a
       partir dos templates em `Tools/templates`. Falta o `app.json` (Fase 3).
-- [ ] `app dev`: sobe o servidor do frontend, compila o Delphi e abre com `devUrl`.
-- [ ] `app build`: build do frontend → gera `.rc` → `brcc32` → `dcc32` → exe em `dist/`.
+- [x] `borion dev`: sobe o Vite e abre o app com `--dev-url`, ou, numa interface estática, abre
+      com `--dev-dir` (servida do disco, com live reload); compila só se preciso e, quando o
+      Delphi muda, recompila e reabre. Fechar o app encerra tudo. Pendente: a página servida
+      pelo `WebResourceRequested` leva ~2 s para trocar a cada recarga (veja
+      [ASSETS](ASSETS.md#limitações)).
+- [x] `borion build`: build do frontend → `borion pack` → `brcc32` (se o `.rc` mudou) → `dcc32`
+      → exe na pasta do projeto, com o `WebView2Loader.dll`. O projeto é achado por convenção
+      (`.dpr`, `web\`/`frontend\`, `.dof`); falta o `app.json` (Fase 3) e a saída em `dist/`.
 - [ ] `app info`: versões de Delphi, runtime WebView2 e Node, para diagnóstico.
-- [ ] Detectar o Delphi pelo registro, sem caminho fixo.
+- [x] Detectar o Delphi pelo registro, sem caminho fixo (a variável `DELPHI` vence).
 - [ ] Gerar os tipos TypeScript dos comandos a partir do registro Delphi (opcional e ambicioso).
 
-**Marco 6:** do zero a um app rodando com `app new meuapp && cd meuapp && app dev`. **Parcial:**
-`borion new meuapp --template vite && cd meuapp && dev.bat` já faz isso, com os `.bat` gerados no
-lugar de `borion dev`.
+**Marco 6:** ✅ do zero a um app rodando com `borion new meuapp && cd meuapp && borion dev`
+(testado com os templates `vanilla` e `vite`: o app abre, a interface recarrega, mudar o `.dpr`
+recompila e reabre, e fechar o app encerra o Vite).
 
 ---
 

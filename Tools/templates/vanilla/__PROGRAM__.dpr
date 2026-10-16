@@ -2,7 +2,8 @@ program {{PROGRAM}};
 
 // {{TITLE_COMMENT}}: app Borion. A interface está em web\ (HTML, CSS e JS); a lógica
 // nativa, aqui. O app inteiro é montado pelo TBorionBuilder, sem form.
-//   build.bat  -> empacota web\ (borion pack) e compila
+//   borion dev    -> o app servindo web\ direto da pasta (recarrega ao salvar)
+//   borion build  -> empacota web\ e compila o exe
 
 uses
   SysUtils, Borion, BorionIpc, BorionDialog;

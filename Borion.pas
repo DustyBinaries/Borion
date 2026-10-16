@@ -179,8 +179,10 @@ begin
   if not FTitleFromPage or (Value = '') then
     Exit;
   Caption := Value;
-  if (FAssets <> nil) and FAssets.IsDev then
-    Caption := Caption + '  [dev: ' + FAssets.DevUrl + ']';  { para não confundir com o build }
+  if (FAssets <> nil) and (FAssets.DevUrl <> '') then
+    Caption := Caption + '  [dev: ' + FAssets.DevUrl + ']'  { para não confundir com o build }
+  else if (FAssets <> nil) and (FAssets.DevDir <> '') then
+    Caption := Caption + '  [dev: ' + FAssets.DevDir + ']';
 end;
 
 procedure TBorionWindow.FecharConsulta(Sender: TObject; var CanClose: Boolean);

@@ -37,6 +37,8 @@ uses
   BorionLog in '..\Plugins\BorionLog.pas',
   Borion in '..\Borion.pas',
   BorionNew in '..\Tools\BorionNew.pas',
+  BorionProject in '..\Tools\BorionProject.pas',
+  BorionBuild in '..\Tools\BorionBuild.pas',
   TestBorionPlugins in 'TestBorionPlugins.pas',
   TestBorionUi in 'TestBorionUi.pas',
   TestBorionData in 'TestBorionData.pas',
@@ -45,7 +47,8 @@ uses
   TestBorionStartup in 'TestBorionStartup.pas',
   TestBorionTools in 'TestBorionTools.pas',
   TestBorionBuilder in 'TestBorionBuilder.pas',
-  TestBorionNew in 'TestBorionNew.pas';
+  TestBorionNew in 'TestBorionNew.pas',
+  TestBorionProject in 'TestBorionProject.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);
