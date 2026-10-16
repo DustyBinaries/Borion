@@ -1,7 +1,7 @@
 # Borion: plugins
 
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
-`clipboard`, `store`, `os`, `http`, `notification`, `single-instance`), com API tipada no JS
+`clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
 linha:
 
@@ -37,6 +37,8 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`http`](#http)
 - [`notification`](#notification)
 - [`single-instance`](#single-instance)
+- [`deep-link`](#deep-link)
+- [`autostart`](#autostart)
 - [Unicode completo: JSON só com ASCII](#unicode-completo-json-só-com-ascii)
 - [Escrevendo um plugin](#escrevendo-um-plugin)
 - [Limitações](#limitações)
@@ -497,6 +499,65 @@ onSecondInstance(({ args, cwd }) => abrir(args));  // as próximas
 - Vale por sessão do Windows: dois usuários logados têm uma instância cada.
 - Por baixo: um mutex nomeado e uma janela só de mensagens que recebe um `WM_COPYDATA`.
 
+## `deep-link`
+
+Exemplo: [`Examples/DeepLink`](../Examples/DeepLink/README.md).
+
+Links `meuapp://...` abrem o app, como o deep-link do Tauri.
+
+```pascal
+Ipc.AddPlugin(TBorionSingleInstancePlugin.Create);        // antes: links com o app aberto
+Ipc.AddPlugin(TBorionDeepLinkPlugin.Create(['meuapp']));
+```
+
+```js
+import { getCurrent, onOpenUrl } from '@borion/api/deep-link';
+
+const inicial = await getCurrent();          // URLs que abriram o app, ou null
+onOpenUrl((urls) => urls.forEach(abrir));    // links abertos com o app rodando
+```
+
+| JS (`@borion/api/deep-link`) | O que faz |
+|---|---|
+| `getCurrent()` | URLs que abriram esta execução, ou `null` |
+| `onOpenUrl((urls) => ...)` | Links abertos com o app já rodando |
+| `register(esquema)` / `unregister(esquema)` / `isRegistered(esquema)` | Só esquemas declarados no Delphi (`FORBIDDEN_SCHEME`) |
+
+- **Registro:** `HKCU\Software\Classes\<esquema>` (`URL Protocol` e `shell\open\command` apontando
+  para o exe). Com `AutoRegister` (padrão), o plugin registra a cada início, o que mantém o caminho
+  certo se o app mudar de pasta. Não precisa de administrador.
+- **Com o app aberto**, o Windows abre outra execução com a URL; o `single-instance` a entrega à
+  janela aberta e o `deep-link` emite `onOpenUrl`. Sem o `single-instance`, cada link abre uma
+  janela nova.
+- O `unregister` só apaga o registro se ele apontar para este exe: outro app pode usar o mesmo
+  esquema.
+- Esquemas válidos começam com letra (letras, números, `+`, `-`, `.`). Os do sistema (`http`,
+  `https`, `file`, `mailto`, `ms-*`...) são recusados (`INVALID_SCHEME`).
+- **Segurança: qualquer site pode abrir um link do seu esquema.** Trate a URL como entrada não
+  confiável: valide antes de agir e nunca execute algo só porque um link pediu.
+- No Delphi: `OnOpenUrl(Sender, Urls)`, `RegisterScheme`, `UnregisterScheme`, `IsRegistered`.
+
+## `autostart`
+
+Exemplo: [`Examples/Autostart`](../Examples/Autostart/README.md).
+
+`TBorionAutostartPlugin.Create([AppName, Args])`. Iniciar o app com o Windows, como o autostart
+do Tauri. `AppName` (padrão: `Application.Title`) é o nome na aba Inicializar do Gerenciador de
+Tarefas; `Args` (padrão `--autostart`) vai junto do exe, para o app saber que veio do login.
+
+| JS (`@borion/api/autostart`) | O que faz |
+|---|---|
+| `enable()` / `disable()` | Liga / desliga (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) |
+| `isEnabled()` | Se vai iniciar com o Windows |
+| `launchedAtLogin()` | Se esta execução veio do login (para abrir minimizado na bandeja, por exemplo) |
+
+- O usuário pode desabilitar o app no Gerenciador de Tarefas sem apagar o valor do `Run` (o
+  Windows marca em `StartupApproved`). O `isEnabled()` leva isso em conta, e o `enable()` volta a
+  ligar.
+- O `isEnabled()` só é `true` se o valor apontar para este exe (não para uma cópia em outra
+  pasta).
+- Sem administrador: vale para o usuário atual.
+
 ## Unicode completo: JSON só com ASCII
 
 As strings do Delphi 7 são ANSI: emoji e caracteres fora da página de código do Windows viram `?`
@@ -560,6 +621,6 @@ end;
   [Unicode completo](#unicode-completo-json-só-com-ascii)).
 - Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
   sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
-- Ainda faltam outros plugins (`global-shortcut`, `deep-link`, `autostart`...), os caminhos do `os`/`app`,
+- Ainda faltam outros plugins (`global-shortcut`, `log`...), os caminhos do `os`/`app`,
   imagens no `clipboard` e o upload com `FormData` no `http`: veja o
   [roadmap](ROADMAP.md).

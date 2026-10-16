@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: autostart</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/autostart": "./borion-api/autostart.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>autostart</code></h2>
+      <p>Iniciar o app junto com o Windows.</p>
+    </header>
+
+    <section>
+      <h3>1. Ligar e desligar</h3>
+      <div class="linha">
+        <label><input type="checkbox" id="ligado"> Iniciar com o Windows</label>
+        <button id="conferir">Conferir de novo</button>
+      </div>
+      <p class="dica">Confira em Gerenciador de Tarefas &gt; Inicializar ("Borion Autostart Demo"). Se você
+        desabilitar lá, o <code>isEnabled()</code> passa a dizer <code>false</code>; marcar aqui de novo
+        volta a ligar.</p>
+    </section>
+
+    <section>
+      <h3>2. Esta execução (<code>launchedAtLogin</code>)</h3>
+      <p id="login">...</p>
+      <p class="dica">O app é registrado com o argumento <code>--autostart</code>; um app de bandeja pode
+        usá-lo para abrir minimizado quando vem do login.</p>
+    </section>
+  </main>
+</body>
+</html>

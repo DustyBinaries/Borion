@@ -74,6 +74,8 @@ import { version, arch, locale } from '@borion/api/os';
 import { fetch } from '@borion/api/http';
 import { sendNotification, onAction } from '@borion/api/notification';
 import { args, onSecondInstance } from '@borion/api/single-instance';
+import { getCurrent, onOpenUrl } from '@borion/api/deep-link';
+import { enable, isEnabled } from '@borion/api/autostart';
 ```
 
 Cada módulo só funciona se o plugin correspondente tiver sido adicionado no Delphi

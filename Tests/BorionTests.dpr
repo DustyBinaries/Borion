@@ -30,11 +30,15 @@ uses
   BorionHttp in '..\Plugins\BorionHttp.pas',
   BorionNotification in '..\Plugins\BorionNotification.pas',
   BorionSingleInstance in '..\Plugins\BorionSingleInstance.pas',
+  BorionRegistry in '..\Plugins\BorionRegistry.pas',
+  BorionDeepLink in '..\Plugins\BorionDeepLink.pas',
+  BorionAutostart in '..\Plugins\BorionAutostart.pas',
   TestBorionPlugins in 'TestBorionPlugins.pas',
   TestBorionUi in 'TestBorionUi.pas',
   TestBorionData in 'TestBorionData.pas',
   TestBorionNet in 'TestBorionNet.pas',
-  TestBorionSystem in 'TestBorionSystem.pas';
+  TestBorionSystem in 'TestBorionSystem.pas',
+  TestBorionStartup in 'TestBorionStartup.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

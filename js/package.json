@@ -59,6 +59,14 @@
       "types": "./single-instance.d.ts",
       "default": "./single-instance.js"
     },
+    "./deep-link": {
+      "types": "./deep-link.d.ts",
+      "default": "./deep-link.js"
+    },
+    "./autostart": {
+      "types": "./autostart.d.ts",
+      "default": "./autostart.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -93,7 +101,11 @@
     "notification.js",
     "notification.d.ts",
     "single-instance.js",
-    "single-instance.d.ts"
+    "single-instance.d.ts",
+    "deep-link.js",
+    "deep-link.d.ts",
+    "autostart.js",
+    "autostart.d.ts"
   ],
   "sideEffects": false,
   "scripts": {

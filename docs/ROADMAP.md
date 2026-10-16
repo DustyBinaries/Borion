@@ -177,7 +177,7 @@ Documentação: [PLUGINS.md](PLUGINS.md).
 - [ ] Script JS opcional por plugin (injetado junto com a ponte).
 - [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`,
       `/clipboard`, `/store`, `/os`, `/http`,
-      `/notification`, `/single-instance`.
+      `/notification`, `/single-instance`, `/deep-link`, `/autostart`.
 
 Plugins, em ordem de utilidade:
 - [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
@@ -205,8 +205,9 @@ Plugins, em ordem de utilidade:
       `AcceleratorKeyPressed` do WebView2 (novo evento `OnAcceleratorKeyPressed` do controle).
 - [ ] `global-shortcut`: atalhos globais (`RegisterHotKey`).
 - [x] `single-instance`: segunda execução foca a primeira e repassa os argumentos (Unicode).
-- [ ] `deep-link`: registrar `meuapp://` e receber os links.
-- [ ] `autostart`: iniciar com o Windows.
+- [x] `deep-link`: registrar `meuapp://` (HKCU) e receber os links, com o app fechado ou aberto
+      (via `single-instance`).
+- [x] `autostart`: iniciar com o Windows (HKCU `Run`), respeitando o Gerenciador de Tarefas.
 - [ ] `log`: log em arquivo, com o lado JS repassando `console.*`.
 - [ ] `sql` (opcional): SQLite ou o banco que o Delphi já acessa, um diferencial para o público
       Delphi.
@@ -310,4 +311,4 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4. Próximos candidatos: configuração e janelas (Fase 3), a CLI
-`borion dev`/`build` (Fase 6) e os plugins `deep-link` e `autostart`.
+`borion dev`/`build` (Fase 6) e os plugins `global-shortcut` e `log`.

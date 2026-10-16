@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: deep-link</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/deep-link": "./borion-api/deep-link.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>deep-link</code></h2>
+      <p>Links <code>borion-exemplo://...</code> abrem este app. Registro: <b id="registro">...</b></p>
+    </header>
+
+    <section>
+      <h3>1. Experimente</h3>
+      <p>Cole um destes no <b>Executar</b> (Win+R) ou na barra de endereço do navegador, com o app
+        aberto ou fechado:</p>
+      <pre class="saida">borion-exemplo://pedido/42?cliente=José
+borion-exemplo://abrir?arquivo=notas.txt</pre>
+      <p class="dica">O navegador pergunta se pode abrir o app: é o Windows protegendo o usuário.</p>
+    </section>
+
+    <section>
+      <h3>2. O link que abriu o app (<code>getCurrent</code>)</h3>
+      <pre id="inicial" class="saida">...</pre>
+    </section>
+
+    <section>
+      <h3>3. Links com o app aberto (<code>onOpenUrl</code>)</h3>
+      <ol id="log" class="log"><li>nenhum ainda</li></ol>
+    </section>
+
+    <section>
+      <h3>4. Registro (<code>register</code> / <code>unregister</code>)</h3>
+      <div class="linha">
+        <button id="registrar">Registrar</button>
+        <button id="desregistrar">Tirar o registro</button>
+      </div>
+      <p class="dica">O app registra o esquema sozinho ao abrir (<code>AutoRegister</code>). A página só
+        pode registrar os esquemas declarados no Delphi.</p>
+    </section>
+  </main>
+</body>
+</html>

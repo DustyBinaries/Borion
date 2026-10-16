@@ -15,6 +15,8 @@ import * as os from '../os.js';
 import { fetch as httpFetch } from '../http.js';
 import * as notification from '../notification.js';
 import * as singleInstance from '../single-instance.js';
+import * as deepLink from '../deep-link.js';
+import * as autostart from '../autostart.js';
 
 let chamadas;
 let respostas;
@@ -447,5 +449,43 @@ describe('@borion/api/single-instance', () => {
     singleInstance.onSecondInstance((e) => recebidos.push(e));
     delphiEmite('single-instance:second', { args: [lit('nota.txt')], cwd: lit('D:' + B) });
     assert.deepEqual(recebidos, [{ args: ['nota.txt'], cwd: 'D:' + B }]);
+  });
+});
+
+describe('@borion/api/deep-link', () => {
+  test('getCurrent: null sem link, URLs decodificadas com link', async () => {
+    respostas['deep-link:getCurrent'] = [];
+    assert.equal(await deepLink.getCurrent(), null);
+    respostas['deep-link:getCurrent'] = [asciiJson('meuapp://abrir?nome=João')];
+    assert.deepEqual(await deepLink.getCurrent(), ['meuapp://abrir?nome=João']);
+  });
+
+  test('onOpenUrl, register, unregister e isRegistered', async () => {
+    const recebidas = [];
+    deepLink.onOpenUrl((urls) => recebidas.push(urls));
+    delphiEmite('deep-link:open', { urls: [asciiJson('meuapp://a'), asciiJson('meuapp://b')] });
+    assert.deepEqual(recebidas, [['meuapp://a', 'meuapp://b']]);
+    respostas['deep-link:isRegistered'] = true;
+    await deepLink.register('meuapp');
+    await deepLink.unregister('meuapp');
+    assert.equal(await deepLink.isRegistered('meuapp'), true);
+    assert.deepEqual(chamadas, [
+      ['deep-link:register', { scheme: 'meuapp' }],
+      ['deep-link:unregister', { scheme: 'meuapp' }],
+      ['deep-link:isRegistered', { scheme: 'meuapp' }],
+    ]);
+  });
+});
+
+describe('@borion/api/autostart', () => {
+  test('comandos', async () => {
+    respostas['autostart:isEnabled'] = true;
+    respostas['autostart:launchedAtLogin'] = false;
+    assert.equal(await autostart.enable(), undefined);
+    assert.equal(await autostart.isEnabled(), true);
+    assert.equal(await autostart.launchedAtLogin(), false);
+    assert.equal(await autostart.disable(), undefined);
+    assert.deepEqual(chamadas.map((c) => c[0]),
+      ['autostart:enable', 'autostart:isEnabled', 'autostart:launchedAtLogin', 'autostart:disable']);
   });
 });

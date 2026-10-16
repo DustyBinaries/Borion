@@ -38,8 +38,9 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
   completo, inclusive emoji, apesar de o Delphi 7 ser ANSI.
 - **Sistema e rede**: `os` (versão real do Windows, arquitetura, idioma) e `http` (o `fetch` feito
   pelo Delphi, sem CORS, com escopo de URLs, timeout e cancelamento).
-- **Integração com o Windows**: `notification` (notificações nativas com botões) e
-  `single-instance` (o app abre uma vez só e recebe os argumentos das próximas execuções).
+- **Integração com o Windows**: `notification` (notificações nativas com botões),
+  `single-instance` (o app abre uma vez só e recebe os argumentos das próximas execuções),
+  `deep-link` (links `meuapp://` abrem o app) e `autostart` (iniciar com o Windows).
 
 ## Requisitos
 
@@ -58,7 +59,7 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 | `BorionJson.pas` | Correções de Unicode na fronteira JSON entre o JS e o Delphi 7 |
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
 | `BorionPack.pas` | Formato do pacote de assets, compressão e leitura/escrita de `.res` |
-| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification` e `single-instance` ([docs](docs/PLUGINS.md)) |
+| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link` e `autostart` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
 | `docs/IPC.md` | Guia completo do IPC |
@@ -67,7 +68,7 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 | `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
 | `Examples/Editor/` | Editor de texto com Vite + JS puro, feito só com os plugins oficiais ([README](Examples/Editor/README.md)) |
-| `Examples/Menu/`, `Tray/`, `App/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md)) |
+| `Examples/Menu/`, `Tray/`, `App/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
 Para usar num projeto: adicione as units do `WebView2/` e do `Borion/` e ponha a pasta da
@@ -82,15 +83,17 @@ prática, a barra de menu nativa com atalhos, o ícone na bandeja e preferência
 **[`Examples/Menu/`](Examples/Menu/README.md), [`Tray/`](Examples/Tray/README.md),
 [`App/`](Examples/App/README.md), [`Clipboard/`](Examples/Clipboard/README.md),
 [`Store/`](Examples/Store/README.md), [`Os/`](Examples/Os/README.md),
-[`Http/`](Examples/Http/README.md), [`Notification/`](Examples/Notification/README.md) e
-[`SingleInstance/`](Examples/SingleInstance/README.md):** um exemplo isolado para cada plugin, com página em HTML/JS
+[`Http/`](Examples/Http/README.md), [`Notification/`](Examples/Notification/README.md),
+[`SingleInstance/`](Examples/SingleInstance/README.md), [`DeepLink/`](Examples/DeepLink/README.md) e
+[`Autostart/`](Examples/Autostart/README.md):** um exemplo isolado para cada plugin, com página em HTML/JS
 puro e uma janela Delphi de poucas linhas. Mostram tudo o que o plugin faz: barra de menu,
 atalhos, `update` e `popup`; ícone, menu, notificações e minimizar para a bandeja; `app.info`,
 minimizar, esconder e sair passando pelo `OnCloseQuery`; copiar e colar texto com emoji e
 copiar HTML; preferências que sobrevivem entre execuções, inclusive a posição da janela,
 gravada pelo Delphi no mesmo store; a versão real do Windows; o `fetch` do Borion buscando,
 lado a lado, uma página que o `fetch` do navegador não alcança por CORS; notificações nativas com
-botões; e o app que abre uma vez só e recebe os argumentos das próximas execuções.
+botões; o app que abre uma vez só e recebe os argumentos das próximas execuções; links
+`borion-exemplo://` abrindo o app; e a inicialização com o Windows.
 
 **[`Examples/ViteReact/`](Examples/ViteReact/README.md):** um app React com Vite. O `build.bat`
 gera um único exe com o frontend embutido; o `dev.bat` abre o app ligado ao servidor do Vite,
@@ -121,7 +124,7 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **207 testes DUnit** e **59 testes JS** (`node:test`):
+Roda **218 testes DUnit** e **62 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
@@ -132,8 +135,10 @@ Roda **207 testes DUnit** e **59 testes JS** (`node:test`):
   `clipboard` com a área de transferência real e emoji; `store` com arquivo corrompido,
   editado à mão e sem `AutoSave`; o JSON só com ASCII; `os`; `http` contra um servidor HTTP
   local: escopo, redirecionamentos, timeout, cancelamento, binário e limites; XML e eventos do
-  `notification`; entrega dos argumentos do `single-instance` com Unicode);
-- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification` e
-  `single-instance`.
+  `notification`; entrega dos argumentos do `single-instance` com Unicode; registro do
+  `deep-link` e do `autostart` no HKCU, com caminho Unicode e o "Desabilitado" do Gerenciador de
+  Tarefas);
+- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`,
+  `single-instance`, `deep-link` e `autostart`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão
 `C:\dev\lib\dunit\src`) e do Node.js 18+. Detalhes no [guia do IPC](docs/IPC.md#testes).
