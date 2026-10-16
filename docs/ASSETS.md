@@ -38,10 +38,14 @@ A CLI é um console app Delphi 7 em `Borion/Tools/` (compile com `Borion\Tools\b
 `build.bat` dos exemplos fazem isso sozinhos se o `borion.exe` não existir).
 
 ```bat
+borion new <pasta> [--template vanilla|vite|react] [--title "Título"] [--port 5173]
 borion pack <pasta> <saida.res> [--no-compress] [--name NOME] [--verbose]
 borion list <arquivo.res> [--name NOME]
 borion version
 ```
+
+O `borion new` cria um app a partir de um template (veja [Criando um app](../README.md#criando-um-app));
+os `build.bat` gerados chamam o `borion pack`.
 
 ```
 > borion pack frontend\dist app.res --verbose

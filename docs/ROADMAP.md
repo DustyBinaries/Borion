@@ -17,9 +17,9 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 | Eventos `emit`/`listen` | `borion.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
 | `@tauri-apps/api` | Ponte injetada (`window.borion`) + pacote ESM `@borion/api` | ✅ Fase 1 |
 | `tauri.conf.json` | `app.json` embutido | ⬜ Fase 3 |
-| Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ⬜ Fase 4 |
+| Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ✅ Fase 4 |
 | Capabilities / permissões | Lista de comandos permitidos por janela e origem | ⬜ Fase 5 |
-| `tauri dev` / `tauri build` | CLI própria | ⬜ Fase 6 |
+| `create-tauri-app` / `tauri dev` / `tauri build` | CLI própria: `borion new` (feito), `dev`/`build` (por ora, os `.bat` gerados) | 🟡 Fase 6 |
 | Bundler + updater | Inno Setup + atualizador | ⬜ Fase 7 |
 | Multiplataforma | **Fora de escopo**: WebView2 é só Windows, e o Delphi 7 só gera 32 bits | — |
 
@@ -250,15 +250,18 @@ liberados.
 
 ## Fase 6: CLI e templates
 
-- [ ] `app new <nome> [--template vanilla|react|vue]`: cria o projeto (`.dpr`, `app.json`,
-      `src-web/`).
+- [x] `borion new <pasta> [--template vanilla|vite|react]`: cria o projeto (o `.dpr` com o
+      `TBorionBuilder`, a interface, `build.bat`/`dev.bat`, `.rc`, `.dof`, `.gitignore`, README) a
+      partir dos templates em `Tools/templates`. Falta o `app.json` (Fase 3).
 - [ ] `app dev`: sobe o servidor do frontend, compila o Delphi e abre com `devUrl`.
 - [ ] `app build`: build do frontend → gera `.rc` → `brcc32` → `dcc32` → exe em `dist/`.
 - [ ] `app info`: versões de Delphi, runtime WebView2 e Node, para diagnóstico.
 - [ ] Detectar o Delphi pelo registro, sem caminho fixo.
 - [ ] Gerar os tipos TypeScript dos comandos a partir do registro Delphi (opcional e ambicioso).
 
-**Marco 6:** do zero a um app rodando com `app new meuapp && cd meuapp && app dev`.
+**Marco 6:** do zero a um app rodando com `app new meuapp && cd meuapp && app dev`. **Parcial:**
+`borion new meuapp --template vite && cd meuapp && dev.bat` já faz isso, com os `.bat` gerados no
+lugar de `borion dev`.
 
 ---
 

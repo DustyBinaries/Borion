@@ -63,6 +63,28 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 
 ## Criando um app
 
+O jeito mais rápido é a CLI, que gera um projeto pronto para compilar:
+
+```bat
+Tools\borion.exe new meu-app                    :: HTML/JS puro, sem Node
+Tools\borion.exe new meu-app --template vite     :: Vite (ou --template react)
+cd meu-app
+build.bat                                         :: compila o MeuApp.exe com a interface embutida
+dev.bat                                           :: (vite e react) Vite com hot-reload + o app
+```
+
+`borion new <pasta> [--template vanilla|vite|react] [--title "Título"] [--port 5173]` cria:
+
+- o `.dpr` com o `TBorionBuilder` e um comando Delphi de exemplo;
+- a interface (`web\` ou `frontend\`);
+- o `build.bat` (e o `dev.bat`);
+- o `.rc` com a versão do exe;
+- o `.dof` com o *Search path*, para abrir na IDE;
+- o `.gitignore` e um README.
+
+O projeto aponta para esta pasta do Borion (`BORION_HOME` no `build.bat`). Os templates ficam em
+[`Tools/templates`](Tools/templates/README.md).
+
 O `TBorionBuilder` (unit `Borion`) monta o app a partir do `.dpr`, encadeando a configuração e
 terminando no `Run`:
 
@@ -113,7 +135,7 @@ terminando no `Run`:
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
 | `BorionPack.pas` | Formato do pacote de assets, compressão e leitura/escrita de `.res` |
 | `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
-| `Tools/` | CLI `borion` (console Delphi): `borion pack`, `borion list` |
+| `Tools/` | CLI `borion` (console Delphi): `borion new` (com os templates em `Tools/templates`), `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
 | `docs/IPC.md` | Guia completo do IPC |
 | `docs/ASSETS.md` | Assets do frontend, `borion pack`, fallback de SPA e modo dev |
@@ -180,7 +202,7 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **237 testes DUnit** e **67 testes JS** (`node:test`):
+Roda **245 testes DUnit** e **67 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
@@ -194,7 +216,7 @@ Roda **237 testes DUnit** e **67 testes JS** (`node:test`):
   `notification`; entrega dos argumentos do `single-instance` com Unicode; registro do
   `deep-link` e do `autostart` no HKCU, com caminho Unicode e o "Desabilitado" do Gerenciador de
   Tarefas; atalhos globais (sintaxe, conflito com outro programa, WM_HOTKEY); log com níveis,
-  rotação, várias threads e Unicode; o `TBorionBuilder` e o escopo de arquivos do app);
+  rotação, várias threads e Unicode; o `TBorionBuilder` e o escopo de arquivos do app; o `borion new` com os templates de verdade);
 - JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`,
   `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão

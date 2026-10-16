@@ -10,6 +10,10 @@ program borion;
     borion list <arquivo.res> [--name NOME]
         Lista o conteúdo de um pacote.
 
+    borion new <pasta> [--template vanilla|vite|react] [--title "Título"] [--port 5173]
+        Cria um app Borion: o .dpr com o TBorionBuilder, a interface e os
+        scripts de build, a partir de Tools\templates.
+
     borion version
 *)
 
@@ -19,10 +23,11 @@ uses
   Windows,
   SysUtils,
   Classes,
-  BorionPack in '..\BorionPack.pas';
+  BorionPack in '..\BorionPack.pas',
+  BorionNew in 'BorionNew.pas';
 
 const
-  VERSAO = '0.1.0';
+  VERSAO = '0.2.0';
 
 var
   Args: TStringList;
@@ -44,6 +49,8 @@ begin
   Writeln('      Empacota os arquivos da pasta num .res com o recurso ' + BORION_PACK_RESOURCE + '.');
   Writeln('  borion list <arquivo.res> [--name NOME]');
   Writeln('      Lista o conteudo de um pacote.');
+  Writeln('  borion new <pasta> [--template vanilla|vite|react] [--title "Titulo"] [--port 5173]');
+  Writeln('      Cria um app Borion (padrao: template vanilla, HTML/JS puro, sem Node).');
   Writeln('  borion version');
 end;
 
@@ -85,7 +92,8 @@ begin
   begin
     if Copy(Args[I], 1, 2) = '--' then
     begin
-      if SameText(Args[I], '--name') then
+      if SameText(Args[I], '--name') or SameText(Args[I], '--template') or
+        SameText(Args[I], '--title') or SameText(Args[I], '--port') then
         Inc(I);  { pula o valor }
     end
     else
@@ -193,6 +201,67 @@ begin
   end;
 end;
 
+{ pasta da variável de ambiente, ou o padrão }
+function Ambiente(const Nome, Padrao: string): string;
+begin
+  Result := GetEnvironmentVariable(Nome);
+  if Result = '' then
+    Result := Padrao;
+end;
+
+function CmdNew: Integer;
+var
+  O: TBorionNewOptions;
+  Criados: TStringList;
+  Aqui: string;
+  I: Integer;
+  Vite: Boolean;
+begin
+  if Posicional(1) = '' then
+  begin
+    Ajuda;
+    Result := 2;
+    Exit;
+  end;
+  { o borion.exe fica em Borion\Tools: o resto se acha a partir dele }
+  Aqui := ExtractFilePath(ParamStr(0));
+  O.Folder := Posicional(1);
+  O.Title := ValorOpcao('--title', '');
+  O.Template := LowerCase(ValorOpcao('--template', 'vanilla'));
+  O.TemplatesDir := Aqui + 'templates';
+  O.BorionHome := Ambiente('BORION_HOME', ExpandFileName(Aqui + '..'));
+  O.WebView2Home := Ambiente('WEBVIEW2_HOME', ExpandFileName(O.BorionHome + '\..\WebView2'));
+  O.Json4Delphi := Ambiente('JSON4DELPHI', 'C:\dev\lib\ACBr\Fontes\Terceiros\json4delphi\src');
+  O.AcbrComum := Ambiente('ACBR_COMUM', 'C:\dev\lib\ACBr\Fontes\ACBrComum');
+  O.DevPort := StrToIntDef(ValorOpcao('--port', '5173'), 0);
+  if (O.DevPort < 1) or (O.DevPort > 65535) then
+    raise EBorionNew.Create('--port deve ser um número de 1 a 65535');
+  if not FileExists(O.BorionHome + '\Borion.pas') then
+    raise EBorionNew.CreateFmt('Borion.pas não encontrado em %s (defina BORION_HOME)', [O.BorionHome]);
+  if not FileExists(O.WebView2Home + '\WebView2Loader.dll') then
+    Writeln(Oem('aviso: WebView2Loader.dll não encontrado em ' + O.WebView2Home + ' (defina WEBVIEW2_HOME)'));
+  if not FileExists(O.Json4Delphi + '\Jsons.pas') then
+    Writeln(Oem('aviso: Jsons.pas não encontrada em ' + O.Json4Delphi + ' (defina JSON4DELPHI antes do build.bat)'));
+
+  Criados := TStringList.Create;
+  try
+    BorionNewProject(O, Criados);
+    Writeln(Oem(Format('Projeto criado em %s (template %s):', [ExpandFileName(O.Folder), O.Template])));
+    for I := 0 to Criados.Count - 1 do
+      Writeln('  ', Oem(Criados[I]));
+    Vite := FileExists(IncludeTrailingPathDelimiter(ExpandFileName(O.Folder)) + 'dev.bat');
+    Writeln;
+    Writeln('Proximos passos:');
+    Writeln(Oem('  cd "' + O.Folder + '"'));
+    Writeln('  build.bat                compila (a interface vai dentro do exe)');
+    if Vite then
+      Writeln('  dev.bat                  Vite com hot-reload + o app');
+    Result := 0;
+  finally
+    Criados.Free;
+  end;
+end;
+
 var
   I: Integer;
   Comando: string;
@@ -207,6 +276,8 @@ begin
         ExitCode := CmdPack
       else if Comando = 'list' then
         ExitCode := CmdList
+      else if Comando = 'new' then
+        ExitCode := CmdNew
       else if (Comando = 'version') or TemOpcao('--version') then
         Writeln('borion ' + VERSAO)
       else

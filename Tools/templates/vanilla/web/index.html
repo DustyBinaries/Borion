@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>{{TITLE_HTML}}</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api para web\borion-api\; o import map deixa
+       importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/dialog": "./borion-api/dialog.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <h1>{{TITLE_HTML}}</h1>
+    <p class="suave">Interface em HTML/CSS/JS (<code>web\</code>), lógica nativa em Delphi
+      (<code>{{PROGRAM}}.dpr</code>).</p>
+
+    <section>
+      <h2>Um comando Delphi</h2>
+      <form id="form-saudar" class="linha">
+        <input id="nome" placeholder="seu nome" autofocus>
+        <button>Saudar</button>
+      </form>
+      <p id="saudacao" class="saida"></p>
+    </section>
+
+    <section>
+      <h2>Um plugin</h2>
+      <div class="linha">
+        <button id="abrir">Escolher um arquivo...</button>
+      </div>
+      <p id="arquivo" class="saida"></p>
+    </section>
+  </main>
+  <footer id="rodape" class="suave"></footer>
+</body>
+</html>
