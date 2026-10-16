@@ -67,6 +67,14 @@
       "types": "./autostart.d.ts",
       "default": "./autostart.js"
     },
+    "./global-shortcut": {
+      "types": "./global-shortcut.d.ts",
+      "default": "./global-shortcut.js"
+    },
+    "./log": {
+      "types": "./log.d.ts",
+      "default": "./log.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -105,7 +113,11 @@
     "deep-link.js",
     "deep-link.d.ts",
     "autostart.js",
-    "autostart.d.ts"
+    "autostart.d.ts",
+    "global-shortcut.js",
+    "global-shortcut.d.ts",
+    "log.js",
+    "log.d.ts"
   ],
   "sideEffects": false,
   "scripts": {

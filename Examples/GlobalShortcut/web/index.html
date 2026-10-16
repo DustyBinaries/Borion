@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: global-shortcut</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/global-shortcut": "./borion-api/global-shortcut.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>global-shortcut</code></h2>
+      <p>Atalhos que funcionam com o app em segundo plano: minimize esta janela, vá para outro
+        programa e pressione um atalho registrado.</p>
+    </header>
+
+    <section>
+      <h3>1. Registrar</h3>
+      <div class="linha">
+        <input id="atalho" value="CmdOrCtrl+Shift+F9">
+        <button id="registrar">Registrar</button>
+      </div>
+      <p class="dica">Exemplos: <code>Ctrl+Alt+K</code>, <code>Win+Shift+1</code>, <code>F13</code>,
+        <code>MediaPlayPause</code>. Letras sozinhas são recusadas (capturariam a digitação no
+        Windows inteiro).</p>
+      <p id="erro" class="saida erro"></p>
+    </section>
+
+    <section>
+      <h3>2. Registrados</h3>
+      <ul id="lista"></ul>
+      <button id="todos">Desregistrar todos</button>
+    </section>
+
+    <section>
+      <h3>Pressionados</h3>
+      <ol id="log" class="log"><li>nenhum ainda</li></ol>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: log</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O build.bat copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/log": "./borion-api/log.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>log</code></h2>
+      <p>O Delphi e a página gravam no mesmo arquivo:</p>
+      <pre id="caminho" class="saida">...</pre>
+    </header>
+
+    <section>
+      <h3>1. Gravar</h3>
+      <div class="linha">
+        <input id="mensagem" class="largo" value="pedido 42 salvo por José 😀">
+      </div>
+      <div class="linha">
+        <button data-nivel="debug">debug</button>
+        <button data-nivel="info">info</button>
+        <button data-nivel="warn">warn</button>
+        <button data-nivel="error">error</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>2. O console da página (<code>forwardConsole</code>)</h3>
+      <div class="linha">
+        <label><input type="checkbox" id="repassar" checked> console.* e erros não tratados vão para o arquivo</label>
+      </div>
+      <div class="linha">
+        <button id="console-log">console.log(...)</button>
+        <button id="console-error">console.error(new Error(...))</button>
+        <button id="excecao">Lançar uma exceção não tratada</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>3. O que foi gravado (<code>attachConsole</code>)</h3>
+      <p class="dica">Cada linha gravada, inclusive as do Delphi, também aparece no console do DevTools.</p>
+      <pre id="linhas" class="saida"></pre>
+    </section>
+  </main>
+</body>
+</html>

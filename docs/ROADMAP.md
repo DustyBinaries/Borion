@@ -177,7 +177,8 @@ Documentação: [PLUGINS.md](PLUGINS.md).
 - [ ] Script JS opcional por plugin (injetado junto com a ponte).
 - [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`,
       `/clipboard`, `/store`, `/os`, `/http`,
-      `/notification`, `/single-instance`, `/deep-link`, `/autostart`.
+      `/notification`, `/single-instance`, `/deep-link`, `/autostart`,
+      `/global-shortcut`, `/log`.
 
 Plugins, em ordem de utilidade:
 - [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
@@ -203,12 +204,14 @@ Plugins, em ordem de utilidade:
 - [x] `menu`: barra de menu (submenus, separadores, itens com marcação, `update`) e menu de
       contexto (`popup`) nativos. Atalhos funcionam com o foco na página, pelo
       `AcceleratorKeyPressed` do WebView2 (novo evento `OnAcceleratorKeyPressed` do controle).
-- [ ] `global-shortcut`: atalhos globais (`RegisterHotKey`).
+- [x] `global-shortcut`: atalhos globais (`RegisterHotKey`), com a sintaxe do Tauri e proteção
+      contra atalhos de uma tecla de digitação só.
 - [x] `single-instance`: segunda execução foca a primeira e repassa os argumentos (Unicode).
 - [x] `deep-link`: registrar `meuapp://` (HKCU) e receber os links, com o app fechado ou aberto
       (via `single-instance`).
 - [x] `autostart`: iniciar com o Windows (HKCU `Run`), respeitando o Gerenciador de Tarefas.
-- [ ] `log`: log em arquivo, com o lado JS repassando `console.*`.
+- [x] `log`: log em arquivo (UTF-8, níveis, rotação), o mesmo para o Delphi e para a página;
+      `forwardConsole` repassa o `console.*`, `attachConsole` mostra o log no DevTools.
 - [ ] `sql` (opcional): SQLite ou o banco que o Delphi já acessa, um diferencial para o público
       Delphi.
 
@@ -311,4 +314,4 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4. Próximos candidatos: configuração e janelas (Fase 3), a CLI
-`borion dev`/`build` (Fase 6) e os plugins `global-shortcut` e `log`.
+`borion dev`/`build` (Fase 6) e o `sql` (opcional) e os caminhos do `os`/`app`.

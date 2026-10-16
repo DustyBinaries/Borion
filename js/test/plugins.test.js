@@ -17,6 +17,8 @@ import * as notification from '../notification.js';
 import * as singleInstance from '../single-instance.js';
 import * as deepLink from '../deep-link.js';
 import * as autostart from '../autostart.js';
+import * as globalShortcut from '../global-shortcut.js';
+import * as log from '../log.js';
 
 let chamadas;
 let respostas;
@@ -487,5 +489,98 @@ describe('@borion/api/autostart', () => {
     assert.equal(await autostart.disable(), undefined);
     assert.deepEqual(chamadas.map((c) => c[0]),
       ['autostart:enable', 'autostart:isEnabled', 'autostart:launchedAtLogin', 'autostart:disable']);
+  });
+});
+
+describe('@borion/api/global-shortcut', () => {
+  test('register guarda o handler pelo atalho normalizado', async () => {
+    globalThis.__BORION__.invoke = (cmd, args) => {
+      chamadas.push([cmd, args]);
+      const norm = { 'cmdorctrl+shift+k': 'Ctrl+Shift+K', F13: 'F13' };
+      if (cmd === 'global-shortcut:register' || cmd === 'global-shortcut:unregister') {
+        return Promise.resolve(norm[args.shortcut] || args.shortcut);
+      }
+      return Promise.resolve(null);
+    };
+    const pressionados = [];
+    assert.equal(await globalShortcut.register('cmdorctrl+shift+k', (e) => pressionados.push(['k', e])), 'Ctrl+Shift+K');
+    assert.deepEqual(await globalShortcut.register(['F13'], () => pressionados.push(['f13'])), ['F13']);
+    delphiEmite('global-shortcut:pressed', { shortcut: 'Ctrl+Shift+K', state: 'pressed' });
+    delphiEmite('global-shortcut:pressed', { shortcut: 'F13', state: 'pressed' });
+    delphiEmite('global-shortcut:pressed', { shortcut: 'Alt+X', state: 'pressed' });  // não é nosso
+    await globalShortcut.unregister('cmdorctrl+shift+k');
+    delphiEmite('global-shortcut:pressed', { shortcut: 'Ctrl+Shift+K', state: 'pressed' });
+    assert.deepEqual(pressionados, [['k', { shortcut: 'Ctrl+Shift+K', state: 'pressed' }], ['f13']]);
+    await globalShortcut.unregisterAll();
+    delphiEmite('global-shortcut:pressed', { shortcut: 'F13', state: 'pressed' });
+    assert.equal(pressionados.length, 2);
+    assert.deepEqual(chamadas.at(-1), ['global-shortcut:unregisterAll', undefined]);
+  });
+});
+
+describe('@borion/api/log', () => {
+  test('níveis, target e Unicode', async () => {
+    await log.info(OLA);
+    await log.error('falhou', { target: 'editor' });
+    await log.trace('t'); await log.debug('d'); await log.warn('w');
+    assert.deepEqual(chamadas[0], ['log:write', { level: 'info', message: OLA_ASCII, target: 'js' }]);
+    assert.deepEqual(chamadas[1], ['log:write', { level: 'error', message: '"falhou"', target: 'editor' }]);
+    assert.deepEqual(chamadas.slice(2).map((c) => c[1].level), ['trace', 'debug', 'warn']);
+    respostas['log:path'] = '"C:' + B + B + 'logs' + B + B + 'app.log"';
+    assert.equal(await log.logPath(), 'C:' + B + 'logs' + B + 'app.log');
+  });
+
+  test('forwardConsole grava o console e desfaz', () => {
+    const vistos = [];
+    const original = console.warn;
+    console.warn = (...a) => vistos.push(a);
+    try {
+      const desfazer = log.forwardConsole();
+      console.warn('cuidado', { n: 1 }, 2);
+      desfazer();
+      console.warn('depois');
+      assert.deepEqual(vistos, [['cuidado', { n: 1 }, 2], ['depois']], 'o console continua mostrando');
+      const gravadas = chamadas.filter((c) => c[0] === 'log:write');
+      assert.equal(gravadas.length, 1);
+      assert.deepEqual(gravadas[0][1], { level: 'warn', message: '"cuidado {' + B + '"n' + B + '":1} 2"', target: 'console' });
+    } finally {
+      console.warn = original;
+    }
+  });
+
+  test('attachConsole mostra as linhas do Delphi, sem repetir as do console', async () => {
+    const vistos = [];
+    const original = console.error;
+    console.error = (...a) => vistos.push(a.join(' '));
+    try {
+      const parar = await log.attachConsole();
+      delphiEmite('log:entry', { level: 'error', message: '"disco cheio"', target: 'delphi', time: 'x' });
+      delphiEmite('log:entry', { level: 'error', message: '"repetida"', target: 'console', time: 'x' });
+      parar();
+      delphiEmite('log:entry', { level: 'error', message: '"depois"', target: 'delphi', time: 'x' });
+      assert.deepEqual(vistos, ['[delphi] disco cheio']);
+      assert.deepEqual(chamadas.map((c) => c[0]), ['log:attach', 'log:detach']);
+    } finally {
+      console.error = original;
+    }
+  });
+});
+
+describe('@borion/api/log juntos', () => {
+  test('forwardConsole + attachConsole: o eco do attachConsole não é gravado de novo', async () => {
+    const original = console.info;
+    console.info = () => {};
+    try {
+      const desfazer = log.forwardConsole();
+      const parar = await log.attachConsole();
+      delphiEmite('log:entry', { level: 'info', message: '"do Delphi"', target: 'delphi', time: 'x' });
+      console.info('da página');
+      parar();
+      desfazer();
+      const gravadas = chamadas.filter((c) => c[0] === 'log:write').map((c) => c[1].message);
+      assert.deepEqual(gravadas, ['"da p' + B + 'u00e1gina"'], 'só a linha da página, sem o eco');
+    } finally {
+      console.info = original;
+    }
   });
 });

@@ -1,7 +1,7 @@
 # Borion: plugins
 
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
-`clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`), com API tipada no JS
+`clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut`, `log`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
 linha:
 
@@ -39,6 +39,8 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`single-instance`](#single-instance)
 - [`deep-link`](#deep-link)
 - [`autostart`](#autostart)
+- [`global-shortcut`](#global-shortcut)
+- [`log`](#log)
 - [Unicode completo: JSON só com ASCII](#unicode-completo-json-só-com-ascii)
 - [Escrevendo um plugin](#escrevendo-um-plugin)
 - [Limitações](#limitações)
@@ -558,6 +560,84 @@ Tarefas; `Args` (padrão `--autostart`) vai junto do exe, para o app saber que v
   pasta).
 - Sem administrador: vale para o usuário atual.
 
+## `global-shortcut`
+
+Exemplo: [`Examples/GlobalShortcut`](../Examples/GlobalShortcut/README.md).
+
+`TBorionGlobalShortcutPlugin.Create`. Atalhos de teclado que funcionam com o app em segundo
+plano (`RegisterHotKey`), como o global-shortcut do Tauri.
+
+```js
+import { register } from '@borion/api/global-shortcut';
+
+await register('CmdOrCtrl+Shift+Space', ({ shortcut }) => app.show());
+```
+
+| JS (`@borion/api/global-shortcut`) | O que faz |
+|---|---|
+| `register(atalho \| [atalhos], handler)` | Registra; devolve o atalho normalizado (`'Ctrl+Shift+Space'`) |
+| `unregister(atalho \| [atalhos])` / `unregisterAll()` | Libera |
+| `isRegistered(atalho)` | Se este app registrou |
+
+- **Sintaxe:** modificadores e tecla separados por `+`, sem diferenciar maiúsculas. Modificadores:
+  `Ctrl` (`Control`, `CmdOrCtrl`, `CommandOrControl`), `Alt` (`Option`), `Shift`, `Win` (`Super`,
+  `Meta`, `Cmd`). Teclas: `A`-`Z`, `0`-`9`, `F1`-`F24`, `Space`, `Enter`, `Tab`, `Escape`,
+  `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `Up`, `Down`, `Left`,
+  `Right`, `PrintScreen`, `Pause`, `Plus`, `Minus`, `Comma`, `Period`, `Num0`-`Num9` e as de mídia
+  (`MediaPlayPause`, `MediaNext`, `MediaPrevious`, `MediaStop`, `VolumeUp`, `VolumeDown`,
+  `VolumeMute`).
+- **Letras, números e teclas de digitação exigem um modificador:** um atalho global `A`
+  capturaria a letra A no Windows inteiro. Teclas F, de mídia, `PrintScreen` e `Pause` podem ser
+  sozinhas.
+- Registrar de novo um atalho que já é deste app só troca o handler (a página pode ter sido
+  recarregada). Um atalho em uso por outro programa rejeita com `ALREADY_REGISTERED`.
+- Segurar a tecla não repete o evento. Os atalhos são liberados quando o app fecha.
+- No Delphi: `Register`, `Unregister`, `UnregisterAll` e o evento `OnShortcut(Sender, Shortcut)`.
+- **Erros:** `INVALID_SHORTCUT`, `ALREADY_REGISTERED`, `REGISTER_FAILED`.
+
+## `log`
+
+Exemplo: [`Examples/Log`](../Examples/Log/README.md).
+
+`TBorionLogPlugin.Create(AppName)`. Log em arquivo (UTF-8) com níveis e rotação, o mesmo para o
+Delphi e para a página.
+
+```pascal
+Log := TBorionLogPlugin(Ipc.AddPlugin(TBorionLogPlugin.Create('Meu App')));
+Log.MinLevel := llDebug;
+Log.Info('iniciando');   // de qualquer thread
+```
+
+```js
+import { info, error, forwardConsole, attachConsole } from '@borion/api/log';
+
+info('pedido salvo');
+forwardConsole();   // console.* e erros não tratados da página também vão para o arquivo
+attachConsole();    // o que for gravado (inclusive pelo Delphi) aparece no console do DevTools
+```
+
+```
+2026-10-15 10:40:00.564 [INFO ] [delphi] janela criada
+2026-10-15 10:40:07.676 [WARN ] [js] pedido 42 salvo por José 😀
+2026-10-15 10:40:07.680 [ERROR] [console] Error: algo deu errado
+    at onclick (https://app.local/app.js:22:50)
+```
+
+| JS (`@borion/api/log`) | O que faz |
+|---|---|
+| `trace`, `debug`, `info`, `warn`, `error` (`mensagem, {target?}`) | Grava uma linha; `target` é o rótulo (padrão `js`) |
+| `forwardConsole()` | `console.log/info/warn/error/debug`, erros e Promises rejeitadas não tratados também vão para o arquivo (rótulo `console`); devolve quem desfaz |
+| `attachConsole()` | Cada linha gravada aparece no console do DevTools; devolve quem desfaz |
+| `logPath()` | Caminho do arquivo |
+
+- **Arquivo:** `%LOCALAPPDATA%\<app>\logs\<app>.log` (troque pela propriedade `Dir`). Ao passar de
+  `MaxFileSize` (1 MB), vira `.log.1`, o `.1` vira `.2`... até `KeepFiles` (5).
+- **`MinLevel`** (padrão `llInfo`): `debug` e `trace` são ignorados até baixar o nível.
+- O arquivo fica aberto permitindo leitura e escrita por outros: dá para acompanhar com
+  `Get-Content -Wait` ou abrir no editor com o app rodando.
+- `EchoToDebugger` também manda cada linha para o `OutputDebugString` (DebugView, IDE).
+- Unicode completo (emoji inclusive), nas linhas da página e do Delphi (`WideString`).
+
 ## Unicode completo: JSON só com ASCII
 
 As strings do Delphi 7 são ANSI: emoji e caracteres fora da página de código do Windows viram `?`
@@ -621,6 +701,6 @@ end;
   [Unicode completo](#unicode-completo-json-só-com-ascii)).
 - Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
   sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
-- Ainda faltam outros plugins (`global-shortcut`, `log`...), os caminhos do `os`/`app`,
+- Ainda faltam os caminhos do `os`/`app`,
   imagens no `clipboard` e o upload com `FormData` no `http`: veja o
   [roadmap](ROADMAP.md).
