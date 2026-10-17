@@ -28,13 +28,13 @@ frontend/dist/  --borion pack-->  app.res  --{$R app.res}-->  .exe  --TBorionAss
 3. Em tempo de execução, o `TBorionAssets` lê o pacote do próprio exe e responde às requisições
    para `https://app.localhost/`.
 
-Comparando com o `ServeEmbeddedResources` do [`TWebView2Browser`](../../WebView2/README.md), que
+Comparando com o `ServeEmbeddedResources` do [`TWebView2Browser`](../WebView2/README.md), que
 continua existindo para casos simples: lá, cada arquivo é uma linha manual num `.rc`, e o nome
 do recurso deriva do caminho.
 
 ## CLI: `borion pack`
 
-A CLI é um console app Delphi 7 em `Borion/Tools/` (compile com `Borion\Tools\build.bat`; os
+A CLI é um console app Delphi 7 em `Tools/` (compile com `Tools\build.bat`; os
 `build.bat` dos exemplos fazem isso sozinhos se o `borion.exe` não existir).
 
 ```bat
@@ -180,7 +180,7 @@ sozinhos.
 No `vite.config.js`:
 
 - `server.strictPort: true`, para a porta ser previsível;
-- `server.fs.allow` incluindo `Borion/js`, porque o `@borion/api` é instalado como link para
+- `server.fs.allow` incluindo a pasta `js/`, porque o `@borion/api` é instalado como link para
   fora da pasta do frontend.
 
 No modo dev, mudanças em `frontend\src` aparecem na hora, com o estado do React preservado.

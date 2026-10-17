@@ -276,7 +276,7 @@ begin
     Exit;
   Origem := P.FindInSearchPath('WebView2Loader.dll');
   if Origem = '' then
-    Origem := ExpandFileName(BorionHome + '\..\WebView2');
+    Origem := ExpandFileName(BorionHome + '\WebView2');
   if not CopyFile(PChar(Origem + '\WebView2Loader.dll'), PChar(P.Dir + '\WebView2Loader.dll'), False) then
     Out('aviso: WebView2Loader.dll não encontrado (ponha a pasta do WebView2 no search path do .dof)');
 end;

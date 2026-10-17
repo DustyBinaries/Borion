@@ -1,5 +1,5 @@
 // window.borion é injetado pelo TBorionIpc antes deste script.
-// Tipos: Borion/js/borion.d.ts
+// Tipos: js/borion.d.ts
 
 function $(id) { return document.getElementById(id); }
 function valor(id) { return $(id).value; }

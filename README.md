@@ -4,6 +4,9 @@ Framework "estilo Tauri" para **Delphi 7**: a interface em HTML/CSS/JS rodando n
 lógica nativa em Delphi, com uma ponte `invoke` / `emit` / `listen` entre os dois. Ainda em
 construção: veja o [roadmap](docs/ROADMAP.md).
 
+O controle [`TWebView2Browser`](WebView2/README.md), em `WebView2/`, é a base do Borion, mas não
+depende dele e pode ser usado sozinho num app Delphi 7 comum.
+
 ```js
 const soma = await borion.invoke('somar', { a: 20, b: 22 });   // comando Delphi -> 42
 ```
@@ -77,8 +80,8 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 O jeito mais rápido é a CLI, que gera um projeto pronto para compilar:
 
 ```bat
-Tools\borion.exe new meu-app                    :: HTML/JS puro, sem Node
-Tools\borion.exe new meu-app --template vite     :: Vite (ou --template react)
+Tools\borion.exe new meu-app                      :: HTML/JS puro, sem Node
+Tools\borion.exe new meu-app --template vite      :: Vite (ou --template react)
 cd meu-app
 borion dev                                        :: o app em modo dev, recarregando sozinho
 borion build                                      :: o MeuApp.exe com a interface embutida
@@ -96,7 +99,7 @@ borion build                                      :: o MeuApp.exe com a interfac
 - o `.dof` com o *Search path*, para abrir na IDE;
 - o `.gitignore` e um README.
 
-O projeto aponta para esta pasta do Borion (`BORION_HOME` no `build.bat`). Os templates ficam em
+O projeto aponta para esta pasta (`BORION_HOME` no `build.bat`). Os templates ficam em
 [`Tools/templates`](Tools/templates/README.md).
 
 ### `borion dev` e `borion build`
@@ -156,8 +159,8 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
   segunda execução, o plugin entrega os argumentos à primeira e o `Run` termina sem criar janela.
 - A janela (`TBorionWindow`) tem o browser ocupando tudo, o ícone do exe, e no modo dev mostra a
   URL do servidor no título.
-- O `.dpr` só lista as units que o app usa (`Borion` e os plugins); as pastas do Borion, de
-  `Borion/Plugins` e do WebView2 vão no *Search path* (os exemplos fazem isso no `build.bat` e no
+- O `.dpr` só lista as units que o app usa (`Borion` e os plugins); a raiz deste repositório,
+  `Plugins/` e `WebView2/` vão no *Search path* (os exemplos fazem isso no `build.bat` e no
   `.dof`).
 
 **Num form existente:** para pôr o Borion dentro de um app Delphi que já tem forms, crie o
@@ -183,6 +186,8 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
 | `BorionPack.pas` | Formato do pacote de assets, compressão e leitura/escrita de `.res` |
 | `BorionConfig.pas` | `TBorionConfig`: leitura e validação do `app.json`, e o `BorionAppConfig` embutido no exe |
+| `WebView2/` | O controle `TWebView2Browser`, sem dependências ([README](WebView2/README.md)), com a `WebView2Loader.dll`, um exemplo e testes próprios |
+| `WebView2/docs/WebResourceRequested.md` | Interceptando requisições do WebView2 |
 | `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `window`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion new` (com os templates em `Tools/templates`), `borion dev`, `borion build`, `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
@@ -197,9 +202,12 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `Examples/Menu/`, `Tray/`, `App/`, `Window/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/`, `GlobalShortcut/`, `Log/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Window](Examples/Window/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md), [GlobalShortcut](Examples/GlobalShortcut/README.md), [Log](Examples/Log/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
-Para usar num projeto: ponha no *Search path* as pastas `WebView2/`, `Borion/` e
-`Borion/Plugins/`, a da `Jsons.pas` e a do `ACBr.inc`. Os exemplos (exceto o `Demo`) são um
+Para usar num projeto: ponha no *Search path* a raiz deste repositório, `WebView2/` e
+`Plugins/`, a pasta da `Jsons.pas` e a do `ACBr.inc`. Os exemplos (exceto o `Demo`) são um
 `.dpr` só, com o `TBorionBuilder`.
+
+Os fontes Delphi estão em **ANSI (cp1252) com CRLF**, como o Delphi 7 espera. Não os salve em
+UTF-8.
 
 ## Exemplos
 
@@ -253,6 +261,13 @@ Abra `BorionDemo.dpr` na IDE, ou pela linha de comando:
 
 ```bat
 Examples\Demo\build.bat
+```
+
+**[`WebView2/Examples/Demo/`](WebView2/README.md):** só o controle, sem o Borion: um navegador com
+todos os recursos do `TWebView2Browser`.
+
+```bat
+WebView2\Examples\Demo\build.bat
 ```
 
 ## Testes

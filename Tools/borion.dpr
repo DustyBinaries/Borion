@@ -291,14 +291,14 @@ begin
     Result := 2;
     Exit;
   end;
-  { o borion.exe fica em Borion\Tools: o resto se acha a partir dele }
+  { o borion.exe fica em Tools: o resto se acha a partir dele }
   Aqui := ExtractFilePath(ParamStr(0));
   O.Folder := Posicional(1);
   O.Title := ValorOpcao('--title', '');
   O.Template := LowerCase(ValorOpcao('--template', 'vanilla'));
   O.TemplatesDir := Aqui + 'templates';
   O.BorionHome := Ambiente('BORION_HOME', ExpandFileName(Aqui + '..'));
-  O.WebView2Home := Ambiente('WEBVIEW2_HOME', ExpandFileName(O.BorionHome + '\..\WebView2'));
+  O.WebView2Home := Ambiente('WEBVIEW2_HOME', ExpandFileName(O.BorionHome + '\WebView2'));
   O.Json4Delphi := Ambiente('JSON4DELPHI', 'C:\dev\lib\ACBr\Fontes\Terceiros\json4delphi\src');
   O.AcbrComum := Ambiente('ACBR_COMUM', 'C:\dev\lib\ACBr\Fontes\ACBrComum');
   O.DevPort := StrToIntDef(ValorOpcao('--port', '5173'), 0);

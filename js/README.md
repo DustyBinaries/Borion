@@ -112,4 +112,4 @@ npm test          # nesta pasta
 ```
 
 Os testes da ponte usam o script real gerado pelo Delphi, que o DUnit exporta para
-`Tests/out/`. Por isso, rode a bateria completa com `Borion\Tests\run-tests.bat`.
+`Tests/out/`. Por isso, rode a bateria completa com `Tests\run-tests.bat`.

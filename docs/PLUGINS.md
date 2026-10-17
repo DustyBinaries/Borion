@@ -2,7 +2,7 @@
 
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
 `window`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut`, `log`), com API tipada no JS
-e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
+e regras de segurança embutidas. Cada um é uma unit em `Plugins/`, adicionada com uma
 linha no [`TBorionBuilder`](../README.md#criando-um-app):
 
 ```pascal

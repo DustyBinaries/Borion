@@ -22,7 +22,7 @@ type
     Folder: string;        { pasta do projeto, criada (não pode existir com arquivos) }
     Title: string;         { '' = derivado do nome da pasta }
     Template: string;      { vanilla, vite, react }
-    TemplatesDir: string;  { Borion\Tools\templates }
+    TemplatesDir: string;  { Tools\templates }
     BorionHome: string;    { pasta Borion (com Borion.pas) }
     WebView2Home: string;  { pasta WebView2 (com WebView2Loader.dll) }
     Json4Delphi: string;   { pasta da Jsons.pas }

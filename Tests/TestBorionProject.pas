@@ -329,7 +329,7 @@ begin
   O.Template := 'vanilla';
   O.TemplatesDir := Borion + '\Tools\templates';
   O.BorionHome := Borion;
-  O.WebView2Home := ExpandFileName(Borion + '\..\WebView2');
+  O.WebView2Home := ExpandFileName(Borion + '\WebView2');
   O.Json4Delphi := 'C:\dev\lib\ACBr\Fontes\Terceiros\json4delphi\src';
   O.AcbrComum := 'C:\dev\lib\ACBr\Fontes\ACBrComum';
   O.DevPort := 5173;

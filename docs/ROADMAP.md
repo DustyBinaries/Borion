@@ -52,7 +52,7 @@ O núcleo atual precisa ser robusto antes de crescer em cima dele.
       (`WebView2Browser` → ?), e criar `Borion/plugins/`, `templates/` e `tools/` quando surgirem.
 - [ ] Pacote `.dpk` opcional para instalar o componente na paleta da IDE.
 
-**Robustez do `TWebView2Browser`** (detalhes no [README do WebView2](../../WebView2/README.md#robustez))
+**Robustez do `TWebView2Browser`** (detalhes no [README do WebView2](../WebView2/README.md#robustez))
 - [x] Proteger **todos** os callbacks COM com `try/except`: exceções vão para o
       `OnCallbackError` (ou para o tratador padrão da aplicação), nunca para o WebView2.
 - [x] Evento `OnProcessFailed` com ação padrão: browser caiu → recria o WebView e volta à
@@ -91,7 +91,7 @@ Documentação: [IPC.md](IPC.md).
 - [x] Eventos JS → Delphi: `Ipc.Listen` / `Unlisten`, com curinga `*`.
 - [x] Validar a **origem** de cada mensagem (`Source` do WebView2), negando por padrão
       (`AllowOrigin`).
-- [x] Testes DUnit do `BorionJson` e do roteamento de comandos (`Tests`, 56 testes),
+- [x] Testes DUnit do `BorionJson` e do roteamento de comandos (`Borion/Tests`, 56 testes),
       com `TBorionIpc.ProcessMessage` / `OnPost` para testar sem WebView2.
 
 **Lado JS**
@@ -104,7 +104,7 @@ Documentação: [IPC.md](IPC.md).
 - [x] Pacote ESM `@borion/api` (`import { invoke } from '@borion/api'`) sobre a ponte injetada,
       com `isBorion()` e erro `NOT_AVAILABLE` fora do app.
 - [x] Testes JS (`node:test`, 24 testes) da ponte real e do pacote, rodados pelo
-      `Tests/run-tests.bat`.
+      `Borion/Tests/run-tests.bat`.
 - [ ] Publicar o `@borion/api` no npm (hoje: `npm install <caminho>/Borion/js`).
 
 **Marco 1:** ✅ `await borion.invoke('somar', {a: 20, b: 22})` devolve `42` vindo de um comando

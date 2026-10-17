@@ -300,7 +300,7 @@ Sem `chrome.webview` (página aberta num navegador comum), a ponte não é criad
 
 ### Com bundler: pacote `@borion/api`
 
-Para apps com Vite, Rollup e afins, o pacote ESM em [`Borion/js`](../js/README.md) expõe a mesma
+Para apps com Vite, Rollup e afins, o pacote ESM em [`js`](../js/README.md) expõe a mesma
 API como imports tipados:
 
 ```js
@@ -371,7 +371,7 @@ Borion, então listeners da própria página não as veem.
 ## Testes
 
 ```bat
-Borion\Tests\run-tests.bat
+Tests\run-tests.bat
 ```
 
 Compila e roda as duas baterias e sai com erro se alguma falhar:
@@ -379,7 +379,7 @@ Compila e roda as duas baterias e sai com erro se alguma falhar:
 | Bateria | Onde | O que cobre |
 |---|---|---|
 | DUnit (Delphi) | `Tests/` | `BorionJson` (Unicode nos dois sentidos) e `TBorionIpc`: roteamento, argumentos, erros, chamadas adiadas (inclusive de outra thread), origens, eventos e mensagens malformadas |
-| `node:test` (JS) | `Borion/js/test/` | A ponte JS real (exportada pelo DUnit) num `chrome.webview` simulado, e o pacote `@borion/api` |
+| `node:test` (JS) | `js/test/` | A ponte JS real (exportada pelo DUnit) num `chrome.webview` simulado, e o pacote `@borion/api` |
 
 Requisitos: DUnit (`DUNIT`, padrão `C:\dev\lib\dunit\src`), as variáveis da Jsons já citadas e
 Node.js 18+ (sem Node, os testes JS são pulados com aviso).

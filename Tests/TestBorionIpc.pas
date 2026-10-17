@@ -819,7 +819,7 @@ var
   Pasta, Arquivo: string;
   F: TextFile;
 begin
-  { os testes JS (Borion/js/test) carregam a ponte deste arquivo }
+  { os testes JS (js/test) carregam a ponte deste arquivo }
   Pasta := ExtractFilePath(ParamStr(0)) + 'out';
   ForceDirectories(Pasta);
   Arquivo := Pasta + '\borion-bridge.js';
