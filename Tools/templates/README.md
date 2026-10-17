@@ -11,7 +11,8 @@ tiver um arquivo com o mesmo caminho).
 
 Todos geram o app inteiro num `.dpr` com o `TBorionBuilder`, o `app.json` (título, versão,
 janela e `build.frontendDist`; cada template tem o seu), um comando Delphi de exemplo
-(`saudar`) e o plugin `dialog`, além do `build.bat` e do `dev.bat`, que só chamam o
+(`saudar`) e o plugin `dialog`, o ícone padrão (`icons\icon.ico`, do `_comum`, ligado pelo
+`bundle.icon` do `app.json`; troque o arquivo para mudar o ícone do exe), além do `build.bat` e do `dev.bat`, que só chamam o
 `borion build` e o `borion dev` (para funcionar sem o `borion` no PATH). O `borion build`/`dev`
 acha o projeto por convenção (veja o [README do Borion](../../README.md#borion-dev-e-borion-build)):
 um template novo deve manter o único `.dpr`, a interface em `web\` ou `frontend\` e o
@@ -25,6 +26,8 @@ um template novo deve manter o único `.dpr`, a interface em `web\` ou `frontend
 - **Codificação:** `.dpr`, `.pas`, `.rc`, `.dof` e `.bat` ficam em cp1252 com CRLF (como o
   Delphi 7 e o `cmd` esperam); o resto, em UTF-8. Os valores são convertidos para a codificação de
   cada arquivo.
+- **Binários:** `.ico`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.woff` e `.woff2` são copiados
+  como estão, sem os placeholders.
 
 | Chave | Valor |
 |---|---|

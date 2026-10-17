@@ -32,6 +32,8 @@ type
     procedure TestPacoteInvalidoLevantaErro;
     procedure TestPacoteTruncadoLevantaErro;
     procedure TestResIdaEVolta;
+    procedure TestResComIcone;
+    procedure TestIconeInvalido;
     procedure TestUrlDecode;
   end;
 
@@ -63,7 +65,84 @@ type
     procedure TestStartUrlEOrigem;
   end;
 
+{ Um .ico de verdade (BMP de 32 bits), com uma imagem quadrada por tamanho }
+function IcoDeTeste(const Tamanhos: array of Integer): string;
+procedure GravarIcoDeTeste(const Arquivo: string; const Tamanhos: array of Integer);
+
 implementation
+
+function Palavra(V: Word): string;
+begin
+  SetLength(Result, 2);
+  Move(V, Result[1], 2);
+end;
+
+function Dupla(V: Cardinal): string;
+begin
+  SetLength(Result, 4);
+  Move(V, Result[1], 4);
+end;
+
+function IcoDeTeste(const Tamanhos: array of Integer): string;
+var
+  Imagens: array of string;
+  I, T, Mascara: Integer;
+  Posicao: Cardinal;
+begin
+  SetLength(Imagens, Length(Tamanhos));
+  for I := 0 to High(Tamanhos) do
+  begin
+    T := Tamanhos[I];
+    Mascara := ((T + 31) div 32) * 4 * T;  { a máscara AND: 1 bit por pixel, linhas de 4 bytes }
+    { BITMAPINFOHEADER (altura dobrada: cores + máscara), os pixels BGRA e a máscara }
+    Imagens[I] := Dupla(40) + Dupla(T) + Dupla(2 * T) + Palavra(1) + Palavra(32) + Dupla(0) +
+      Dupla(T * T * 4 + Mascara) + Dupla(0) + Dupla(0) + Dupla(0) + Dupla(0) +
+      StringOfChar(#$C0, T * T * 4) + StringOfChar(#0, Mascara);
+  end;
+  Result := Palavra(0) + Palavra(1) + Palavra(Length(Tamanhos));
+  Posicao := 6 + 16 * Length(Tamanhos);
+  for I := 0 to High(Tamanhos) do
+  begin
+    Result := Result + Chr(Tamanhos[I] mod 256) + Chr(Tamanhos[I] mod 256) + #0#0 + Palavra(1) +
+      Palavra(32) + Dupla(Length(Imagens[I])) + Dupla(Posicao);
+    Inc(Posicao, Length(Imagens[I]));
+  end;
+  for I := 0 to High(Imagens) do
+    Result := Result + Imagens[I];
+end;
+
+procedure GravarIcoDeTeste(const Arquivo: string; const Tamanhos: array of Integer);
+var
+  F: TFileStream;
+  S: string;
+begin
+  S := IcoDeTeste(Tamanhos);
+  ForceDirectories(ExtractFileDir(Arquivo));
+  F := TFileStream.Create(Arquivo, fmCreate);
+  try
+    F.WriteBuffer(S[1], Length(S));
+  finally
+    F.Free;
+  end;
+end;
+
+{ Um recurso de tipo ordinal do .res, como texto ('' se não houver) }
+function LerDoRes(const Res: string; Tipo: Word; const Nome: string; Id: Word): string;
+var
+  M: TMemoryStream;
+begin
+  Result := '';
+  M := TMemoryStream.Create;
+  try
+    if BorionReadResource(Res, Tipo, Nome, Id, M) and (M.Size > 0) then
+    begin
+      SetLength(Result, M.Size);
+      Move(M.Memory^, Result[1], M.Size);
+    end;
+  finally
+    M.Free;
+  end;
+end;
 
 const
   INDEX_HTML = '<!doctype html><title>t</title><div id="app"></div>';
@@ -391,6 +470,94 @@ begin
     Lido.Free;
     Pacote.Free;
     DeleteFile(Res);
+  end;
+end;
+
+procedure TTestBorionPack.TestResComIcone;
+var
+  Res, Ico, Bytes, Grupo, Imagem: string;
+  Pacote, Lido: TMemoryStream;
+begin
+  Res := PastaTemp('icone.res');
+  Ico := PastaTemp('app.ico');
+  GravarIcoDeTeste(Ico, [16, 32]);
+  Bytes := IcoDeTeste([16, 32]);
+  Pacote := Empacotar(True);
+  Lido := TMemoryStream.Create;
+  try
+    BorionWriteResources(Res, [BORION_PACK_RESOURCE], [Pacote], Ico);
+    Check(BorionReadRes(Res, BORION_PACK_RESOURCE, Lido), 'o pacote, antes do ícone');
+    CheckEquals(Pacote.Size, Lido.Size);
+    Check(BorionResHasIcon(Res), 'MAINICON');
+    { RT_GROUP_ICON: o cabeçalho do .ico e uma entrada de 14 bytes por imagem }
+    Grupo := LerDoRes(Res, BORION_RT_GROUP_ICON, BORION_ICON_RESOURCE, 0);
+    CheckEquals(6 + 2 * 14, Length(Grupo));
+    CheckEquals(Copy(Bytes, 1, 6), Copy(Grupo, 1, 6), 'cabeçalho');
+    CheckEquals(Copy(Bytes, 7, 12), Copy(Grupo, 7, 12), 'a primeira entrada');
+    CheckEquals(BORION_ICON_FIRST_ID, PWord(@Grupo[19])^, 'id da primeira');
+    CheckEquals(32, Ord(Grupo[21]), 'largura da segunda');
+    CheckEquals(BORION_ICON_FIRST_ID + 1, PWord(@Grupo[33])^, 'id da segunda');
+    { RT_ICON: cada imagem, como está no .ico }
+    Imagem := LerDoRes(Res, BORION_RT_ICON, '', BORION_ICON_FIRST_ID + 1);
+    CheckEquals(40 + 32 * 32 * 4 + 4 * 32, Length(Imagem));
+    CheckEquals(Copy(Bytes, Length(Bytes) - Length(Imagem) + 1, MaxInt), Imagem);
+    CheckEquals(40 + 16 * 16 * 4 + 4 * 16, Length(LerDoRes(Res, BORION_RT_ICON, '', BORION_ICON_FIRST_ID)));
+    CheckEquals('', LerDoRes(Res, BORION_RT_ICON, '', BORION_ICON_FIRST_ID + 2));
+    { sem IconFile, sem ícone }
+    BorionWriteRes(Res, BORION_PACK_RESOURCE, Pacote);
+    CheckFalse(BorionResHasIcon(Res));
+  finally
+    Lido.Free;
+    Pacote.Free;
+    DeleteFile(Res);
+    DeleteFile(Ico);
+  end;
+end;
+
+procedure TTestBorionPack.TestIconeInvalido;
+var
+  Res, Ico: string;
+  Pacote, Lido: TMemoryStream;
+
+  procedure DeveFalhar(const Conteudo, Trecho: string);
+  var
+    F: TFileStream;
+  begin
+    F := TFileStream.Create(Ico, fmCreate);
+    try
+      if Conteudo <> '' then
+        F.WriteBuffer(Conteudo[1], Length(Conteudo));
+    finally
+      F.Free;
+    end;
+    try
+      BorionWriteResources(Res, [BORION_PACK_RESOURCE], [Pacote], Ico);
+      Fail('aceitou o .ico: ' + Trecho);
+    except
+      on E: EBorionPack do
+        Check((Pos('ruim.ico', E.Message) > 0) and (Pos(Trecho, E.Message) > 0), E.Message);
+    end;
+  end;
+
+begin
+  Res := PastaTemp('icone.res');
+  Ico := PastaTemp('ruim.ico');
+  Pacote := Empacotar(True);
+  Lido := TMemoryStream.Create;
+  try
+    BorionWriteRes(Res, BORION_PACK_RESOURCE, Pacote);
+    DeveFalhar(#$89'PNG'#13#10#$1A#10, 'cabeçalho');
+    DeveFalhar('', 'curto');
+    DeveFalhar(#0#0#1#0#0#0, 'nenhuma imagem');
+    DeveFalhar(Copy(IcoDeTeste([16, 32]), 1, 30), 'truncado');
+    DeveFalhar(Copy(IcoDeTeste([16]), 1, 100), 'fora do arquivo');
+    Check(BorionReadRes(Res, BORION_PACK_RESOURCE, Lido), 'o .res de antes continua inteiro');
+    CheckEquals(Pacote.Size, Lido.Size);
+  finally
+    Lido.Free;
+    Pacote.Free;
+    DeleteFile(Res);
+    DeleteFile(Ico);
   end;
 end;
 

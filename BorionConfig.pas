@@ -20,6 +20,9 @@ unit BorionConfig;
             "decorations": true, "alwaysOnTop": false }
         ],
         "security": { "csp": "default-src 'self'" }
+      },
+      "bundle": {
+        "icon": ["icons/32x32.png", "icons/icon.icns", "icons/icon.ico"]
       }
     }
 
@@ -64,6 +67,8 @@ type
     FFrontendDist: string;
     FDevUrl: string;
     FCsp: string;
+    FIcons: TStringList;
+    FBundleActive: Boolean;
     FWindows: array of TBorionWindowConfig;
     FWarnings: TStringList;
     FLoaded: Boolean;
@@ -93,6 +98,14 @@ type
     property DevUrl: string read FDevUrl write FDevUrl;
     { app.security.csp: o header Content-Security-Policy dos assets ('' = nenhum) }
     property Csp: string read FCsp write FCsp;
+    { bundle.icon: os ícones do app, relativos à pasta do app.json, como no
+      tauri.conf.json. O Windows só usa o .ico (os .png e .icns são aceitos e
+      ignorados) }
+    property Icons: TStringList read FIcons;
+    { O primeiro .ico de Icons, o que o borion build grava no exe ('' = nenhum) }
+    function IconFile: string;
+    { bundle.active: aceito, como no Tauri; o instalador é da Fase 7 }
+    property BundleActive: Boolean read FBundleActive write FBundleActive;
     { A janela principal (Windows[0]) }
     property Window: TBorionWindowConfig read GetWindow write SetWindow;
     { Todas as janelas de app.windows (sempre pelo menos a principal) }
@@ -337,11 +350,13 @@ constructor TBorionConfig.Create;
 begin
   inherited Create;
   FWarnings := TStringList.Create;
+  FIcons := TStringList.Create;
   Clear;
 end;
 
 destructor TBorionConfig.Destroy;
 begin
+  FIcons.Free;
   FWarnings.Free;
   inherited;
 end;
@@ -354,6 +369,8 @@ begin
   FFrontendDist := '';
   FDevUrl := '';
   FCsp := '';
+  FIcons.Clear;
+  FBundleActive := False;
   SetLength(FWindows, 1);
   FWindows[0] := BorionDefaultWindow;
   FWarnings.Clear;
@@ -420,6 +437,19 @@ begin
   Result := FWindows[Index];
 end;
 
+function TBorionConfig.IconFile: string;
+var
+  I: Integer;
+begin
+  for I := 0 to FIcons.Count - 1 do
+    if SameText(ExtractFileExt(FIcons[I]), '.ico') then
+    begin
+      Result := FIcons[I];
+      Exit;
+    end;
+  Result := '';
+end;
+
 function TBorionConfig.FindWindow(const WindowLabel: string; out Config: TBorionWindowConfig): Boolean;
 var
   I: Integer;
@@ -436,13 +466,13 @@ end;
 
 procedure TBorionConfig.Ler(Raiz: TJsonObject);
 var
-  Build, App, Security: TJsonObject;
+  Build, App, Security, Bundle: TJsonObject;
   V: TJsonValue;
-  Janelas: TJsonArray;
+  Janelas, Icones: TJsonArray;
   I, J: Integer;
   Caminho: string;
 begin
-  Avisar(Raiz, '', '$schema|productName|version|identifier|build|app');
+  Avisar(Raiz, '', '$schema|productName|version|identifier|build|app|bundle');
   LerTexto(Raiz, '', 'productName', FProductName);
   LerTexto(Raiz, '', 'version', FVersion);
   if (FVersion <> '') and not BorionIsValidVersion(FVersion) then
@@ -461,6 +491,29 @@ begin
     if (FDevUrl <> '') and not (SameText(Copy(FDevUrl, 1, 7), 'http://') or
       SameText(Copy(FDevUrl, 1, 8), 'https://')) then
       Falhar('build.devUrl', 'uma URL http:// ou https://');
+  end;
+
+  Bundle := LerObjeto(Raiz, '', 'bundle');
+  if Bundle <> nil then
+  begin
+    Avisar(Bundle, 'bundle', 'active|icon');
+    LerLogico(Bundle, 'bundle', 'active', FBundleActive);
+    V := Membro(Bundle, 'icon');
+    if V <> nil then
+    begin
+      if V.ValueType <> jvArray then
+        Falhar('bundle.icon', 'uma lista de arquivos (ex.: ["icons/icon.ico"])');
+      Icones := V.AsArray;
+      for I := 0 to Icones.Count - 1 do
+      begin
+        if (Icones[I].ValueType <> jvString) or (Trim(Icones[I].AsString) = '') then
+          Falhar(Format('bundle.icon[%d]', [I]), 'o caminho de um arquivo');
+        FIcons.Add(Icones[I].AsString);
+      end;
+      if (FIcons.Count > 0) and (IconFile = '') then
+        raise EBorionConfig.Create('app.json: "bundle.icon" precisa de um arquivo .ico: é o ' +
+          'ícone do exe no Windows (os .png e .icns ficam para outras plataformas)');
+    end;
   end;
 
   App := LerObjeto(Raiz, '', 'app');

@@ -92,7 +92,8 @@ var
 begin
   for I := 0 to Arquivos.Count - 1 do
   begin
-    Check(Pos('{{', Ler(Pasta + '\' + Arquivos[I])) = 0, 'sobrou placeholder em ' + Arquivos[I]);
+    if ExtractFileExt(Arquivos[I]) <> '.ico' then
+      Check(Pos('{{', Ler(Pasta + '\' + Arquivos[I])) = 0, 'sobrou placeholder em ' + Arquivos[I]);
     Check(Pos('__PROGRAM__', Arquivos[I]) = 0, Arquivos[I]);
   end;
 end;
@@ -142,8 +143,10 @@ begin
   try
     BorionNewProject(Opcoes('meu-app', 'vanilla'), Criados);
     P := FSaida + '\meu-app';
-    CheckEquals('.gitignore,app.json,build.bat,dev.bat,MeuApp.dof,MeuApp.dpr,MeuApp.rc,README.md,web\app.js,' +
-      'web\index.html,web\style.css', StringReplace(Criados.CommaText, '"', '', [rfReplaceAll]));
+    CheckEquals('.gitignore,app.json,build.bat,dev.bat,icons\icon.ico,MeuApp.dof,MeuApp.dpr,MeuApp.rc,' +
+      'README.md,web\app.js,web\index.html,web\style.css', StringReplace(Criados.CommaText, '"', '', [rfReplaceAll]));
+    CheckEquals(Ler(Opcoes('x', '').TemplatesDir + '\_comum\icons\icon.ico'), Ler(P + '\icons\icon.ico'),
+      'o ícone, byte a byte');
     SemPlaceholders(P, Criados);
     S := Ler(P + '\MeuApp.dpr');
     Check(Pos('program MeuApp;', S) = 1, 'program');
@@ -159,6 +162,7 @@ begin
       CheckEquals(TITULO, Config.ProductName, 'o app.json gerado é válido');
       CheckEquals(0, Config.Warnings.Count, Config.Warnings.Text);
       CheckEquals(900, Config.Window.Width);
+      CheckEquals('icons/icon.ico', Config.IconFile, 'o ícone padrão');
     finally
       Config.Free;
     end;
@@ -189,6 +193,7 @@ begin
     SemPlaceholders(FSaida + '\app-vite', Criados);
     Check(Criados.IndexOf('dev.bat') >= 0);
     Check(Criados.IndexOf('frontend\src\main.js') >= 0);
+    Check(Criados.IndexOf('icons\icon.ico') >= 0, 'o ícone do _comum');
     S := Ler(FSaida + '\app-vite\frontend\package.json');
     Check(Pos('"name": "app-vite"', S) > 0, S);
     Check(Pos('"@borion/api": "file:C:/Borion/js"', S) > 0, 'caminho com barras para o npm');

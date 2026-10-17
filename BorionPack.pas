@@ -31,6 +31,13 @@ uses
 const
   BORION_PACK_RESOURCE = 'BORION_ASSETS';
   BORION_PACK_FLAG_ZLIB = 1;
+  { O ícone do app: o grupo que a VCL (Application.Icon), o Explorer e o tray usam }
+  BORION_ICON_RESOURCE = 'MAINICON';
+  BORION_RT_ICON = 3;
+  BORION_RT_GROUP_ICON = 14;
+  { Ids dos RT_ICON gravados (um por imagem do .ico): longe dos 1, 2... do .res
+    da IDE e do brcc32 }
+  BORION_ICON_FIRST_ID = 32000;
 
 type
   EBorionPack = class(Exception);
@@ -82,11 +89,20 @@ function BorionPackFolder(const Folder: string; Dest: TStream; const Options: TB
 
 { .res com um único recurso RCDATA }
 procedure BorionWriteRes(const FileName, ResName: string; Data: TStream);
-{ .res com vários recursos RCDATA (ResNames[I] -> Data[I], do início de cada stream) }
+{ .res com vários recursos RCDATA (ResNames[I] -> Data[I], do início de cada stream).
+  IconFile <> '': grava também o .ico como MAINICON (um RT_ICON por imagem e o
+  RT_GROUP_ICON que as lista). Levanta EBorionPack se o .ico for inválido, sem
+  tocar no arquivo. }
 procedure BorionWriteResources(const FileName: string; const ResNames: array of string;
-  const Data: array of TStream);
+  const Data: array of TStream; const IconFile: string = '');
 { Lê o recurso RCDATA ResName de um .res; False se não existir }
 function BorionReadRes(const FileName, ResName: string; Dest: TStream): Boolean;
+{ Lê um recurso de tipo ordinal (BORION_RT_ICON...) de um .res, pelo nome ou,
+  com ResName = '', pelo id. Dest = nil: só diz se existe. }
+function BorionReadResource(const FileName: string; ResType: Word; const ResName: string;
+  ResId: Word; Dest: TStream): Boolean;
+{ O .res tem um MAINICON (de um ICON no .rc ou do ícone da IDE) }
+function BorionResHasIcon(const FileName: string): Boolean;
 
 { 'a%C3%A7%C3%A3o.png' -> bytes UTF-8 de 'ação.png'. Sequências inválidas ficam como estão. }
 function BorionUrlDecode(const S: string): string;
@@ -454,22 +470,133 @@ end;
 { Cada recurso num .res: DataSize, HeaderSize, TYPE, NAME, DataVersion,
   MemoryFlags, LanguageId, Version, Characteristics, dados (alinhados a 4). }
 
+type
+  { ICONDIRENTRY do .ico; no RT_GROUP_ICON, os 12 primeiros bytes seguidos do id }
+  TIcoEntrada = packed record
+    Largura, Altura, Cores, Reservado: Byte;
+    Planos, Bits: Word;
+    Tamanho, Posicao: Cardinal;
+  end;
+
+{ Cabeçalho de um recurso de tipo ordinal; Nome = '' usa o ordinal Id }
+procedure EscreverCabecalho(S: TStream; Tipo: Word; const Nome: string; Id, Flags: Word;
+  DataSize: Cardinal);
+var
+  W: WideString;
+  NomeBytes, HeaderSize: Cardinal;
+begin
+  if Nome <> '' then
+  begin
+    W := WideString(UpperCase(Nome));
+    NomeBytes := (Length(W) + 1) * 2;
+  end
+  else
+    NomeBytes := 4;
+  HeaderSize := 8 + 4 + NomeBytes;
+  if HeaderSize mod 4 <> 0 then
+    Inc(HeaderSize, 4 - HeaderSize mod 4);
+  Inc(HeaderSize, 16);
+  WriteCard(S, DataSize);
+  WriteCard(S, HeaderSize);
+  WriteWord(S, $FFFF); WriteWord(S, Tipo);
+  if Nome <> '' then
+    S.WriteBuffer(W[1], NomeBytes)  { inclui o #0 final }
+  else
+  begin
+    WriteWord(S, $FFFF); WriteWord(S, Id);
+  end;
+  WritePad(S);
+  WriteCard(S, 0);         { DataVersion }
+  WriteWord(S, Flags);     { MemoryFlags }
+  WriteWord(S, 0);         { LanguageId: neutro }
+  WriteCard(S, 0);         { Version }
+  WriteCard(S, 0);         { Characteristics }
+end;
+
+{ Lê e confere o .ico: o arquivo em Ico e as N entradas do diretório em E }
+procedure LerIco(const IconFile: string; Ico: TMemoryStream; var E: array of TIcoEntrada;
+  out N: Integer);
+var
+  Reservado, Tipo, Qtd: Word;
+  I: Integer;
+
+  procedure Invalido(const Motivo: string);
+  begin
+    raise EBorionPack.CreateFmt('%s não é um ícone .ico válido (%s)', [ExtractFileName(IconFile), Motivo]);
+  end;
+
+begin
+  Ico.LoadFromFile(IconFile);
+  if Ico.Size < 6 then
+    Invalido('arquivo curto demais');
+  Ico.ReadBuffer(Reservado, 2);
+  Ico.ReadBuffer(Tipo, 2);
+  Ico.ReadBuffer(Qtd, 2);
+  if (Reservado <> 0) or (Tipo <> 1) then
+    Invalido('cabeçalho');
+  if Qtd = 0 then
+    Invalido('nenhuma imagem');
+  if Qtd > Length(E) then
+    Invalido(Format('mais de %d imagens', [Length(E)]));
+  if Ico.Size < 6 + Qtd * SizeOf(TIcoEntrada) then
+    Invalido('diretório truncado');
+  N := Qtd;
+  Ico.ReadBuffer(E[0], N * SizeOf(TIcoEntrada));
+  for I := 0 to N - 1 do
+    if (E[I].Tamanho = 0) or (E[I].Posicao > Cardinal(Ico.Size)) or
+      (E[I].Tamanho > Cardinal(Ico.Size) - E[I].Posicao) then
+      Invalido(Format('imagem %d fora do arquivo', [I + 1]));
+end;
+
+procedure EscreverIcone(S: TStream; const IconFile: string);
+var
+  Ico, Grupo: TMemoryStream;
+  E: array[0..255] of TIcoEntrada;
+  N, I: Integer;
+begin
+  Ico := TMemoryStream.Create;
+  Grupo := TMemoryStream.Create;
+  try
+    LerIco(IconFile, Ico, E, N);
+    for I := 0 to N - 1 do
+    begin
+      EscreverCabecalho(S, BORION_RT_ICON, '', BORION_ICON_FIRST_ID + I, $1010, E[I].Tamanho);
+      S.WriteBuffer((PChar(Ico.Memory) + E[I].Posicao)^, E[I].Tamanho);
+      WritePad(S);
+    end;
+    { GRPICONDIR: o cabeçalho do .ico, com o id do RT_ICON no lugar da posição }
+    WriteWord(Grupo, 0);
+    WriteWord(Grupo, 1);
+    WriteWord(Grupo, N);
+    for I := 0 to N - 1 do
+    begin
+      Grupo.WriteBuffer(E[I], 12);
+      WriteWord(Grupo, BORION_ICON_FIRST_ID + I);
+    end;
+    EscreverCabecalho(S, BORION_RT_GROUP_ICON, BORION_ICON_RESOURCE, 0, $1030, Grupo.Size);
+    S.CopyFrom(Grupo, 0);
+    WritePad(S);
+  finally
+    Grupo.Free;
+    Ico.Free;
+  end;
+end;
+
 procedure BorionWriteRes(const FileName, ResName: string; Data: TStream);
 begin
   BorionWriteResources(FileName, [ResName], [Data]);
 end;
 
 procedure BorionWriteResources(const FileName: string; const ResNames: array of string;
-  const Data: array of TStream);
+  const Data: array of TStream; const IconFile: string);
 var
-  S: TFileStream;
-  Nome: WideString;
-  NomeBytes, HeaderSize: Cardinal;
+  S: TMemoryStream;
   I: Integer;
 begin
   if Length(ResNames) <> Length(Data) then
     raise EBorionPack.Create('BorionWriteResources: nomes e dados em quantidades diferentes');
-  S := TFileStream.Create(FileName, fmCreate);
+  { monta em memória: um .ico inválido não estraga o .res que já existe }
+  S := TMemoryStream.Create;
   try
     { entrada vazia obrigatória no início do arquivo }
     WriteCard(S, 0); WriteCard(S, $20);
@@ -478,39 +605,29 @@ begin
     WriteCard(S, 0); WriteCard(S, 0); WriteCard(S, 0); WriteCard(S, 0);
     for I := 0 to High(ResNames) do
     begin
-      Nome := WideString(UpperCase(ResNames[I]));
-      NomeBytes := (Length(Nome) + 1) * 2;
-      HeaderSize := 8 + 4 + NomeBytes;
-      if HeaderSize mod 4 <> 0 then
-        Inc(HeaderSize, 4 - HeaderSize mod 4);
-      Inc(HeaderSize, 16);
-      WriteCard(S, Data[I].Size);
-      WriteCard(S, HeaderSize);
-      WriteWord(S, $FFFF); WriteWord(S, RT_RCDATA_ID);
-      S.WriteBuffer(Nome[1], NomeBytes);  { inclui o #0 final }
-      WritePad(S);
-      WriteCard(S, 0);         { DataVersion }
-      WriteWord(S, $0030);     { MemoryFlags: MOVEABLE | PURE }
-      WriteWord(S, 0);         { LanguageId: neutro }
-      WriteCard(S, 0);         { Version }
-      WriteCard(S, 0);         { Characteristics }
+      EscreverCabecalho(S, RT_RCDATA_ID, ResNames[I], 0, $0030, Data[I].Size);
       if Data[I].Size > 0 then
         S.CopyFrom(Data[I], 0);
       WritePad(S);
     end;
+    if IconFile <> '' then
+      EscreverIcone(S, IconFile);
+    S.SaveToFile(FileName);
   finally
     S.Free;
   end;
 end;
 
-function BorionReadRes(const FileName, ResName: string; Dest: TStream): Boolean;
+function BorionReadResource(const FileName: string; ResType: Word; const ResName: string;
+  ResId: Word; Dest: TStream): Boolean;
 var
   S: TFileStream;
   Inicio: Int64;
   DataSize, HeaderSize: Cardinal;
-  TipoMarca, TipoId: Word;
+  TipoMarca, TipoId, Id: Word;
   Nome: WideString;
   C: WideChar;
+  Achou: Boolean;
 begin
   Result := False;
   S := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
@@ -526,18 +643,24 @@ begin
         S.ReadBuffer(TipoId, 2);
       { nome: ordinal ou texto Unicode terminado em #0 }
       Nome := '';
+      Id := 0;
       S.ReadBuffer(C, 2);
-      if Word(C) <> $FFFF then
+      if Word(C) = $FFFF then
+        S.ReadBuffer(Id, 2)
+      else
         while C <> #0 do
         begin
           Nome := Nome + C;
           S.ReadBuffer(C, 2);
         end;
-      if (TipoMarca = $FFFF) and (TipoId = RT_RCDATA_ID) and
-        SameText(string(Nome), ResName) then
+      if ResName <> '' then
+        Achou := SameText(string(Nome), ResName)
+      else
+        Achou := (Nome = '') and (Id = ResId);
+      if (TipoMarca = $FFFF) and (TipoId = ResType) and Achou then
       begin
         S.Position := Inicio + HeaderSize;
-        if DataSize > 0 then
+        if (Dest <> nil) and (DataSize > 0) then
           Dest.CopyFrom(S, DataSize);
         Result := True;
         Exit;
@@ -549,6 +672,16 @@ begin
   finally
     S.Free;
   end;
+end;
+
+function BorionReadRes(const FileName, ResName: string; Dest: TStream): Boolean;
+begin
+  Result := BorionReadResource(FileName, RT_RCDATA_ID, ResName, 0, Dest);
+end;
+
+function BorionResHasIcon(const FileName: string): Boolean;
+begin
+  Result := BorionReadResource(FileName, BORION_RT_GROUP_ICON, BORION_ICON_RESOURCE, 0, nil);
 end;
 
 end.

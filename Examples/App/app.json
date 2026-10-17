@@ -1,0 +1,8 @@
+{
+  "build": {
+    "frontendDist": "web"
+  },
+  "bundle": {
+    "icon": ["icons/icon.ico"]
+  }
+}

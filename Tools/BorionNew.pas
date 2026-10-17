@@ -163,6 +163,16 @@ begin
   Result := (Ext = '.dpr') or (Ext = '.pas') or (Ext = '.rc') or (Ext = '.dof') or (Ext = '.bat');
 end;
 
+{ ícones, imagens e fontes: copiados como estão, sem os placeholders }
+function EhBinario(const Arquivo: string): Boolean;
+var
+  Ext: string;
+begin
+  Ext := LowerCase(ExtractFileExt(Arquivo));
+  Result := (Ext = '.ico') or (Ext = '.png') or (Ext = '.jpg') or (Ext = '.jpeg') or (Ext = '.gif') or
+    (Ext = '.webp') or (Ext = '.woff') or (Ext = '.woff2');
+end;
+
 function Ler(const Arquivo: string): string;
 var
   F: TFileStream;
@@ -360,7 +370,9 @@ begin
     for I := 0 to Fontes.Count - 1 do
     begin
       Rel := Fontes.Names[I];
-      Conteudo := Substituir(Ler(Fontes.ValueFromIndex[I] + Rel), Valores, not EhAnsi(Rel), Rel);
+      Conteudo := Ler(Fontes.ValueFromIndex[I] + Rel);
+      if not EhBinario(Rel) then
+        Conteudo := Substituir(Conteudo, Valores, not EhAnsi(Rel), Rel);
       Destino := StringReplace(Rel, '__PROGRAM__', Programa, [rfReplaceAll]);
       Gravar(Pasta + '\' + Destino, Conteudo);
       Created.Add(Destino);

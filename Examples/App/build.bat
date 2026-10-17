@@ -1,26 +1,10 @@
 @echo off
-rem Compila o exemplo do plugin app (ou abra AppDemo.dpr na IDE do Delphi 7).
+rem Compila o exemplo do plugin app com o "borion build" (ou abra AppDemo.dpr na IDE, depois
+rem de um build: ele gera o web.res com a interface, o app.json e o ícone).
 setlocal
-if "%DELPHI%"=="" set DELPHI=C:\bin\Borland\Delphi7
-rem Jsons.pas (json4delphi, distribuida com o ACBr) e o ACBr.inc que ela inclui
-if "%JSON4DELPHI%"=="" set JSON4DELPHI=C:\dev\lib\ACBr\Fontes\Terceiros\json4delphi\src
-if "%ACBR_COMUM%"=="" set ACBR_COMUM=C:\dev\lib\ACBr\Fontes\ACBrComum
 set BORION=%~dp0..\..\Tools\borion.exe
-rem fontes do Borion e do WebView2 (o .dpr só lista o que o app usa)
-set BORION_SRC=%~dp0..\..;%~dp0..\..\Plugins;%~dp0..\..\WebView2
-cd /d "%~dp0"
-if not exist "%JSON4DELPHI%\Jsons.pas" echo ERRO: Jsons.pas nao encontrada em %JSON4DELPHI% & goto :erro
 if not exist "%BORION%" call "%~dp0..\..\Tools\build.bat" || goto :erro
-rem os modulos do @borion/api (Borion\js) vao junto da pagina; o import map do
-rem index.html resolve "@borion/api/..." para eles
-if not exist web\borion-api mkdir web\borion-api
-copy /y ..\..\js\*.js web\borion-api\ >nul || goto :erro
-if not exist AppDemo.res "%DELPHI%\Bin\brcc32.exe" AppDemo.rc || goto :erro
-"%BORION%" pack web web.res || goto :erro
-"%DELPHI%\Bin\dcc32.exe" -B -Q "-U%JSON4DELPHI%;%BORION_SRC%" "-I%ACBR_COMUM%" AppDemo.dpr || goto :erro
-rem o loader x86 precisa ficar ao lado do exe
-if not exist WebView2Loader.dll copy /y ..\..\WebView2\WebView2Loader.dll . >nul || goto :erro
-echo OK: AppDemo.exe
+"%BORION%" build "%~dp0." || goto :erro
 exit /b 0
 :erro
 echo FALHOU

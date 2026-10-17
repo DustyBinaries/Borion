@@ -28,6 +28,9 @@ interface. O `borion new` já gera um.
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'"
     }
+  },
+  "bundle": {
+    "icon": ["icons/icon.ico"]
   }
 }
 ```
@@ -99,6 +102,8 @@ chave ausente.
 | `app.windows[].decorations` | lógico | `false`: sem borda nem barra de título. Feche a janela pelo plugin `app` (`exit`). A barra de título em HTML está no roadmap |
 | `app.windows[].alwaysOnTop` | lógico | Sempre por cima das outras janelas |
 | `app.security.csp` | texto | O header `Content-Security-Policy` dos assets embutidos e da pasta no `--dev-dir`. Não vale para o servidor do Vite |
+| `bundle.icon` | lista | Os ícones do app, relativos ao `app.json`, como no `tauri.conf.json`. O primeiro `.ico` da lista vira o ícone do exe ([ícone](#ícone)); os `.png` e `.icns` são aceitos e ignorados |
+| `bundle.active` | lógico | Aceito, como no Tauri; ainda não faz nada (o instalador é da Fase 7) |
 | `$schema` | texto | Aceito e ignorado |
 
 ### Onde fica a interface
@@ -135,6 +140,28 @@ Com `build.frontendDist`:
 Para cada janela vale o mesmo frontend: no build, as páginas da pasta `frontendDist`; no
 `borion dev`, o servidor do Vite (um projeto com várias páginas) ou a pasta `web\`.
 
+### Ícone
+
+```json
+"bundle": {
+  "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"]
+}
+```
+
+O `borion build` grava o `.ico` no mesmo `.res` da interface, como o recurso `MAINICON` (o
+mesmo nome que a IDE usa). Esse é o ícone do exe no Explorer, da janela, da barra de tarefas,
+do plugin `tray` e dos links do `deep-link`, sem código no `.dpr`.
+
+- **Só o `.ico` conta:** o Windows não usa `.png` nem `.icns`. A lista do Tauri pode ser colada
+  como está, mas precisa ter um `.ico`. Sem ele, o build para com a mensagem. Ponha no `.ico`
+  as imagens de 16, 24, 32, 48 e 256 px; o Windows escolhe a de cada lugar.
+- **Arquivo inexistente ou `.ico` inválido** param o build com a mensagem.
+- **No `borion dev`,** trocar o `.ico` recompila e reabre o app, como acontece com o `app.json`.
+- **Um ícone só:** se o `.res` do projeto (o `{$R *.res}`) também tiver um `MAINICON` (um
+  `MAINICON ICON "x.ico"` no `.rc`, ou o ícone que a IDE grava), o linker do Delphi 7 não aceita
+  os dois ("Duplicate resource"). O `borion build` para antes e diz qual tirar. Sem
+  `bundle.icon`, vale o do `.rc`, como antes.
+
 ## API Delphi
 
 ```pascal
@@ -167,5 +194,5 @@ todas).
 
 - `x`/`y` e `fullscreen` por janela; uma janela com outro site (`url` externa).
 - `beforeDevCommand` / `beforeBuildCommand`: hoje o comando é sempre o `npm run dev` / `npm run build`.
-- Versão, ícone e manifesto do exe a partir do `app.json` (hoje o `.rc` é escrito à mão; Fase 7).
+- Versão e manifesto do exe a partir do `app.json` (hoje o `.rc` é escrito à mão; Fase 7).
 - Capabilities e permissões (Fase 5).

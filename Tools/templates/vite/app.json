@@ -15,5 +15,8 @@
         "minHeight": 360
       }
     ]
+  },
+  "bundle": {
+    "icon": ["icons/icon.ico"]
   }
 }

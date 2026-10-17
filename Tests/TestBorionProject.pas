@@ -7,8 +7,8 @@ unit TestBorionProject;
 interface
 
 uses
-  Windows, SysUtils, Classes, TestFramework, BorionProject, BorionBuild, BorionNew, BorionConfig,
-  BorionPack;
+  Windows, SysUtils, Classes, ShellAPI, TestFramework, BorionProject, BorionBuild, BorionNew,
+  BorionConfig, BorionPack, TestBorionPack;
 
 type
   TTestBorionProject = class(TTestCase)
@@ -25,6 +25,8 @@ type
     procedure TestAppJsonEstatico;
     procedure TestAppJsonInvalido;
     procedure TestPacoteComAppJson;
+    procedure TestIconeDoAppJson;
+    procedure TestIconeRepetidoNoResDoProjeto;
     procedure TestSemDprOuComDois;
     procedure TestDelphiPelaVariavel;
     procedure TestDatas;
@@ -246,6 +248,84 @@ begin
   end;
 end;
 
+procedure TTestBorionProject.TestIconeDoAppJson;
+var
+  P: TBorionProject;
+  Res, Pacote: string;
+begin
+  Criar('App.dpr', 'program App;'#13#10'{$R *.res}'#13#10'{$R web.res}'#13#10'begin end.');
+  Criar('web\index.html', '<p>oi</p>');
+  Criar('app.json', '{"bundle": {"icon": ["icons/32x32.png", "icons/app.ico"]}}');
+  GravarIcoDeTeste(FDir + '\icons\app.ico', [16, 32]);
+  Res := FDir + '\web.res';
+  Saida := TStringList.Create;
+  BorionOut := Capturar;
+  P := TBorionProject.Create(FDir);
+  try
+    CheckEquals(FDir + '\icons\app.ico', P.IconFile);
+    BorionPackAssets(P.DistDir, Res, P.ConfigFile, P.IconFile);
+    Check(BorionResHasIcon(Res), 'o ícone no .res de assets');
+    Pacote := LerRecurso(Res, BORION_PACK_RESOURCE);
+    Check(Pacote <> '', 'o pacote');
+    Check(Pos('+ app.json + app.ico', Saida.Text) > 0, Saida.Text);
+    { o dev troca o app.json e o ícone sem refazer o pacote }
+    BorionUpdateConfigRes(P);
+    Check(BorionResHasIcon(Res), 'o ícone continua');
+    CheckEquals(Pacote, LerRecurso(Res, BORION_PACK_RESOURCE), 'o mesmo pacote');
+    { sem frontend: o app.json e o ícone }
+    BorionPackAssets('', Res, P.ConfigFile, P.IconFile);
+    Check(BorionResHasIcon(Res));
+    Check(Pos('app.json + app.ico -> web.res', Saida.Text) > 0, Saida.Text);
+  finally
+    P.Free;
+    BorionOut := nil;
+    FreeAndNil(Saida);
+  end;
+  { o .ico tem que existir }
+  DeleteFile(FDir + '\icons\app.ico');
+  try
+    TBorionProject.Create(FDir).Free;
+    Fail('ícone inexistente');
+  except
+    on E: EBorionProject do
+      Check(Pos('"icons/app.ico"', E.Message) > 0, E.Message);
+  end;
+end;
+
+procedure TTestBorionProject.TestIconeRepetidoNoResDoProjeto;
+var
+  P: TBorionProject;
+  M: TMemoryStream;
+begin
+  try
+    BorionFindDelphi;
+  except
+    Exit;  { sem Delphi 7 nesta máquina }
+  end;
+  Criar('App.dpr', 'program App;'#13#10'{$R *.res}'#13#10'begin end.');
+  Criar('app.json', '{"bundle": {"icon": ["app.ico"]}}');
+  GravarIcoDeTeste(FDir + '\app.ico', [16]);
+  { o App.res com um MAINICON, como o da IDE }
+  M := TMemoryStream.Create;
+  try
+    BorionWriteResources(FDir + '\App.res', ['X'], [M], FDir + '\app.ico');
+  finally
+    M.Free;
+  end;
+  P := TBorionProject.Create(FDir);
+  try
+    try
+      BorionCompileDelphi(P, FDir);
+      Fail('dois MAINICON');
+    except
+      on E: EBorionProject do
+        Check((Pos('App.res', E.Message) > 0) and (Pos('"bundle.icon"', E.Message) > 0), E.Message);
+    end;
+  finally
+    P.Free;
+  end;
+end;
+
 procedure TTestBorionProject.TestSemDprOuComDois;
 begin
   try
@@ -321,6 +401,9 @@ var
   Criados: TStringList;
   P: TBorionProject;
   Borion: string;
+  Grande, Pequeno: HICON;
+  Modulo: HMODULE;
+  Icone: THandle;
 begin
   { um projeto de verdade, gerado pelo borion new e compilado pelo borion build }
   Borion := ExpandFileName(ExtractFilePath(ParamStr(0)) + '..');
@@ -351,6 +434,18 @@ begin
       Check(Pos('"Teste do Build"', LerRecurso(O.Folder + '\web.res', BORION_CONFIG_RESOURCE)) > 0,
         'app.json embutido junto da interface');
       Check(Pos('OK: MeuApp.exe', Saida.Text) > 0, Saida.Text);
+      { o ícone padrão do template (bundle.icon) é o do exe }
+      CheckEquals(1, Integer(ExtractIconEx(PChar(O.Folder + '\MeuApp.exe'), -1, Grande, Pequeno, 0)),
+        'um ícone no exe');
+      Modulo := LoadLibraryEx(PChar(O.Folder + '\MeuApp.exe'), 0, LOAD_LIBRARY_AS_DATAFILE);
+      Check(Modulo <> 0, 'abrir o exe');
+      try
+        Icone := LoadImage(Modulo, 'MAINICON', IMAGE_ICON, 32, 32, 0);
+        Check(Icone <> 0, 'o MAINICON carrega');
+        DestroyIcon(Icone);
+      finally
+        FreeLibrary(Modulo);
+      end;
     finally
       P.Free;
     end;

@@ -5,7 +5,7 @@ unit BorionBuild;
   borion build / borion dev: as etapas, sobre um TBorionProject.
 
   build: frontend (npm run build, ou a cópia do @borion/api para web\) ->
-         pacote de assets e app.json (o .res do .dpr) -> .rc com brcc32 (se
+         pacote de assets, app.json e ícone (o .res do .dpr) -> .rc com brcc32 (se
          mudou) -> dcc32 -> WebView2Loader.dll ao lado do exe.
   dev:   o mesmo Delphi, mas o frontend vem do servidor do Vite (--dev-url) ou
          direto da pasta web\ (--dev-dir, com recarga automática). Se um .pas,
@@ -39,10 +39,12 @@ procedure BorionBuildProject(P: TBorionProject; const BorionHome: string);
 procedure BorionDevProject(P: TBorionProject; const BorionHome: string; const Options: TBorionDevOptions);
 { Só a parte Delphi (brcc32 + dcc32 + loader) }
 procedure BorionCompileDelphi(P: TBorionProject; const BorionHome: string);
-{ Empacota a pasta (BORION_ASSETS) e o app.json (BORION_CONFIG, se ConfigFile
-  <> '') no .res de assets do projeto. Pasta = '': só o app.json. }
-procedure BorionPackAssets(const Pasta, Saida: string; const ConfigFile: string = '');
-{ Troca só o app.json do .res de assets, mantendo o pacote que já está nele }
+{ Empacota a pasta (BORION_ASSETS), o app.json (BORION_CONFIG, se ConfigFile
+  <> '') e o ícone (MAINICON, se IconFile <> '') no .res de assets do projeto.
+  Pasta = '': só o app.json e o ícone. }
+procedure BorionPackAssets(const Pasta, Saida: string; const ConfigFile: string = '';
+  const IconFile: string = '');
+{ Troca só o app.json e o ícone do .res de assets, mantendo o pacote que já está nele }
 procedure BorionUpdateConfigRes(P: TBorionProject);
 { Copia os módulos do @borion/api (BorionHome\js\*.js) para web\borion-api\ }
 procedure BorionCopyApi(P: TBorionProject; const BorionHome: string);
@@ -156,8 +158,8 @@ end;
 
 { --- etapas -------------------------------------------------------------------- }
 
-{ Grava o .res com o pacote (Pack.Size = 0: sem pacote) e o app.json }
-procedure GravarRes(const Saida: string; Pack: TStream; const ConfigFile: string);
+{ Grava o .res com o pacote (Pack.Size = 0: sem pacote), o app.json e o ícone }
+procedure GravarRes(const Saida: string; Pack: TStream; const ConfigFile, IconFile: string);
 var
   Config: TMemoryStream;
 begin
@@ -166,17 +168,17 @@ begin
     if ConfigFile <> '' then
       Config.LoadFromFile(ConfigFile);
     if (Pack.Size > 0) and (ConfigFile <> '') then
-      BorionWriteResources(Saida, [BORION_PACK_RESOURCE, BORION_CONFIG_RESOURCE], [Pack, Config])
+      BorionWriteResources(Saida, [BORION_PACK_RESOURCE, BORION_CONFIG_RESOURCE], [Pack, Config], IconFile)
     else if ConfigFile <> '' then
-      BorionWriteResources(Saida, [BORION_CONFIG_RESOURCE], [Config])
+      BorionWriteResources(Saida, [BORION_CONFIG_RESOURCE], [Config], IconFile)
     else
-      BorionWriteRes(Saida, BORION_PACK_RESOURCE, Pack);
+      BorionWriteResources(Saida, [BORION_PACK_RESOURCE], [Pack], IconFile);
   finally
     Config.Free;
   end;
 end;
 
-procedure BorionPackAssets(const Pasta, Saida: string; const ConfigFile: string);
+procedure BorionPackAssets(const Pasta, Saida: string; const ConfigFile, IconFile: string);
 var
   Op: TBorionPackOptions;
   M: TMemoryStream;
@@ -189,16 +191,17 @@ begin
     N := 0;
     if Pasta <> '' then
       N := BorionPackFolder(Pasta, M, Op);
-    GravarRes(Saida, M, ConfigFile);
+    GravarRes(Saida, M, ConfigFile, IconFile);
+    Extra := '';
     if ConfigFile <> '' then
-      Extra := ' + ' + ExtractFileName(ConfigFile)
-    else
-      Extra := '';
+      Extra := Extra + ' + ' + ExtractFileName(ConfigFile);
+    if IconFile <> '' then
+      Extra := Extra + ' + ' + ExtractFileName(IconFile);
     if Pasta <> '' then
       Out(Format('%d arquivo(s) de %s%s -> %s (%d KB)', [N, ExtractFileName(Pasta), Extra,
         ExtractFileName(Saida), (M.Size + 1023) div 1024]))
     else
-      Out(Format('%s -> %s', [ExtractFileName(ConfigFile), ExtractFileName(Saida)]));
+      Out(Format('%s -> %s', [Copy(Extra, 4, MaxInt), ExtractFileName(Saida)]));
   finally
     M.Free;
   end;
@@ -224,7 +227,7 @@ begin
   try
     if FileExists(Saida) then
       BorionReadRes(Saida, BORION_PACK_RESOURCE, M);
-    GravarRes(Saida, M, ConfigDoProjeto(P));
+    GravarRes(Saida, M, ConfigDoProjeto(P), P.IconFile);
   finally
     M.Free;
   end;
@@ -292,6 +295,11 @@ begin
     ExecutarOuFalhar(Aspas(Delphi + '\Bin\brcc32.exe') + ' -fo' + Aspas(P.ResFile) + ' ' + Aspas(P.RcFile),
       P.Dir, 'brcc32');
   end;
+  { dois MAINICON: o linker do Delphi 7 para com "Duplicate resource" }
+  if (P.IconFile <> '') and FileExists(P.ResFile) and BorionResHasIcon(P.ResFile) then
+    raise EBorionProject.CreateFmt('o %s já tem um ícone (MAINICON) e o app.json também ("bundle.icon"): ' +
+      'tire o ICON do %s ou, se o ícone veio da IDE, apague o %s (o build o refaz pelo .rc)',
+      [ExtractFileName(P.ResFile), ExtractFileName(P.RcFile), ExtractFileName(P.ResFile)]);
   Etapa('Delphi (' + ExtractFileName(P.DprFile) + ')');
   Caminhos := P.SearchPathText;
   ExecutarOuFalhar(Aspas(Delphi + '\Bin\dcc32.exe') + ' -B -Q ' + Aspas('-U' + Caminhos) + ' ' +
@@ -332,13 +340,13 @@ begin
         Etapa('Assets (borion pack)');
         if not DirectoryExists(P.DistDir) then
           raise EBorionProject.CreateFmt('pasta %s não encontrada', [P.DistDir]);
-        BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P));
+        BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P), P.IconFile);
       end;
     end
     else if P.HasConfig and (P.AssetsRes <> '') then
     begin
       Etapa('Configuração (app.json)');
-      BorionPackAssets('', P.Dir + '\' + P.AssetsRes, P.ConfigFile);
+      BorionPackAssets('', P.Dir + '\' + P.AssetsRes, P.ConfigFile, P.IconFile);
     end;
     BorionCompileDelphi(P, BorionHome);
   finally
@@ -371,10 +379,19 @@ begin
   end;
 end;
 
-{ data do Delphi mais recente (o que, mudando, pede recompilar) }
+{ data do Delphi mais recente (o que, mudando, pede recompilar): os fontes, o
+  app.json e o ícone }
 function FontesDelphi(P: TBorionProject): TDateTime;
+var
+  Icone: TDateTime;
 begin
   Result := BorionNewestFile(P.Dir, '*.dpr;*.pas;*.rc;*.inc;' + BORION_CONFIG_FILE);
+  if (P.IconFile <> '') and (FileAge(P.IconFile) <> -1) then
+  begin
+    Icone := FileDateToDateTime(FileAge(P.IconFile));
+    if Icone > Result then
+      Result := Icone;
+  end;
 end;
 
 { o .res de assets precisa existir para compilar; no dev ele não é usado }
@@ -387,20 +404,21 @@ begin
     Exit;
   if FileExists(P.Dir + '\' + P.AssetsRes) then
   begin
-    { o app.json mudou desde o último pacote: troca só ele }
-    if P.HasConfig and BorionIsStale(P.Dir + '\' + P.AssetsRes, P.ConfigFile) then
+    { o app.json ou o ícone mudou desde o último pacote: troca só eles }
+    if P.HasConfig and (BorionIsStale(P.Dir + '\' + P.AssetsRes, P.ConfigFile) or
+      ((P.IconFile <> '') and BorionIsStale(P.Dir + '\' + P.AssetsRes, P.IconFile))) then
       BorionUpdateConfigRes(P);
     Exit;
   end;
   if P.Kind = fkNone then
   begin
     if P.HasConfig then
-      BorionPackAssets('', P.Dir + '\' + P.AssetsRes, P.ConfigFile);
+      BorionPackAssets('', P.Dir + '\' + P.AssetsRes, P.ConfigFile, P.IconFile);
     Exit;
   end;
   if P.Kind = fkStatic then
   begin
-    BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P));
+    BorionPackAssets(P.DistDir, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P), P.IconFile);
     Exit;
   end;
   { npm sem build ainda: um pacote provisório (o "borion build" gera o de verdade) }
@@ -410,7 +428,7 @@ begin
   try
     F.Text := '<!doctype html><meta charset="utf-8"><p>Interface não empacotada: rode <code>borion build</code>.</p>';
     F.SaveToFile(Temp + '\index.html');
-    BorionPackAssets(Temp, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P));
+    BorionPackAssets(Temp, P.Dir + '\' + P.AssetsRes, ConfigDoProjeto(P), P.IconFile);
   finally
     F.Free;
     DeleteFile(Temp + '\index.html');

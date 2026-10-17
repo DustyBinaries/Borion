@@ -28,6 +28,7 @@ type
     procedure TestVersao;
     procedure TestIdentificador;
     procedure TestDevPort;
+    procedure TestIcone;
     procedure TestRecursoNoRes;
     procedure TestSemRecursoNoExe;
   end;
@@ -267,6 +268,34 @@ begin
   CheckEquals(80, FConfig.DevPort);
   FConfig.DevUrl := 'https://meu-servidor';
   CheckEquals(443, FConfig.DevPort);
+end;
+
+procedure TTestBorionConfig.TestIcone;
+begin
+  { o bundle do tauri.conf.json, como está }
+  FConfig.LoadFromJson('{"bundle": {"active": true, "icon": ["icons/32x32.png", "icons/128x128.png", ' +
+    '"icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]}}');
+  CheckEquals(5, FConfig.Icons.Count);
+  CheckEquals('icons/icon.ico', FConfig.IconFile, 'o .ico, onde estiver na lista');
+  Check(FConfig.BundleActive, 'active');
+  CheckEquals(0, FConfig.Warnings.Count, FConfig.Warnings.Text);
+  FConfig.LoadFromJson('{"bundle": {"icon": ["a.ICO", "b.ico"]}}');
+  CheckEquals('a.ICO', FConfig.IconFile, 'o primeiro .ico');
+  FConfig.LoadFromJson('{"bundle": {"icon": []}}');
+  CheckEquals('', FConfig.IconFile, 'lista vazia: sem ícone');
+  FConfig.LoadFromJson('{"bundle": {"icon": null}}');
+  CheckEquals(0, FConfig.Icons.Count);
+  FConfig.LoadFromJson('{"bundle": {"icon": ["a.ico"], "targets": "all"}}');
+  Check(Pos('"bundle.targets"', FConfig.Warnings.Text) > 0, FConfig.Warnings.Text);
+  FConfig.LoadFromJson('{}');
+  CheckEquals(0, FConfig.Icons.Count, 'uma leitura nova começa sem ícones');
+  Check(not FConfig.BundleActive);
+  DeveFalhar('{"bundle": {"icon": "icons/icon.ico"}}', '"bundle.icon" deve ser uma lista');
+  DeveFalhar('{"bundle": {"icon": ["a.ico", 5]}}', '"bundle.icon[1]"');
+  DeveFalhar('{"bundle": {"icon": [" "]}}', '"bundle.icon[0]"');
+  DeveFalhar('{"bundle": {"icon": ["icons/32x32.png", "icons/icon.icns"]}}', 'precisa de um arquivo .ico');
+  DeveFalhar('{"bundle": {"active": "sim"}}', 'true ou false');
+  DeveFalhar('{"bundle": ["icons/icon.ico"]}', '"bundle" deve ser um objeto');
 end;
 
 procedure TTestBorionConfig.TestRecursoNoRes;

@@ -59,6 +59,8 @@ type
     { app.json (pode não existir) }
     function ConfigFile: string;
     function HasConfig: Boolean;
+    { O .ico do bundle.icon, com o caminho completo; '' se não houver }
+    function IconFile: string;
     { Relê o app.json (o dev chama quando ele muda). Levanta EBorionProject. }
     procedure ReloadConfig;
     { build.devUrl do app.json, ou http://localhost:<DevPort> }
@@ -258,6 +260,9 @@ begin
     on E: EBorionConfig do
       raise EBorionProject.Create(E.Message);
   end;
+  if (IconFile <> '') and not FileExists(IconFile) then
+    raise EBorionProject.CreateFmt('app.json: o ícone "%s" do "bundle.icon" não foi encontrado (%s)',
+      [FConfig.IconFile, IconFile]);
 end;
 
 procedure TBorionProject.ReloadConfig;
@@ -421,6 +426,14 @@ end;
 function TBorionProject.HasConfig: Boolean;
 begin
   Result := FileExists(ConfigFile);
+end;
+
+function TBorionProject.IconFile: string;
+begin
+  if FConfig.IconFile = '' then
+    Result := ''
+  else
+    Result := Absoluto(FDir, FConfig.IconFile);
 end;
 
 function TBorionProject.DevUrl: string;

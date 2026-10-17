@@ -299,7 +299,8 @@ recompila e reabre, e fechar o app encerra o Vite).
 - [ ] Instalador com **Inno Setup**, a partir de um template preenchido pelo `app.json`.
 - [ ] Estratégia de runtime WebView2: *Evergreen bootstrapper* no instalador (padrão), offline
       ou *Fixed Version* (pasta junto do app).
-- [ ] Ícone, versão e manifesto gerados pelo `app.json` (hoje o `.rc` é manual).
+- [x] Ícone do exe pelo `bundle.icon` do `app.json` (o `.ico` vira o `MAINICON`).
+- [ ] Versão e manifesto gerados pelo `app.json` (hoje o `.rc` é manual).
 - [ ] Assinatura de código (`signtool`) opcional no `app build`.
 - [ ] **Updater**: JSON de versão num servidor, download, verificação de assinatura, troca do
       exe e reinício. API JS `checkUpdate()` / `installUpdate()`.
