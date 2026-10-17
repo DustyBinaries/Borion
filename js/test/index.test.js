@@ -16,6 +16,8 @@ function fakeBridge() {
     listen: (...a) => { calls.push(['listen', ...a]); return unlisten; },
     once: (...a) => { calls.push(['once', ...a]); return unlisten; },
     emit: (...a) => { calls.push(['emit', ...a]); },
+    emitTo: (...a) => { calls.push(['emitTo', ...a]); },
+    label: 'config',
   };
 }
 
@@ -26,6 +28,7 @@ describe('@borion/api fora de um app Borion', () => {
   test('isBorion() é false e version() é null', () => {
     assert.equal(api.isBorion(), false);
     assert.equal(api.version(), null);
+    assert.equal(api.windowLabel(), null);
   });
 
   test('invoke rejeita com NOT_AVAILABLE (sem lançar)', async () => {
@@ -35,7 +38,8 @@ describe('@borion/api fora de um app Borion', () => {
   });
 
   test('listen, once e emit lançam NOT_AVAILABLE', () => {
-    for (const fn of [() => api.listen('x', () => {}), () => api.once('x', () => {}), () => api.emit('x')]) {
+    for (const fn of [() => api.listen('x', () => {}), () => api.once('x', () => {}), () => api.emit('x'),
+      () => api.emitTo('main', 'x')]) {
       assert.throws(fn, (e) => e.code === 'NOT_AVAILABLE');
     }
   });
@@ -56,6 +60,9 @@ describe('@borion/api dentro de um app Borion', () => {
       ['once', 'ev2', h],
       ['emit', 'ev3', { x: 1 }],
     ]);
+    api.emitTo('main', 'ev4', 2);
+    assert.deepEqual(b.calls.at(-1), ['emitTo', 'main', 'ev4', 2]);
+    assert.equal(api.windowLabel(), 'config');
     assert.equal(api.isBorion(), true);
     assert.equal(api.version(), '9.9.9');
   });
@@ -67,7 +74,7 @@ describe('@borion/api dentro de um app Borion', () => {
   });
 
   test('o export default tem as mesmas funções', () => {
-    for (const k of ['invoke', 'listen', 'once', 'emit', 'isBorion', 'version']) {
+    for (const k of ['invoke', 'listen', 'once', 'emit', 'emitTo', 'windowLabel', 'isBorion', 'version']) {
       assert.equal(apiDefault[k], api[k]);
     }
     assert.equal(apiDefault.NOT_AVAILABLE, 'NOT_AVAILABLE');

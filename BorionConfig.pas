@@ -39,8 +39,12 @@ const
 type
   EBorionConfig = class(Exception);
 
-  { A janela principal (app.windows[0]) }
+  { Uma janela (app.windows[I]); a primeira é a principal }
   TBorionWindowConfig = record
+    WindowLabel: string;            { 'main' na primeira, se não informado }
+    Url: string;                    { caminho no app: '/', '/config.html' }
+    Visible: Boolean;
+    CreateAtStart: Boolean;         { "create": False só define (abra com BorionWindows.Open) }
     Title: string;                  { '' = o productName }
     Width, Height: Integer;
     MinWidth, MinHeight: Integer;   { 0 = sem limite }
@@ -60,11 +64,14 @@ type
     FFrontendDist: string;
     FDevUrl: string;
     FCsp: string;
-    FWindow: TBorionWindowConfig;
+    FWindows: array of TBorionWindowConfig;
     FWarnings: TStringList;
     FLoaded: Boolean;
     procedure Ler(Raiz: TJsonObject);
-    procedure LerJanela(O: TJsonObject; const Caminho: string);
+    procedure LerJanela(O: TJsonObject; const Caminho: string; var W: TBorionWindowConfig);
+    function GetWindow: TBorionWindowConfig;
+    procedure SetWindow(const Value: TBorionWindowConfig);
+    function GetWindows(Index: Integer): TBorionWindowConfig;
     procedure Avisar(O: TJsonObject; const Caminho, Conhecidas: string);
   public
     constructor Create;
@@ -86,15 +93,23 @@ type
     property DevUrl: string read FDevUrl write FDevUrl;
     { app.security.csp: o header Content-Security-Policy dos assets ('' = nenhum) }
     property Csp: string read FCsp write FCsp;
-    property Window: TBorionWindowConfig read FWindow write FWindow;
+    { A janela principal (Windows[0]) }
+    property Window: TBorionWindowConfig read GetWindow write SetWindow;
+    { Todas as janelas de app.windows (sempre pelo menos a principal) }
+    function WindowCount: Integer;
+    property Windows[Index: Integer]: TBorionWindowConfig read GetWindows;
+    { A janela com esse rótulo; False se não houver }
+    function FindWindow(const WindowLabel: string; out Config: TBorionWindowConfig): Boolean;
     { Avisos da última leitura (chaves desconhecidas...) }
     property Warnings: TStringList read FWarnings;
     { Um app.json foi lido }
     property Loaded: Boolean read FLoaded;
   end;
 
-{ A janela sem configuração: 1000x700, redimensionável, centralizada, com borda }
+{ A janela sem configuração: 'main', '/', 1000x700, redimensionável, centralizada, com borda }
 function BorionDefaultWindow: TBorionWindowConfig;
+{ Rótulo de janela: letras, dígitos, '-' e '_' }
+function BorionIsValidWindowLabel(const WindowLabel: string): Boolean;
 { A configuração do app: o app.json embutido no exe, lido na primeira chamada.
   Sem recurso, ou com erro nele, os padrões (o erro fica em BorionAppConfigError). }
 function BorionAppConfig: TBorionConfig;
@@ -116,12 +131,30 @@ var
 
 function BorionDefaultWindow: TBorionWindowConfig;
 begin
+  Finalize(Result);
   FillChar(Result, SizeOf(Result), 0);
+  Result.WindowLabel := 'main';
+  Result.Url := '/';
+  Result.Visible := True;
+  Result.CreateAtStart := True;
   Result.Width := 1000;
   Result.Height := 700;
   Result.Resizable := True;
   Result.Center := True;
   Result.Decorations := True;
+end;
+
+function BorionIsValidWindowLabel(const WindowLabel: string): Boolean;
+var
+  I: Integer;
+begin
+  Result := WindowLabel <> '';
+  for I := 1 to Length(WindowLabel) do
+    if not (WindowLabel[I] in ['A'..'Z', 'a'..'z', '0'..'9', '-', '_']) then
+    begin
+      Result := False;
+      Exit;
+    end;
 end;
 
 function BorionAppConfig: TBorionConfig;
@@ -321,7 +354,8 @@ begin
   FFrontendDist := '';
   FDevUrl := '';
   FCsp := '';
-  FWindow := BorionDefaultWindow;
+  SetLength(FWindows, 1);
+  FWindows[0] := BorionDefaultWindow;
   FWarnings.Clear;
   FLoaded := False;
 end;
@@ -335,26 +369,69 @@ begin
       FWarnings.Add(Format('app.json: chave desconhecida "%s"', [Juntar(Caminho, O.Items[I].Name)]));
 end;
 
-procedure TBorionConfig.LerJanela(O: TJsonObject; const Caminho: string);
+procedure TBorionConfig.LerJanela(O: TJsonObject; const Caminho: string; var W: TBorionWindowConfig);
 begin
-  Avisar(O, Caminho, 'title|width|height|minWidth|minHeight|maxWidth|maxHeight|resizable|center|' +
-    'maximized|decorations|alwaysOnTop');
-  LerTexto(O, Caminho, 'title', FWindow.Title);
-  LerInteiro(O, Caminho, 'width', 1, FWindow.Width);
-  LerInteiro(O, Caminho, 'height', 1, FWindow.Height);
-  LerInteiro(O, Caminho, 'minWidth', 0, FWindow.MinWidth);
-  LerInteiro(O, Caminho, 'minHeight', 0, FWindow.MinHeight);
-  LerInteiro(O, Caminho, 'maxWidth', 0, FWindow.MaxWidth);
-  LerInteiro(O, Caminho, 'maxHeight', 0, FWindow.MaxHeight);
-  LerLogico(O, Caminho, 'resizable', FWindow.Resizable);
-  LerLogico(O, Caminho, 'center', FWindow.Center);
-  LerLogico(O, Caminho, 'maximized', FWindow.Maximized);
-  LerLogico(O, Caminho, 'decorations', FWindow.Decorations);
-  LerLogico(O, Caminho, 'alwaysOnTop', FWindow.AlwaysOnTop);
-  if (FWindow.MaxWidth > 0) and (FWindow.MaxWidth < FWindow.MinWidth) then
+  Avisar(O, Caminho, 'label|url|visible|create|title|width|height|minWidth|minHeight|maxWidth|' +
+    'maxHeight|resizable|center|maximized|decorations|alwaysOnTop');
+  LerTexto(O, Caminho, 'label', W.WindowLabel);
+  if not BorionIsValidWindowLabel(W.WindowLabel) then
+    raise EBorionConfig.CreateFmt('app.json: "%s.label" inválido: "%s" (use letras, dígitos, "-" e "_")',
+      [Caminho, W.WindowLabel]);
+  LerTexto(O, Caminho, 'url', W.Url);
+  if (Copy(W.Url, 1, 1) <> '/') or (Copy(W.Url, 1, 2) = '//') then
+    Falhar(Juntar(Caminho, 'url'), 'um caminho do app começando com "/" (ex.: "/config.html")');
+  LerLogico(O, Caminho, 'visible', W.Visible);
+  LerLogico(O, Caminho, 'create', W.CreateAtStart);
+  LerTexto(O, Caminho, 'title', W.Title);
+  LerInteiro(O, Caminho, 'width', 1, W.Width);
+  LerInteiro(O, Caminho, 'height', 1, W.Height);
+  LerInteiro(O, Caminho, 'minWidth', 0, W.MinWidth);
+  LerInteiro(O, Caminho, 'minHeight', 0, W.MinHeight);
+  LerInteiro(O, Caminho, 'maxWidth', 0, W.MaxWidth);
+  LerInteiro(O, Caminho, 'maxHeight', 0, W.MaxHeight);
+  LerLogico(O, Caminho, 'resizable', W.Resizable);
+  LerLogico(O, Caminho, 'center', W.Center);
+  LerLogico(O, Caminho, 'maximized', W.Maximized);
+  LerLogico(O, Caminho, 'decorations', W.Decorations);
+  LerLogico(O, Caminho, 'alwaysOnTop', W.AlwaysOnTop);
+  if (W.MaxWidth > 0) and (W.MaxWidth < W.MinWidth) then
     raise EBorionConfig.CreateFmt('app.json: "%s.maxWidth" é menor que o minWidth', [Caminho]);
-  if (FWindow.MaxHeight > 0) and (FWindow.MaxHeight < FWindow.MinHeight) then
+  if (W.MaxHeight > 0) and (W.MaxHeight < W.MinHeight) then
     raise EBorionConfig.CreateFmt('app.json: "%s.maxHeight" é menor que o minHeight', [Caminho]);
+end;
+
+function TBorionConfig.GetWindow: TBorionWindowConfig;
+begin
+  Result := FWindows[0];
+end;
+
+procedure TBorionConfig.SetWindow(const Value: TBorionWindowConfig);
+begin
+  FWindows[0] := Value;
+end;
+
+function TBorionConfig.WindowCount: Integer;
+begin
+  Result := Length(FWindows);
+end;
+
+function TBorionConfig.GetWindows(Index: Integer): TBorionWindowConfig;
+begin
+  Result := FWindows[Index];
+end;
+
+function TBorionConfig.FindWindow(const WindowLabel: string; out Config: TBorionWindowConfig): Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to High(FWindows) do
+    if FWindows[I].WindowLabel = WindowLabel then
+    begin
+      Config := FWindows[I];
+      Result := True;
+      Exit;
+    end;
+  Result := False;
 end;
 
 procedure TBorionConfig.Ler(Raiz: TJsonObject);
@@ -362,7 +439,8 @@ var
   Build, App, Security: TJsonObject;
   V: TJsonValue;
   Janelas: TJsonArray;
-  I: Integer;
+  I, J: Integer;
+  Caminho: string;
 begin
   Avisar(Raiz, '', '$schema|productName|version|identifier|build|app');
   LerTexto(Raiz, '', 'productName', FProductName);
@@ -399,9 +477,29 @@ begin
       if Janelas[I].ValueType <> jvObject then
         Falhar(Format('app.windows[%d]', [I]), 'um objeto');
     if Janelas.Count > 0 then
-      LerJanela(Janelas[0].AsObject, 'app.windows[0]');
-    if Janelas.Count > 1 then
-      FWarnings.Add('app.json: só a primeira janela de "app.windows" é usada por enquanto');
+      SetLength(FWindows, Janelas.Count);
+    for I := 0 to Janelas.Count - 1 do
+    begin
+      Caminho := Format('app.windows[%d]', [I]);
+      FWindows[I] := BorionDefaultWindow;
+      if I > 0 then
+      begin
+        FWindows[I].WindowLabel := '';
+        if Janelas[I].AsObject.Find('label') < 0 then
+          raise EBorionConfig.CreateFmt('app.json: "%s.label" é obrigatório (só a primeira janela ' +
+            'pode ficar sem, e vira "main")', [Caminho]);
+      end;
+      LerJanela(Janelas[I].AsObject, Caminho, FWindows[I]);
+      for J := 0 to I - 1 do
+        if FWindows[J].WindowLabel = FWindows[I].WindowLabel then
+          raise EBorionConfig.CreateFmt('app.json: "%s.label" repetido: "%s"', [Caminho, FWindows[I].WindowLabel]);
+    end;
+    if not FWindows[0].CreateAtStart then
+      raise EBorionConfig.Create('app.json: a janela principal ("app.windows[0]") é sempre criada: ' +
+        'tire o "create": false dela');
+    if not FWindows[0].Visible then
+      FWarnings.Add('app.json: a janela principal começa escondida ("visible": false); mostre-a ' +
+        'pelo JS (window.show) ou pelo Delphi');
   end;
   Security := LerObjeto(App, 'app', 'security');
   if Security <> nil then

@@ -23,6 +23,8 @@ type
     procedure TestNullEhAusente;
     procedure TestTiposEValoresInvalidos;
     procedure TestAvisos;
+    procedure TestVariasJanelas;
+    procedure TestJanelasInvalidas;
     procedure TestVersao;
     procedure TestIdentificador;
     procedure TestDevPort;
@@ -169,16 +171,60 @@ end;
 
 procedure TTestBorionConfig.TestAvisos;
 begin
-  FConfig.LoadFromJson('{"productNmae": "x", "app": {"windows": [{"widht": 800}, {"width": 400}],' +
-    ' "security": {"cps": ""}}, "build": {"beforeBuildCommand": "npm run build"}}');
+  FConfig.LoadFromJson('{"productNmae": "x", "app": {"windows": [{"widht": 800}, ' +
+    '{"label": "b", "heigth": 400}], "security": {"cps": ""}}, "build": {"beforeBuildCommand": "npm run build"}}');
   CheckEquals(5, FConfig.Warnings.Count, FConfig.Warnings.Text);
   Check(Pos('"productNmae"', FConfig.Warnings.Text) > 0);
   Check(Pos('"app.windows[0].widht"', FConfig.Warnings.Text) > 0);
+  Check(Pos('"app.windows[1].heigth"', FConfig.Warnings.Text) > 0);
   Check(Pos('"app.security.cps"', FConfig.Warnings.Text) > 0);
   Check(Pos('"build.beforeBuildCommand"', FConfig.Warnings.Text) > 0);
-  Check(Pos('só a primeira janela', FConfig.Warnings.Text) > 0);
   FConfig.LoadFromJson('{}');
   CheckEquals(0, FConfig.Warnings.Count, 'os avisos são da última leitura');
+end;
+
+procedure TTestBorionConfig.TestVariasJanelas;
+var
+  C: TBorionWindowConfig;
+begin
+  CheckEquals(1, FConfig.WindowCount, 'sem app.json: só a principal');
+  CheckEquals('main', FConfig.Window.WindowLabel);
+  CheckEquals('/', FConfig.Window.Url);
+  FConfig.LoadFromJson('{"app": {"windows": [{"width": 900}, ' +
+    '{"label": "config", "url": "/config.html", "width": 500, "create": false},' +
+    '{"label": "log-2", "visible": false}]}}');
+  CheckEquals(3, FConfig.WindowCount);
+  CheckEquals('main', FConfig.Windows[0].WindowLabel, 'a primeira sem label vira main');
+  CheckEquals(900, FConfig.Window.Width);
+  Check(FConfig.Window.CreateAtStart and FConfig.Window.Visible);
+  Check(FConfig.FindWindow('config', C));
+  CheckEquals('/config.html', C.Url);
+  CheckEquals(500, C.Width);
+  CheckEquals(700, C.Height, 'o resto com os padrões');
+  CheckFalse(C.CreateAtStart, 'create: false');
+  Check(C.Visible);
+  Check(FConfig.FindWindow('log-2', C));
+  CheckEquals('/', C.Url);
+  CheckFalse(C.Visible);
+  Check(C.CreateAtStart);
+  CheckFalse(FConfig.FindWindow('outra', C));
+  FConfig.LoadFromJson('{"app": {"windows": [{"label": "inicio"}]}}');
+  CheckEquals('inicio', FConfig.Window.WindowLabel, 'a principal pode ter outro rótulo');
+  FConfig.LoadFromJson('{"app": {"windows": [{"visible": false}]}}');
+  Check(Pos('começa escondida', FConfig.Warnings.Text) > 0, FConfig.Warnings.Text);
+end;
+
+procedure TTestBorionConfig.TestJanelasInvalidas;
+begin
+  DeveFalhar('{"app": {"windows": [{}, {"width": 400}]}}', '"app.windows[1].label" é obrigatório');
+  DeveFalhar('{"app": {"windows": [{}, {"label": "main"}]}}', '"app.windows[1].label" repetido');
+  DeveFalhar('{"app": {"windows": [{}, {"label": "a b"}]}}', '"app.windows[1].label" inválido');
+  DeveFalhar('{"app": {"windows": [{"label": ""}]}}', '"app.windows[0].label" inválido');
+  DeveFalhar('{"app": {"windows": [{"url": "config.html"}]}}', '"app.windows[0].url"');
+  DeveFalhar('{"app": {"windows": [{"url": "//outro.com/x"}]}}', '"app.windows[0].url"');
+  DeveFalhar('{"app": {"windows": [{"url": "https://x.com/"}]}}', '"app.windows[0].url"');
+  DeveFalhar('{"app": {"windows": [{"create": false}]}}', 'janela principal');
+  DeveFalhar('{"app": {"windows": [{}, {"label": "b", "visible": "sim"}]}}', '"app.windows[1].visible"');
 end;
 
 procedure TTestBorionConfig.TestVersao;

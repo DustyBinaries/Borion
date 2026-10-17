@@ -69,6 +69,7 @@ type
     FInHandler: Boolean;
     FErrorCode: string;
     FErrorMessage: string;
+    FWindow: string;
     procedure Finish;
   public
     constructor Create(AIpc: TBorionIpc; const AId, ACommand: string; const ASource: WideString);
@@ -94,6 +95,10 @@ type
     property Command: string read FCommand;
     { URL do documento que chamou }
     property Source: WideString read FSource;
+    { Rótulo da janela que chamou ('main' na principal); a resposta volta para ela }
+    property Window: string read FWindow;
+    { O browser dessa janela (nil se ela já fechou, ou num IPC sem browser) }
+    function Browser: TWebView2Browser;
     property Args: TJsonObject read FArgs;
     { Valor devolvido ao JS. Começa null; use AsString, AsNumber, AsObject, AsArray... }
     property Result: TJsonValue read FResult;
@@ -106,6 +111,8 @@ type
   TBorionEventMethod = procedure(const Event: string; Payload: TJsonValue) of object;
   TBorionLogEvent = procedure(Sender: TObject; const Msg: string) of object;
   TBorionPostEvent = procedure(Sender: TObject; const Json: WideString) of object;
+  { WindowLabel: a janela de destino, ou '*' para todas }
+  TBorionPostToEvent = procedure(Sender: TObject; const WindowLabel: string; const Json: WideString) of object;
 
   { Base dos plugins: um conjunto de comandos com o prefixo do plugin
     ('fs:readTextFile'). Registre com Ipc.AddPlugin; o TBorionIpc vira o dono. }
@@ -122,6 +129,11 @@ type
     procedure CommandLater(const Comando: string; Handler: TBorionCommandMethod);
     { Registra os comandos (chamado pelo AddPlugin) }
     procedure Install; virtual; abstract;
+    { Uma janela passou a usar o IPC (Ipc.AddWindow) ou saiu dele. Para os
+      plugins que acompanham cada janela, como o window. O Install não recebe
+      as janelas que já existiam: percorra Ipc.WindowCount, se precisar. }
+    procedure WindowAdded(const WindowLabel: string; ABrowser: TWebView2Browser); virtual;
+    procedure WindowRemoved(const WindowLabel: string; ABrowser: TWebView2Browser); virtual;
   public
     destructor Destroy; override;
     { Prefixo dos comandos, ex.: 'fs' }
@@ -129,9 +141,14 @@ type
     property Ipc: TBorionIpc read FIpc;
   end;
 
+  { O IPC de um app: comandos, eventos e plugins registrados uma vez, servindo
+    uma ou mais janelas (cada uma um browser com um rótulo). Cada chamada sabe
+    de que janela veio (TBorionCall.Window), e a resposta volta só para ela. }
   TBorionIpc = class(TComponent)
   private
-    FBrowser: TWebView2Browser;
+    FWindows: TStringList;   { rótulo -> TWebView2Browser, na ordem em que entraram }
+    FCurrentWindow: string;
+    FOnPostTo: TBorionPostToEvent;
     FCommands: TStringList;
     FListeners: TList;
     FOrigins: TStringList;
@@ -142,21 +159,42 @@ type
     FPlugins: TList;
     FScope: TObject;
     procedure WebMessageJson(Sender: TObject; const Json, Source: WideString; var Handled: Boolean);
-    procedure HandleInvoke(Msg: TJsonObject; const Source: WideString);
-    procedure HandleEmit(Msg: TJsonObject; const Source: WideString);
+    procedure HandleInvoke(Msg: TJsonObject; const Source: WideString; const WindowLabel: string);
+    procedure HandleEmit(Msg: TJsonObject; const Source: WideString; const WindowLabel: string);
+    procedure HandleEmitTo(Msg: TJsonObject; const Source: WideString);
     procedure SendResponse(Call: TBorionCall);
-    procedure PostJson(const Json: string);
+    { Target '' = todas as janelas }
+    procedure PostJson(const Json, Target: string);
+    procedure SoltarJanela(I: Integer; Destruindo: Boolean);
+    function GetBrowser: TWebView2Browser;
     procedure WndProc(var Message: TMessage);
     procedure RunLater(P: Pointer);
     procedure Log(const Msg: string);
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
-    { Liga o IPC ao browser: injeta a ponte JS e assume o OnWebMessageJson.
-      Crie antes do Browser.CreateWebView (ou recarregue a página depois). }
+    { Liga o IPC ao browser (a janela 'main'): injeta a ponte JS e assume o
+      OnWebMessageJson. Crie antes do Browser.CreateWebView (ou recarregue a
+      página depois). }
     constructor Create(AOwner: TComponent; ABrowser: TWebView2Browser); reintroduce;
     { ABrowser = nil: IPC sem página (testes); as respostas só saem pelo OnPost }
     destructor Destroy; override;
+
+    { --- janelas --- }
+    { Mais uma janela usando este IPC (antes do CreateWebView dela). Rótulo:
+      letras, dígitos, '-' e '_', único. A página recebe o rótulo em
+      window.borion.label. }
+    procedure AddWindow(const WindowLabel: string; ABrowser: TWebView2Browser);
+    { A janela deixa o IPC (liberar o browser também a tira) }
+    procedure RemoveWindow(const WindowLabel: string);
+    function WindowCount: Integer;
+    function WindowLabel(Index: Integer): string;
+    { nil se não houver }
+    function WindowBrowser(const WindowLabel: string): TWebView2Browser;
+    { '' se o browser não for de nenhuma janela }
+    function WindowOf(ABrowser: TWebView2Browser): string;
+    { Durante um comando ou listener: o rótulo da janela que chamou }
+    property CurrentWindow: string read FCurrentWindow;
 
     { Origens que podem usar o IPC, ex.: 'https://app.local'. '*' libera todas. }
     procedure AllowOrigin(const Origin: string);
@@ -166,24 +204,32 @@ type
     procedure RegisterCommandProc(const Name: string; Handler: TBorionCommandProc);
     procedure UnregisterCommand(const Name: string);
 
-    { Delphi -> JS. Podem ser chamados de qualquer thread. }
+    { Delphi -> JS, para todas as janelas. Podem ser chamados de qualquer thread. }
     procedure Emit(const Event: string; Payload: TJsonBase = nil);
     procedure EmitJson(const Event, PayloadJson: string);
+    { Delphi -> JS, só para uma janela ('*' = todas) }
+    procedure EmitTo(const WindowLabel, Event: string; Payload: TJsonBase = nil);
+    procedure EmitJsonTo(const WindowLabel, Event, PayloadJson: string);
 
     { JS -> Delphi. Event = '*' recebe todos os eventos. }
     procedure Listen(const Event: string; Handler: TBorionEventMethod);
     procedure Unlisten(const Event: string; Handler: TBorionEventMethod);
 
-    property Browser: TWebView2Browser read FBrowser;
+    { O browser da primeira janela (a principal) }
+    property Browser: TWebView2Browser read GetBrowser;
     { Diagnóstico: origem negada, JSON inválido, exceção em listener... }
     property OnLog: TBorionLogEvent read FOnLog write FOnLog;
 
     { Processa uma mensagem como se viesse da página (Json = mensagem do
       postMessage; Source = URL do documento). True se era do Borion. }
     function ProcessMessage(const Json, Source: WideString): Boolean;
+    { O mesmo, vindo de uma janela específica }
+    function ProcessMessageFrom(const WindowLabel: string; const Json, Source: WideString): Boolean;
     { Cada mensagem enviada à página (respostas e eventos), já no formato final.
       Para diagnóstico e testes; não substitui o envio ao browser. }
     property OnPost: TBorionPostEvent read FOnPost write FOnPost;
+    { O mesmo, com a janela de destino ('*' = todas) }
+    property OnPostTo: TBorionPostToEvent read FOnPostTo write FOnPostTo;
     { Escopo de arquivos do app (TBorionScope), usado pelos plugins fs, dialog e
       shell criados sem escopo próprio. O TBorionIpc o libera, depois dos plugins.
       Veja BorionAppScope (BorionScope) e o TBorionBuilder (Borion). }
@@ -289,6 +335,10 @@ begin
     '  function emit(event, payload) {' + #10 +
     '    post({ kind: "emit", event: String(event), payload: payload === undefined ? null : payload });' + #10 +
     '  }' + #10 +
+    '  function emitTo(target, event, payload) {' + #10 +
+    '    post({ kind: "emitTo", target: String(target), event: String(event),' + #10 +
+    '      payload: payload === undefined ? null : payload });' + #10 +
+    '  }' + #10 +
     '  function dispatch(event, payload) {' + #10 +
     '    (listeners[event] || []).slice().forEach(function (cb) {' + #10 +
     '      try { cb(payload, event); } catch (x) { console.error(x); }' + #10 +
@@ -310,8 +360,9 @@ begin
     '      dispatch(m.event, m.payload);' + #10 +
     '    }' + #10 +
     '  });' + #10 +
+    '  var label = typeof window.__BORION_WINDOW__ === "string" ? window.__BORION_WINDOW__ : "main";' + #10 +
     '  var api = Object.freeze({ invoke: invoke, listen: listen, once: once, emit: emit,' + #10 +
-    '    version: "' + BORION_VERSION + '" });' + #10 +
+    '    emitTo: emitTo, label: label, version: "' + BORION_VERSION + '" });' + #10 +
     '  Object.defineProperty(window, "__BORION__", { value: api });' + #10 +
     '  Object.defineProperty(window, "borion", { value: api });' + #10 +
     '})();';
@@ -406,6 +457,14 @@ begin
     Result := V.AsBoolean;
 end;
 
+function TBorionCall.Browser: TWebView2Browser;
+begin
+  if FIpc <> nil then
+    Result := FIpc.WindowBrowser(FWindow)
+  else
+    Result := nil;
+end;
+
 procedure TBorionCall.Defer;
 begin
   FDeferred := True;
@@ -463,25 +522,19 @@ begin
   FOrigins := TStringList.Create;
   FPending := TList.Create;
   FPlugins := TList.Create;
+  FWindows := TStringList.Create;
+  FWindows.CaseSensitive := True;
   FWindow := AllocateHWnd(WndProc);
-  FBrowser := ABrowser;
-  if FBrowser <> nil then
-  begin
-    FBrowser.FreeNotification(Self);
-    FBrowser.OnWebMessageJson := WebMessageJson;
-    FBrowser.AddScriptOnDocumentCreated(BorionBridgeScript);
-  end;
+  if ABrowser <> nil then
+    AddWindow('main', ABrowser);
 end;
 
 destructor TBorionIpc.Destroy;
 var
   I: Integer;
 begin
-  if FBrowser <> nil then
-  begin
-    FBrowser.OnWebMessageJson := nil;
-    FBrowser.RemoveFreeNotification(Self);
-  end;
+  while FWindows.Count > 0 do
+    SoltarJanela(FWindows.Count - 1, False);
   { chamadas adiadas ainda em andamento: ficam órfãs e se liberam no Resolve/Reject }
   for I := 0 to FPending.Count - 1 do
     TBorionCall(FPending[I]).FIpc := nil;
@@ -498,7 +551,109 @@ begin
     TBorionPlugin(FPlugins[I]).Free;
   FPlugins.Free;
   FScope.Free;
+  FWindows.Free;
   inherited Destroy;
+end;
+
+function ValidWindowLabel(const S: string): Boolean;
+var
+  I: Integer;
+begin
+  Result := S <> '';
+  for I := 1 to Length(S) do
+    if not (S[I] in ['A'..'Z', 'a'..'z', '0'..'9', '-', '_']) then
+    begin
+      Result := False;
+      Exit;
+    end;
+end;
+
+procedure TBorionIpc.AddWindow(const WindowLabel: string; ABrowser: TWebView2Browser);
+var
+  I: Integer;
+begin
+  if not ValidWindowLabel(WindowLabel) then
+    raise EBorionError.Create('INVALID_LABEL', 'rótulo de janela inválido: "' + WindowLabel +
+      '" (use letras, dígitos, "-" e "_")');
+  if FWindows.IndexOf(WindowLabel) >= 0 then
+    raise EBorionError.Create('WINDOW_EXISTS', 'já existe uma janela "' + WindowLabel + '"');
+  FWindows.AddObject(WindowLabel, ABrowser);
+  ABrowser.FreeNotification(Self);
+  ABrowser.OnWebMessageJson := WebMessageJson;
+  { o rótulo antes da ponte, que o lê ao se instalar }
+  ABrowser.AddScriptOnDocumentCreated('Object.defineProperty(window, "__BORION_WINDOW__", { value: ' +
+    JsonQuote(WindowLabel) + ' });');
+  ABrowser.AddScriptOnDocumentCreated(BorionBridgeScript);
+  for I := 0 to FPlugins.Count - 1 do
+    TBorionPlugin(FPlugins[I]).WindowAdded(WindowLabel, ABrowser);
+end;
+
+{ Destruindo: o browser está sendo liberado (não mexe nele) }
+procedure TBorionIpc.SoltarJanela(I: Integer; Destruindo: Boolean);
+var
+  B: TWebView2Browser;
+  L: string;
+  J: Integer;
+begin
+  L := FWindows[I];
+  B := TWebView2Browser(FWindows.Objects[I]);
+  FWindows.Delete(I);
+  if not Destruindo then
+  begin
+    B.OnWebMessageJson := nil;
+    B.RemoveFreeNotification(Self);
+  end;
+  for J := 0 to FPlugins.Count - 1 do
+    TBorionPlugin(FPlugins[J]).WindowRemoved(L, B);
+end;
+
+procedure TBorionIpc.RemoveWindow(const WindowLabel: string);
+var
+  I: Integer;
+begin
+  I := FWindows.IndexOf(WindowLabel);
+  if I >= 0 then
+    SoltarJanela(I, False);
+end;
+
+function TBorionIpc.WindowCount: Integer;
+begin
+  Result := FWindows.Count;
+end;
+
+function TBorionIpc.WindowLabel(Index: Integer): string;
+begin
+  Result := FWindows[Index];
+end;
+
+function TBorionIpc.WindowBrowser(const WindowLabel: string): TWebView2Browser;
+var
+  I: Integer;
+begin
+  I := FWindows.IndexOf(WindowLabel);
+  if I >= 0 then
+    Result := TWebView2Browser(FWindows.Objects[I])
+  else
+    Result := nil;
+end;
+
+function TBorionIpc.WindowOf(ABrowser: TWebView2Browser): string;
+var
+  I: Integer;
+begin
+  I := FWindows.IndexOfObject(ABrowser);
+  if I >= 0 then
+    Result := FWindows[I]
+  else
+    Result := '';
+end;
+
+function TBorionIpc.GetBrowser: TWebView2Browser;
+begin
+  if FWindows.Count > 0 then
+    Result := TWebView2Browser(FWindows.Objects[0])
+  else
+    Result := nil;
 end;
 
 function TBorionIpc.AddPlugin(Plugin: TBorionPlugin): TBorionPlugin;
@@ -551,11 +706,14 @@ procedure TBorionIpc.RunLater(P: Pointer);
 var
   Call: TBorionCall;
   Handler: TBorionCommandMethod;
+  Anterior: string;
 begin
   Call := PBorionLater(P)^.Call;
   Handler := PBorionLater(P)^.Handler;
   Dispose(PBorionLater(P));
   Call.FInHandler := True;
+  Anterior := FCurrentWindow;
+  FCurrentWindow := Call.FWindow;
   try
     try
       Handler(Call);
@@ -567,6 +725,7 @@ begin
     end;
   finally
     Call.FInHandler := False;
+    FCurrentWindow := Anterior;
   end;
   Call.FFinished := True;
   SendResponse(Call);
@@ -585,6 +744,14 @@ begin
     FLater.Free;
   end;
   inherited Destroy;
+end;
+
+procedure TBorionPlugin.WindowAdded(const WindowLabel: string; ABrowser: TWebView2Browser);
+begin
+end;
+
+procedure TBorionPlugin.WindowRemoved(const WindowLabel: string; ABrowser: TWebView2Browser);
+begin
 end;
 
 procedure TBorionPlugin.Command(const Comando: string; Handler: TBorionCommandMethod);
@@ -616,10 +783,16 @@ begin
 end;
 
 procedure TBorionIpc.Notification(AComponent: TComponent; Operation: TOperation);
+var
+  I: Integer;
 begin
   inherited Notification(AComponent, Operation);
-  if (Operation = opRemove) and (AComponent = FBrowser) then
-    FBrowser := nil;
+  if (Operation = opRemove) and (FWindows <> nil) then
+  begin
+    I := FWindows.IndexOfObject(AComponent);
+    if I >= 0 then
+      SoltarJanela(I, True);
+  end;
 end;
 
 procedure TBorionIpc.Log(const Msg: string);
@@ -715,26 +888,55 @@ begin
 end;
 
 procedure TBorionIpc.EmitJson(const Event, PayloadJson: string);
+begin
+  EmitJsonTo('*', Event, PayloadJson);
+end;
+
+procedure TBorionIpc.EmitTo(const WindowLabel, Event: string; Payload: TJsonBase);
 var
-  Json: string;
+  PayloadJson: string;
+begin
+  if Payload = nil then
+    PayloadJson := 'null'
+  else
+    PayloadJson := Payload.Stringify;
+  EmitJsonTo(WindowLabel, Event, PayloadJson);
+end;
+
+procedure TBorionIpc.EmitJsonTo(const WindowLabel, Event, PayloadJson: string);
+var
+  Json, Alvo: string;
 begin
   if PayloadJson = '' then
     Json := 'null'
   else
     Json := PayloadJson;
-  PostJson('{"__borion":1,"kind":"event","event":' + JsonQuote(Event) + ',"payload":' + Json + '}');
+  if WindowLabel = '*' then
+    Alvo := ''
+  else
+    Alvo := WindowLabel;
+  PostJson('{"__borion":1,"kind":"event","event":' + JsonQuote(Event) + ',"payload":' + Json + '}', Alvo);
 end;
 
-procedure TBorionIpc.PostJson(const Json: string);
+type
+  PBorionPost = ^TBorionPost;
+  TBorionPost = record
+    Json: string;
+    Target: string;
+  end;
+
+procedure TBorionIpc.PostJson(const Json, Target: string);
 var
-  P: PString;
+  P: PBorionPost;
   W: WideString;
+  I: Integer;
 begin
   if GetCurrentThreadId <> MainThreadID then
   begin
     { o WebView2 só pode ser usado na thread da interface }
     New(P);
-    P^ := Json;
+    P^.Json := Json;
+    P^.Target := Target;
     if not PostMessage(FWindow, WM_BORION_POST, 0, LPARAM(P)) then
       Dispose(P);
     Exit;
@@ -742,22 +944,28 @@ begin
   W := AnsiJsonToWide(Json);
   if Assigned(FOnPost) then
     FOnPost(Self, W);
-  if FBrowser <> nil then
-    FBrowser.PostWebMessageAsJson(W);
+  if Assigned(FOnPostTo) then
+    if Target = '' then
+      FOnPostTo(Self, '*', W)
+    else
+      FOnPostTo(Self, Target, W);
+  for I := 0 to FWindows.Count - 1 do
+    if (Target = '') or (FWindows[I] = Target) then
+      TWebView2Browser(FWindows.Objects[I]).PostWebMessageAsJson(W);
 end;
 
 procedure TBorionIpc.WndProc(var Message: TMessage);
 var
-  P: PString;
+  P: PBorionPost;
 begin
   case Message.Msg of
     WM_BORION_FINISH:
       TBorionCall(Message.LParam).Finish;  { agora na thread da interface }
     WM_BORION_POST:
       begin
-        P := PString(Message.LParam);
+        P := PBorionPost(Message.LParam);
         try
-          PostJson(P^);
+          PostJson(P^.Json, P^.Target);
         finally
           Dispose(P);
         end;
@@ -780,7 +988,11 @@ begin
     else
       Json := '{"__borion":1,"kind":"response","id":' + Call.FId + ',"ok":false,"error":{"code":' +
         JsonQuote(Call.FErrorCode) + ',"message":' + JsonQuote(Call.FErrorMessage) + '}}';
-    PostJson(Json);
+    { só para a janela que chamou (se ela ainda existir) }
+    if (Call.FWindow = '') or (FWindows.Count = 0) or (FWindows.IndexOf(Call.FWindow) >= 0) then
+      PostJson(Json, Call.FWindow)
+    else
+      Log('resposta descartada: a janela "' + Call.FWindow + '" fechou');
   finally
     FPending.Remove(Call);
     Call.Free;
@@ -789,12 +1001,25 @@ end;
 
 procedure TBorionIpc.WebMessageJson(Sender: TObject; const Json, Source: WideString;
   var Handled: Boolean);
+var
+  L: string;
 begin
-  if ProcessMessage(Json, Source) then
+  L := WindowOf(TWebView2Browser(Sender));
+  if L = '' then
+    Exit;
+  if ProcessMessageFrom(L, Json, Source) then
     Handled := True;
 end;
 
 function TBorionIpc.ProcessMessage(const Json, Source: WideString): Boolean;
+begin
+  if FWindows.Count > 0 then
+    Result := ProcessMessageFrom(FWindows[0], Json, Source)
+  else
+    Result := ProcessMessageFrom('main', Json, Source);
+end;
+
+function TBorionIpc.ProcessMessageFrom(const WindowLabel: string; const Json, Source: WideString): Boolean;
 var
   S, Kind: string;
   Msg: TJsonObject;
@@ -821,9 +1046,11 @@ begin
     try
       Kind := Msg['kind'].AsString;
       if Kind = 'invoke' then
-        HandleInvoke(Msg, Source)
+        HandleInvoke(Msg, Source, WindowLabel)
       else if Kind = 'emit' then
-        HandleEmit(Msg, Source)
+        HandleEmit(Msg, Source, WindowLabel)
+      else if Kind = 'emitTo' then
+        HandleEmitTo(Msg, Source)
       else
         Log('tipo de mensagem desconhecido: ' + Kind);
     except
@@ -836,11 +1063,12 @@ begin
   end;
 end;
 
-procedure TBorionIpc.HandleInvoke(Msg: TJsonObject; const Source: WideString);
+procedure TBorionIpc.HandleInvoke(Msg: TJsonObject; const Source: WideString; const WindowLabel: string);
 var
   Call: TBorionCall;
   I: Integer;
   Entry: TBorionCommandEntry;
+  Anterior: string;
 begin
   if Msg.Find('id') < 0 then
   begin
@@ -848,6 +1076,7 @@ begin
     Exit;
   end;
   Call := TBorionCall.Create(Self, Msg['id'].Stringify, Msg['cmd'].AsString, Source);
+  Call.FWindow := WindowLabel;
   I := Msg.Find('args');
   if (I >= 0) and (Msg.Items[I].Value.ValueType = jvObject) then
     Call.FArgs.Assign(Msg.Items[I].Value.AsObject);
@@ -866,6 +1095,8 @@ begin
     begin
       Entry := TBorionCommandEntry(FCommands.Objects[I]);
       Call.FInHandler := True;
+      Anterior := FCurrentWindow;
+      FCurrentWindow := WindowLabel;
       try
         try
           if Assigned(Entry.Method) then
@@ -880,6 +1111,7 @@ begin
         end;
       finally
         Call.FInHandler := False;
+        FCurrentWindow := Anterior;
       end;
     end;
   end;
@@ -890,9 +1122,34 @@ begin
     SendResponse(Call);
 end;
 
-procedure TBorionIpc.HandleEmit(Msg: TJsonObject; const Source: WideString);
+procedure TBorionIpc.HandleEmitTo(Msg: TJsonObject; const Source: WideString);
 var
-  Event: string;
+  Target, PayloadJson: string;
+  I: Integer;
+begin
+  if not IsOriginAllowed(Source) then
+  begin
+    Log('emitTo negado para a origem ' + BorionOriginOf(Source));
+    Exit;
+  end;
+  Target := Msg['target'].AsString;
+  if (Target <> '*') and (FWindows.IndexOf(Target) < 0) then
+  begin
+    Log('emitTo para uma janela que não existe: ' + Target);
+    Exit;
+  end;
+  I := Msg.Find('payload');
+  if I >= 0 then
+    PayloadJson := Msg.Items[I].Value.Stringify
+  else
+    PayloadJson := 'null';
+  { repassado como um evento comum para a(s) janela(s) de destino }
+  EmitJsonTo(Target, Msg['event'].AsString, PayloadJson);
+end;
+
+procedure TBorionIpc.HandleEmit(Msg: TJsonObject; const Source: WideString; const WindowLabel: string);
+var
+  Event, Anterior: string;
   Payload: TJsonValue;
   Snapshot: TList;
   I: Integer;
@@ -907,6 +1164,8 @@ begin
   Payload := Msg['payload'];
   { cópia da lista: um listener pode chamar Listen/Unlisten }
   Snapshot := TList.Create;
+  Anterior := FCurrentWindow;
+  FCurrentWindow := WindowLabel;
   try
     Snapshot.Assign(FListeners);
     for I := 0 to Snapshot.Count - 1 do
@@ -924,6 +1183,7 @@ begin
     end;
   finally
     Snapshot.Free;
+    FCurrentWindow := Anterior;
   end;
 end;
 

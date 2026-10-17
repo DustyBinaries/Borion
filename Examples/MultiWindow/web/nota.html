@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Nota</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/window": "./borion-api/window.js"
+    }
+  }
+  </script>
+  <script type="module" src="nota.js"></script>
+</head>
+<body>
+  <main>
+    <section>
+      <h3>Nota <code id="rotulo">?</code></h3>
+      <textarea id="texto">Uma ideia qualquer.</textarea>
+      <div class="linha">
+        <button id="enviar">Enviar para a principal</button>
+        <button id="fechar">Fechar</button>
+      </div>
+      <p class="dica">Criada pela principal com <code>createWindow</code>, fora do <code>app.json</code>.</p>
+    </section>
+  </main>
+</body>
+</html>

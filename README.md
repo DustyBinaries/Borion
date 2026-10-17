@@ -59,6 +59,8 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
 - **Janela**: plugin `window` (título, tamanho, posição, maximizar, tela cheia, borda, sempre no
   topo, eventos) e o `onCloseRequested`, que intercepta o fechamento para um "deseja salvar?" em
   HTML.
+- **Várias janelas**: definidas no `app.json` ou criadas pela página (`createWindow`), todas no
+  mesmo IPC (plugins e comandos servem todas), com eventos entre elas (`emitTo`).
 - **Dados**: `clipboard` (texto e HTML) e `store` (chave-valor persistido em JSON), com Unicode
   completo, inclusive emoji, apesar de o Delphi 7 ser ANSI.
 - **Sistema e rede**: `os` (versão real do Windows, arquitetura, idioma) e `http` (o `fetch` feito
@@ -144,8 +146,8 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `.AllowDir(pasta)` / `.AllowFile(arquivo)` | Escopo de arquivos do app, usado pelos plugins `fs`, `dialog` e `shell` criados sem escopo |
 | `.Url(url)` / `.AllowOrigin(origem)` | Abrir uma URL em vez do frontend embutido; liberar mais uma origem no IPC |
 | `.UserDataFolder(pasta)` | Pasta de dados do WebView2 |
-| `.Setup(Proc)` | `procedure Proc(Window: TBorionWindow)`, depois de montar e antes de abrir a página: acesso ao form, ao browser, ao IPC e aos plugins |
-| `.OnCloseQuery(Proc)` / `.OnClose(Proc)` | Confirmar ou guardar algo ao fechar |
+| `.Setup(Proc)` | `procedure Proc(Window: TBorionWindow)`, depois de montar a janela principal e antes de abrir a página: acesso ao form, ao browser, ao IPC e aos plugins |
+| `.OnCloseQuery(Proc)` / `.OnClose(Proc)` | Confirmar ou guardar algo ao fechar (valem para todas as janelas; veja `Window.WindowLabel`) |
 | `.Run` | Roda o app e libera o builder |
 
 - **Plugins com configuração** são criados antes, numa variável:
@@ -191,6 +193,7 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, num form Delphi tradicional, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
 | `Examples/Editor/` | Editor de texto com Vite + JS puro, feito só com os plugins oficiais ([README](Examples/Editor/README.md)) |
+| `Examples/MultiWindow/` | Várias janelas: uma do `app.json` aberta sob demanda, outras criadas pela página, tema e notas trocados com `emitTo` ([README](Examples/MultiWindow/README.md)) |
 | `Examples/Menu/`, `Tray/`, `App/`, `Window/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/`, `GlobalShortcut/`, `Log/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Window](Examples/Window/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md), [GlobalShortcut](Examples/GlobalShortcut/README.md), [Log](Examples/Log/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
@@ -223,6 +226,12 @@ botões; o app que abre uma vez só e recebe os argumentos das próximas execuç
 `borion-exemplo://` abrindo o app; a inicialização com o Windows; atalhos globais com o app
 em segundo plano; e o log do Delphi e da página no mesmo arquivo.
 
+**[`Examples/MultiWindow/`](Examples/MultiWindow/README.md):** várias janelas. A principal lista
+as abertas, abre a de configurações (definida no `app.json`, com `"create": false`) e cria notas
+(janelas que não estão no `app.json`). A configuração muda o tema de todas com
+`emitTo('*', ...)`, e as notas mandam o texto para a principal com `emitTo('main', ...)`. Um
+comando Delphi só responde a todas, sabendo de qual veio.
+
 **[`Examples/ViteReact/`](Examples/ViteReact/README.md):** um app React com Vite. O `build.bat`
 gera um único exe com o frontend embutido; o `dev.bat` abre o app ligado ao servidor do Vite,
 com hot-reload.
@@ -252,7 +261,7 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **293 testes DUnit** e **73 testes JS** (`node:test`):
+Roda **313 testes DUnit** e **76 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
@@ -261,7 +270,8 @@ Roda **293 testes DUnit** e **73 testes JS** (`node:test`):
   inclusive uma junção apontando para fora do escopo; política do `shell`; `Ipc.Later`; menu
   montado a partir do JSON, atalhos e popup; bandeja com o `Shell_NotifyIcon` capturado; `app`;
   `window` (tamanho, limites, bordas, tela cheia, eventos e o fechamento interceptado, com e sem
-  resposta da página);
+  resposta da página); várias janelas (respostas e eventos para a janela certa, `emitTo`, os
+  avisos aos plugins e o `window` com duas janelas no mesmo IPC);
   `clipboard` com a área de transferência real e emoji; `store` com arquivo corrompido,
   editado à mão e sem `AutoSave`; o JSON só com ASCII; `os`; `http` contra um servidor HTTP
   local: escopo, redirecionamentos, timeout, cancelamento, binário e limites; XML e eventos do

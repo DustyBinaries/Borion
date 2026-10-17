@@ -252,6 +252,34 @@ end;
 O `Payload` pertence ao Borion e só vale durante a chamada. Uma exceção num listener é
 registrada no `OnLog` e não impede os demais.
 
+## Várias janelas
+
+Um `TBorionIpc` serve todas as janelas do app: comandos, listeners e plugins são registrados uma
+vez. Cada janela é um browser com um rótulo (`'main'` na principal, a do `Create`). O
+`TBorionBuilder` faz isso sozinho para as janelas do [`app.json`](CONFIG.md#várias-janelas); à
+mão:
+
+```pascal
+Ipc := TBorionIpc.Create(Self, BrowserPrincipal);   // a janela 'main'
+Ipc.AddWindow('config', OutroBrowser);              // antes do CreateWebView dele
+```
+
+- **Respostas:** o `invoke` responde só à janela que chamou. `Call.Window` traz o rótulo dela,
+  e `Call.Browser`, o browser.
+- **Contexto:** durante um comando ou listener, `Ipc.CurrentWindow` diz de qual janela veio a
+  mensagem.
+- **Eventos:** `Ipc.Emit` vai para todas as janelas. `Ipc.EmitTo('config', ...)` e
+  `Ipc.EmitJsonTo` vão só para uma (`'*'` = todas).
+- **Entre janelas:** a página manda com `borion.emitTo('main', 'evento', payload)` (ou `'*'`).
+  O Delphi só repassa como um evento comum, e o `listen` da outra janela recebe. A origem
+  precisa estar liberada; um destino que não existe é ignorado e registrado no `OnLog`.
+- **Rótulo na página:** cada página recebe o seu em `borion.label` (`windowLabel()` no
+  `@borion/api`).
+- **Fechar:** liberar o browser tira a janela do IPC. Uma resposta adiada para uma janela que já
+  fechou é descartada.
+- **Plugins:** um plugin que acompanha cada janela (como o `window`) sobrescreve `WindowAdded` e
+  `WindowRemoved`.
+
 ## API JavaScript
 
 A ponte é injetada como `window.borion` (e `window.__BORION__`), congelada e não
@@ -263,6 +291,8 @@ sobrescrevível. Os tipos estão em [`js/borion.d.ts`](../js/borion.d.ts).
 | `listen(evento, cb)` | Escuta um evento do Delphi. `cb(payload, evento)`. Devolve a função `unlisten` |
 | `once(evento, cb)` | Como `listen`, só a primeira vez |
 | `emit(evento, payload?)` | Envia um evento ao Delphi |
+| `emitTo(janela, evento, payload?)` | Envia um evento a outra janela do app (`'*'` = todas) |
+| `label` | Rótulo da janela desta página (`'main'` na principal) |
 | `version` | Versão do Borion |
 
 Sem `chrome.webview` (página aberta num navegador comum), a ponte não é criada. Teste com
@@ -327,6 +357,7 @@ Borion é um objeto com `"__borion": 1`:
 // JS -> Delphi (chrome.webview.postMessage)
 {"__borion":1,"kind":"invoke","id":7,"cmd":"somar","args":{"a":20,"b":22}}
 {"__borion":1,"kind":"emit","event":"salvou","payload":{"id":7}}
+{"__borion":1,"kind":"emitTo","target":"main","event":"nota","payload":{"texto":"..."}}
 
 // Delphi -> JS (PostWebMessageAsJson)
 {"__borion":1,"kind":"response","id":7,"ok":true,"result":42}

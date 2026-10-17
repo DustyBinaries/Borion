@@ -35,7 +35,8 @@ type
   private
     FScope: TBorionScope;
     FOwnerWindow: HWND;
-    function Dono: HWND;
+    { a janela que chamou (FOwnerWindow vence) }
+    function Dono(Call: TBorionCall): HWND;
     procedure CmdOpen(Call: TBorionCall);
     procedure CmdSave(Call: TBorionCall);
     procedure CmdMessage(Call: TBorionCall);
@@ -200,13 +201,18 @@ begin
   CommandLater('confirm', CmdConfirm);
 end;
 
-function TBorionDialogPlugin.Dono: HWND;
+function TBorionDialogPlugin.Dono(Call: TBorionCall): HWND;
 const
   GA_ROOT_ = 2;
+var
+  B: TWebView2Browser;
 begin
   Result := FOwnerWindow;
-  if (Result = 0) and (Ipc <> nil) and (Ipc.Browser <> nil) and Ipc.Browser.HandleAllocated then
-    Result := GetAncestor_(Ipc.Browser.Handle, GA_ROOT_);
+  B := Call.Browser;
+  if B = nil then
+    B := Ipc.Browser;
+  if (Result = 0) and (B <> nil) and B.HandleAllocated then
+    Result := GetAncestor_(B.Handle, GA_ROOT_);
   if Result = 0 then
     Result := GetActiveWindow;
 end;
@@ -302,7 +308,7 @@ var
 begin
   if Call.ArgBool('directory') then
   begin
-    Pasta := EscolherPasta(Dono, Call.ArgStr('title', 'Escolha uma pasta'), Call.ArgStr('defaultPath'));
+    Pasta := EscolherPasta(Dono(Call), Call.ArgStr('title', 'Escolha uma pasta'), Call.ArgStr('defaultPath'));
     if Pasta = '' then
       Exit;  { cancelado: null }
     Permitir(Pasta, True);
@@ -311,7 +317,7 @@ begin
   end;
 
   Multiplo := Call.ArgBool('multiple');
-  PrepararArquivo(OFN, Dono, Call, Buffer, Filtro, Titulo, PastaInicial, Extensao);
+  PrepararArquivo(OFN, Dono(Call), Call, Buffer, Filtro, Titulo, PastaInicial, Extensao);
   OFN.Flags := OFN_EXPLORER or OFN_FILEMUSTEXIST or OFN_PATHMUSTEXIST or OFN_HIDEREADONLY;
   if Multiplo then
     OFN.Flags := OFN.Flags or OFN_ALLOWMULTISELECT;
@@ -338,7 +344,7 @@ var
   OFN: TOpenFilename;
   Buffer, Filtro, Titulo, PastaInicial, Extensao: string;
 begin
-  PrepararArquivo(OFN, Dono, Call, Buffer, Filtro, Titulo, PastaInicial, Extensao);
+  PrepararArquivo(OFN, Dono(Call), Call, Buffer, Filtro, Titulo, PastaInicial, Extensao);
   OFN.Flags := OFN_EXPLORER or OFN_OVERWRITEPROMPT or OFN_PATHMUSTEXIST or OFN_HIDEREADONLY;
   if not GetSaveFileName(OFN) then
     Exit;  { cancelado: null }
@@ -376,7 +382,7 @@ procedure TBorionDialogPlugin.CmdMessage(Call: TBorionCall);
 var
   Janela: HWND;
 begin
-  Janela := Dono;
+  Janela := Dono(Call);
   MessageBox(Janela, PChar(Call.ArgStr('message')), PChar(Titulo(Call, Janela)), MB_OK or Icone(Call));
 end;
 
@@ -390,7 +396,7 @@ begin
     Botoes := MB_YESNO
   else
     Botoes := MB_OKCANCEL;
-  Janela := Dono;
+  Janela := Dono(Call);
   R := MessageBox(Janela, PChar(Call.ArgStr('message')), PChar(Titulo(Call, Janela)), Botoes or Icone(Call));
   Call.Result.AsBoolean := (R = IDOK) or (R = IDYES);
 end;

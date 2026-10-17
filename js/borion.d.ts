@@ -27,6 +27,10 @@ export interface Borion {
   once<T = unknown>(event: string, handler: (payload: T, event: string) => void): UnlistenFn;
   /** Emite um evento para o Delphi (Ipc.Listen). */
   emit(event: string, payload?: unknown): void;
+  /** Emite um evento para outra janela do app ('*' = todas); o Delphi só repassa. */
+  emitTo(target: string, event: string, payload?: unknown): void;
+  /** Rótulo da janela desta página ('main' na principal). */
+  readonly label: string;
   /** Versão do Borion (BORION_VERSION). */
   readonly version: string;
 }

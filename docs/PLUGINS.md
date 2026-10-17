@@ -290,11 +290,13 @@ plugin [`window`](#window).
 
 ## `window`
 
-Exemplo: [`Examples/Window`](../Examples/Window/README.md).
+Exemplos: [`Examples/Window`](../Examples/Window/README.md) e
+[`Examples/MultiWindow`](../Examples/MultiWindow/README.md).
 
-`TBorionWindowPlugin.Create([AForm])`: a página controla a própria janela, como o `window` do
-Tauri. Sem `AForm`, controla o form do browser do Ipc. Tamanhos e posições são em pixels, da
-janela inteira, como o `width`/`height` do [`app.json`](CONFIG.md).
+`TBorionWindowPlugin.Create([AForm])`: as páginas controlam as janelas, como o `window` do
+Tauri. Sem `AForm`, ele acompanha todas as janelas do Ipc; com `AForm`, só esse form. As funções
+soltas agem sobre a janela da página. Tamanhos e posições são em pixels, da janela inteira, como
+o `width`/`height` do [`app.json`](CONFIG.md).
 
 | JS (`@borion/api/window`) | O que faz |
 |---|---|
@@ -352,6 +354,32 @@ await win.onCloseRequested(async (event) => {
   arrastar) está no [roadmap](ROADMAP.md).
 - **Tela cheia:** mudar a borda em tela cheia vale para quando ela terminar. `setSize`,
   `setPosition` e `maximize` saem da tela cheia.
+
+**Várias janelas:**
+
+| JS (`@borion/api/window`) | O que faz |
+|---|---|
+| `getCurrent()` | A janela desta página: `{label, setTitle, setSize, ...}` (os mesmos métodos das funções soltas) |
+| `getWindow(label)` | Outra janela, pelo rótulo. Os métodos rejeitam com `WINDOW_NOT_FOUND` se ela não estiver aberta |
+| `getAllWindows()` | As janelas abertas: `[{label, title, visible, main, ...métodos}]` |
+| `createWindow(label, options?)` | Abre a janela do `app.json` com esse rótulo (as opções vencem) ou uma nova (`{url, title, width, height, ...}`). Rejeita com `WINDOW_EXISTS` se ela já estiver aberta |
+| `onCreated((label) => ...)`, `onDestroyed((label) => ...)` | Uma janela abriu ou fechou (chega a todas as janelas) |
+
+```js
+import * as win from '@borion/api/window';
+import { emitTo, listen } from '@borion/api';
+
+await win.createWindow('nota-1', { url: '/nota.html', title: 'Nota', width: 380, height: 320 });
+await win.getWindow('config').setFocus();
+emitTo('main', 'nota', { texto: '...' });       // na nota; a principal faz listen('nota', ...)
+```
+
+- Os eventos de uma janela (`onResized`, `onMoved`, `onFocusChanged`, `onCloseRequested`)
+  chegam só à página dela. Para avisar outra janela, use `emitTo`.
+- `createWindow` precisa do app montado pelo `TBorionBuilder` (no Delphi, `BorionWindows`);
+  num form próprio, rejeita com `NOT_SUPPORTED`.
+- Fechar a janela principal fecha o app e as outras, sem passar pelo `onCloseRequested` das
+  secundárias.
 
 ## `clipboard`
 
@@ -781,8 +809,8 @@ end;
   [Unicode completo](#unicode-completo-json-só-com-ascii)).
 - Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
   sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
-- O `window` controla uma janela: a do Ipc em que foi adicionado. Várias janelas estão no
-  roadmap.
+- O `menu` (a barra de menu) é da janela principal. No Delphi 7, as janelas secundárias não
+  ganham botão próprio na barra de tarefas: elas ficam junto do botão do app.
 - Ainda faltam os caminhos do `os`/`app`,
   imagens no `clipboard` e o upload com `FormData` no `http`: veja o
   [roadmap](ROADMAP.md).

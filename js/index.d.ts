@@ -37,11 +37,19 @@ export declare function once<T = unknown>(
 /** Emite um evento para o Delphi (Ipc.Listen). Lança fora do Borion. */
 export declare function emit(event: string, payload?: unknown): void;
 
+/** Emite um evento para outra janela do app ('*' = todas). Lança fora do Borion. */
+export declare function emitTo(target: string, event: string, payload?: unknown): void;
+
+/** Rótulo da janela desta página ('main' na principal), ou null fora do Borion. */
+export declare function windowLabel(): string | null;
+
 declare const api: {
   invoke: typeof invoke;
   listen: typeof listen;
   once: typeof once;
   emit: typeof emit;
+  emitTo: typeof emitTo;
+  windowLabel: typeof windowLabel;
   isBorion: typeof isBorion;
   version: typeof version;
   NOT_AVAILABLE: typeof NOT_AVAILABLE;

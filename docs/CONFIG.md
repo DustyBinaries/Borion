@@ -85,15 +85,19 @@ chave ausente.
 | `identifier` | texto | Identificador reverso (`com.empresa.app`): letras, dígitos, `-` e `_`, em duas partes ou mais. O `app:info` devolve; os próximos recursos (instalador, AppUserModelID) vão usá-lo |
 | `build.frontendDist` | texto | Pasta da interface pronta, relativa ao `app.json` (veja abaixo) |
 | `build.devUrl` | texto | URL do servidor de desenvolvimento (`http://` ou `https://`). O `borion dev` abre o app nela, e a porta vai para o Vite (`--port`) |
-| `app.windows` | lista | As janelas. **Por enquanto só a primeira** (a principal) é usada; as outras geram um aviso |
-| `app.windows[0].title` | texto | Título da janela. Com ele, o título fica fixo; sem ele, o título é o `productName` e acompanha o `document.title` da página |
-| `app.windows[0].width`, `height` | inteiro | Tamanho inicial (padrão 1000×700) |
-| `app.windows[0].minWidth`, `minHeight`, `maxWidth`, `maxHeight` | inteiro | Limites de tamanho (0 = sem limite) |
-| `app.windows[0].resizable` | lógico | `false`: borda fixa, sem maximizar (padrão `true`) |
-| `app.windows[0].center` | lógico | `false`: posição escolhida pelo Windows (padrão `true`, centralizada) |
-| `app.windows[0].maximized` | lógico | Abre maximizada |
-| `app.windows[0].decorations` | lógico | `false`: sem borda nem barra de título. Feche a janela pelo plugin `app` (`exit`). A barra de título em HTML está no roadmap |
-| `app.windows[0].alwaysOnTop` | lógico | Sempre por cima das outras janelas |
+| `app.windows` | lista | As janelas; a primeira é a principal ([várias janelas](#várias-janelas)) |
+| `app.windows[].label` | texto | Rótulo da janela: letras, dígitos, `-` e `_`, único. Obrigatório a partir da segunda; a primeira é `main` se não tiver |
+| `app.windows[].url` | texto | A página da janela, um caminho do app começando com `/` (padrão `/`): `"/config.html"` |
+| `app.windows[].create` | lógico | `false`: a janela só fica definida, e abre depois (pelo JS ou pelo Delphi). Não vale para a principal |
+| `app.windows[].visible` | lógico | `false`: criada escondida (padrão `true`) |
+| `app.windows[].title` | texto | Título da janela. Com ele, o título fica fixo; sem ele, o título é o `productName` e acompanha o `document.title` da página |
+| `app.windows[].width`, `height` | inteiro | Tamanho inicial (padrão 1000×700) |
+| `app.windows[].minWidth`, `minHeight`, `maxWidth`, `maxHeight` | inteiro | Limites de tamanho (0 = sem limite) |
+| `app.windows[].resizable` | lógico | `false`: borda fixa, sem maximizar (padrão `true`) |
+| `app.windows[].center` | lógico | `false`: posição escolhida pelo Windows (padrão `true`, centralizada) |
+| `app.windows[].maximized` | lógico | Abre maximizada |
+| `app.windows[].decorations` | lógico | `false`: sem borda nem barra de título. Feche a janela pelo plugin `app` (`exit`). A barra de título em HTML está no roadmap |
+| `app.windows[].alwaysOnTop` | lógico | Sempre por cima das outras janelas |
 | `app.security.csp` | texto | O header `Content-Security-Policy` dos assets embutidos e da pasta no `--dev-dir`. Não vale para o servidor do Vite |
 | `$schema` | texto | Aceito e ignorado |
 
@@ -107,6 +111,29 @@ Com `build.frontendDist`:
 - se a pasta acima dela tem um `package.json` (`"ui/dist"` com `ui\package.json`), é um projeto
   npm: o `borion build` roda `npm run build` em `ui\` e empacota `ui\dist`;
 - senão, é uma interface estática, empacotada como está (`"web"`, `"public"`).
+
+### Várias janelas
+
+```json
+"windows": [
+  { "label": "main", "width": 900, "height": 680 },
+  { "label": "config", "url": "/config.html", "title": "Configurações", "width": 420,
+    "height": 360, "resizable": false, "create": false }
+]
+```
+
+- As janelas sem `"create": false` abrem junto com a principal; as outras ficam só definidas.
+- **Abrir depois:** `createWindow('config')` no JS (do plugin [`window`](PLUGINS.md#window)) ou
+  `BorionWindows.Open('config')` no Delphi. O JS também cria janelas que não estão no
+  `app.json`, passando `url`, `title`, tamanho etc.
+- **O mesmo IPC:** todas as janelas usam o mesmo IPC (veja o [guia do IPC](IPC.md#várias-janelas)):
+  os comandos e plugins do `.dpr` servem todas, e cada chamada sabe de que janela veio.
+- **Fechar:** a principal fecha o app, e as outras junto. Uma secundária só se fecha (e é
+  liberada); o `onCloseRequested` de cada uma vale só para ela.
+- **Os métodos do builder** (`.Size`, `.Maximized`...) mudam só a principal.
+
+Para cada janela vale o mesmo frontend: no build, as páginas da pasta `frontendDist`; no
+`borion dev`, o servidor do Vite (um projeto com várias páginas) ou a pasta `web\`.
 
 ## API Delphi
 
@@ -122,12 +149,23 @@ C.LoadFromFile('outro.json');    // EBorionConfig se inválido; avisos em C.Warn
 TBorionBuilder.Create.Config(C)...
 ```
 
-`TBorionWindow.ApplyConfig(Config, TituloPadrao)` aplica uma `TBorionWindowConfig` a uma janela. O
-builder usa esse método, e as próximas janelas (várias janelas, na Fase 3) também vão usá-lo.
+```pascal
+uses Borion;
+
+BorionWindows.Main;                  // a janela principal (TBorionWindow)
+BorionWindows.Find('config');        // nil se não estiver aberta
+BorionWindows.Open('config');        // a do app.json; aberta, só ganha o foco
+BorionWindows.CreateWindow(Config);  // uma TBorionWindowConfig qualquer
+BorionWindows.Count; BorionWindows[I].WindowLabel;
+```
+
+O `BorionWindows` existe durante o `TBorionBuilder.Run`. `TBorionWindow.ApplyConfig(Config,
+TituloPadrao)` aplica uma `TBorionWindowConfig` a uma janela (o builder usa esse método para
+todas).
 
 ## Ainda não
 
-- Várias janelas (`app.windows[1..]`), `x`/`y`, `fullscreen` e `url` por janela.
+- `x`/`y` e `fullscreen` por janela; uma janela com outro site (`url` externa).
 - `beforeDevCommand` / `beforeBuildCommand`: hoje o comando é sempre o `npm run dev` / `npm run build`.
 - Versão, ícone e manifesto do exe a partir do `app.json` (hoje o `.rc` é escrito à mão; Fase 7).
 - Capabilities e permissões (Fase 5).

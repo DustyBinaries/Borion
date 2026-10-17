@@ -16,7 +16,8 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 | `invoke('comando', args)` → `#[tauri::command]` | `borion.invoke()` → `TBorionIpc.RegisterCommand` | ✅ Fase 1 |
 | Eventos `emit`/`listen` | `borion.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
 | `@tauri-apps/api` | Ponte injetada (`window.borion`) + pacote ESM `@borion/api` | ✅ Fase 1 |
-| `tauri.conf.json` | `app.json` embutido | ✅ Fase 3 (janela principal) |
+| `tauri.conf.json` | `app.json` embutido | ✅ Fase 3 |
+| Janelas (`WebviewWindow`, `emitTo`) | `BorionWindows` + plugin `window`, um IPC para todas | ✅ Fase 3 |
 | Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ✅ Fase 4 |
 | Capabilities / permissões | Lista de comandos permitidos por janela e origem | ⬜ Fase 5 |
 | `create-tauri-app` / `tauri dev` / `tauri build` | CLI própria: `borion new`, `borion dev` e `borion build` | ✅ Fase 6 |
@@ -148,8 +149,9 @@ Documentação: [CONFIG.md](CONFIG.md).
 **Configuração (`app.json`, embutido no exe)**
 - [x] `identifier`, `productName`, `version` (validados; o `app:info` devolve a versão e o
       identificador).
-- [x] Janela principal (`app.windows[0]`): `title`, `width`/`height`, `minWidth`/`minHeight`,
-      `maxWidth`/`maxHeight`, `resizable`, `center`, `maximized`, `decorations`, `alwaysOnTop`.
+- [x] Janelas (`app.windows`): `label`, `url`, `create`, `visible`, `title`, `width`/`height`,
+      `minWidth`/`minHeight`, `maxWidth`/`maxHeight`, `resizable`, `center`, `maximized`,
+      `decorations`, `alwaysOnTop`.
 - [x] `build.devUrl`, `build.frontendDist` (lidos pelo `borion build` e pelo `borion dev`).
 - [x] `app.security.csp`. As permissões ficam para a Fase 5.
 - [x] Embutido pelo `borion build` no `.res` da interface (recurso `BORION_CONFIG`, fora do `*.res`
@@ -161,13 +163,19 @@ Documentação: [CONFIG.md](CONFIG.md).
 - [ ] `beforeDevCommand` / `beforeBuildCommand` (hoje, sempre `npm run dev` / `npm run build`).
 
 **Janelas**
-- [ ] `TAppWindow`: um form com browser, criado pela configuração ou em tempo de execução.
+- [x] Janela criada pela configuração ou em tempo de execução: `TBorionWindow` (um form com
+      browser) e o `BorionWindows` (`Open`, `CreateWindow`, `Find`), ou `createWindow` no JS.
 - [x] API JS de janela: plugin `window` (`@borion/api/window`) com `setTitle`, `minimize`,
       `maximize`, `close`, `setSize`, `setPosition`, `center`, `setFullscreen`, `setAlwaysOnTop`,
       `setResizable`, `setDecorations`, `show`/`hide`, `state()` e os eventos `onResized`,
       `onMoved` e `onFocusChanged`.
-- [ ] Múltiplas janelas, com rótulo e mensagens entre elas (`app.windows[1..]`, que hoje só geram
-      aviso; `TBorionWindow.ApplyConfig` já aplica uma `TBorionWindowConfig` a qualquer janela).
+- [x] Múltiplas janelas, com rótulo e mensagens entre elas: um `TBorionIpc` para todas (plugins
+      e comandos registrados uma vez, `Call.Window`, `Ipc.EmitTo`), `emitTo` entre páginas,
+      `getWindow`/`getAllWindows` e os eventos `window:created`/`window:destroyed`. Fechar a
+      principal fecha o app.
+- [ ] Barra de menu (`menu`) por janela: hoje, só a principal.
+- [ ] `onCloseRequested` das secundárias quando a principal fecha (hoje elas fecham sem
+      perguntar).
 - [x] Evento `close-requested` interceptável pelo JS ("deseja salvar?"): `onCloseRequested` com
       handler `async` e `preventDefault()`. Uma página que não responde não prende a janela.
 - [ ] Persistir tamanho, posição e estado (plugin *window-state*).
@@ -176,7 +184,10 @@ Documentação: [CONFIG.md](CONFIG.md).
 - [ ] **DPI**: manifesto per-monitor e escalonamento. A VCL do Delphi 7 não é DPI-aware, então
       precisa de atenção.
 
-**Marco 3:** um app de várias janelas, configurado só por `app.json` + HTML, sem escrever form.
+**Marco 3:** ✅ um app de várias janelas, configurado só por `app.json` + HTML, sem escrever form:
+o `Examples/MultiWindow` (testado: a janela de configurações do `app.json` abre sob demanda, as
+notas são criadas pela página, o tema muda todas com `emitTo('*')`, as notas falam com a
+principal, e fechar a principal encerra o app).
 
 ---
 
@@ -318,7 +329,8 @@ recompila e reabre, e fechar o app encerra o Vite).
 - [x] `WebResourceRequested` genérico, base para "API local"
 - [x] **Borion IPC**: `invoke` / `emit` / `listen`, comandos assíncronos, validação de origem
 - [x] **Assets**: `borion pack` + `TBorionAssets` (fallback de SPA, zlib, headers) e modo dev com hot-reload
-- [x] **Configuração**: `app.json` embutido no exe (nome, versão, janela principal, CSP, build)
+- [x] **Configuração**: `app.json` embutido no exe (nome, versão, janelas, CSP, build)
+- [x] **Várias janelas** no mesmo IPC, com eventos entre elas
 - [x] **Plugins** `dialog`, `fs` e `shell`, com escopo de arquivos negado por padrão
 - [x] **Robustez** do `TWebView2Browser`: callbacks protegidos, queda de processo, recriação de handle
 - [x] Repositório separado em `WebView2/` e `Borion/`, cada um com exemplo próprio
@@ -338,6 +350,6 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4, a CLI `borion new`/`dev`/`build` fechou o Marco 6, e o `app.json`
-configura o app e a janela principal, que a página controla pelo plugin `window`. Próximos
-candidatos: várias janelas (`TAppWindow`, rumo ao Marco 3) e o *window-state* na Fase 3, o `sql`
-(opcional) e os caminhos do `os`/`app`.
+com várias janelas, controladas pelo plugin `window`, fechou o Marco 3. Próximos candidatos: o
+resto da Fase 3 (*window-state*, janela sem borda com barra de título em HTML, DPI), a segurança
+da Fase 5, o `sql` (opcional) e os caminhos do `os`/`app`.

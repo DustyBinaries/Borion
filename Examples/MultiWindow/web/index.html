@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: várias janelas</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O borion build copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/window": "./borion-api/window.js"
+    }
+  }
+  </script>
+  <script type="module" src="main.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Várias janelas</h2>
+      <p>Esta é a janela <code id="rotulo">?</code>. Fechá-la fecha o app e as outras.</p>
+    </header>
+
+    <section>
+      <h3>1. Janelas abertas (<code>getAllWindows</code>, <code>onCreated</code>, <code>onDestroyed</code>)</h3>
+      <table id="janelas"><tr><td>carregando...</td></tr></table>
+    </section>
+
+    <section>
+      <h3>2. Abrir</h3>
+      <div class="linha">
+        <button id="config">Configurações</button>
+        <button id="nota">Nova nota</button>
+      </div>
+      <p class="dica"><b>Configurações</b> está no <code>app.json</code> com <code>"create": false</code>:
+        <code>createWindow('config')</code> usa a definição de lá (aberta, só ganha o foco).
+        <b>Nova nota</b> cria uma janela que não está no <code>app.json</code>, com
+        <code>url</code>, título e tamanho passados pela página.</p>
+    </section>
+
+    <section>
+      <h3>3. Notas recebidas (<code>emitTo('main', ...)</code>)</h3>
+      <ol id="notas" class="log"></ol>
+      <p class="dica">Cada nota manda o texto para esta janela; o Delphi só repassa o evento.</p>
+    </section>
+
+    <section>
+      <h3>4. Um comando para todas</h3>
+      <div class="linha"><button id="contar">invoke('contar')</button> <span id="contagem" class="saida"></span></div>
+      <p class="dica">O mesmo comando Delphi, registrado uma vez, responde a qualquer janela;
+        <code>Call.Window</code> diz de qual veio.</p>
+    </section>
+  </main>
+</body>
+</html>

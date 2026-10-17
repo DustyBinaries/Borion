@@ -72,4 +72,18 @@ export function emit(event, payload) {
   bridgeOrThrow('emit "' + event + '"').emit(event, payload);
 }
 
-export default { invoke, listen, once, emit, isBorion, version, NOT_AVAILABLE };
+/**
+ * Emite um evento para outra janela do app (o listen dela recebe), ou para
+ * todas com target = '*'. O Delphi só repassa.
+ */
+export function emitTo(target, event, payload) {
+  bridgeOrThrow('emitTo "' + event + '"').emitTo(target, event, payload);
+}
+
+/** Rótulo da janela desta página ('main' na principal), ou null fora do Borion. */
+export function windowLabel() {
+  const b = bridge();
+  return b ? b.label || 'main' : null;
+}
+
+export default { invoke, listen, once, emit, emitTo, windowLabel, isBorion, version, NOT_AVAILABLE };

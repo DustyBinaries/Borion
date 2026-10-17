@@ -30,7 +30,14 @@ unit Borion;
 
   A configuração vem do app.json (BorionConfig), que o "borion build" embute
   no exe; sem ele, os padrões (1000x700, redimensionável, centralizada). Os
-  métodos do builder vencem o app.json: .Size(800, 600) muda só o tamanho.
+  métodos do builder vencem o app.json: .Size(800, 600) muda só o tamanho
+  (da janela principal).
+
+  Várias janelas: as de app.windows com "create" (o padrão) abrem junto com a
+  principal; as outras, com BorionWindows.Open('rotulo') ou pelo JS. Todas
+  usam o mesmo IPC: os plugins e comandos são registrados uma vez e servem
+  todas as janelas. Fechar a principal fecha o app (e as outras); fechar uma
+  secundária só libera ela.
 
   O Run inicializa a aplicação, cria a janela, instala os plugins e comandos,
   chama o Setup, abre a página e só volta quando o app fecha (liberando o
@@ -59,6 +66,7 @@ type
   private
     FBrowser: TWebView2Browser;
     FIpc: TBorionIpc;
+    FWindowLabel: string;
     FAssets: TBorionAssets;
     FTitleFromPage: Boolean;
     FOnCloseQuery: TBorionCloseQueryProc;
@@ -68,10 +76,20 @@ type
     procedure BrowserTitleChanged(Sender: TObject; const Value: WideString);
     procedure FecharConsulta(Sender: TObject; var CanClose: Boolean);
     procedure Fechar(Sender: TObject; var Action: TCloseAction);
+    procedure Preparar;
   public
+    { A janela 'main', com um IPC próprio (o do app) }
     constructor Create(AOwner: TComponent); override;
+    { Mais uma janela no IPC de outra (o do app), com esse rótulo }
+    constructor CreateWindow(AOwner: TComponent; AIpc: TBorionIpc; const AWindowLabel: string);
+    destructor Destroy; override;
     property Browser: TWebView2Browser read FBrowser;
+    { O IPC do app (o mesmo em todas as janelas) }
     property Ipc: TBorionIpc read FIpc;
+    { 'main' na principal }
+    property WindowLabel: string read FWindowLabel;
+    { A janela principal: fechá-la fecha o app }
+    function IsMain: Boolean;
     property Assets: TBorionAssets read FAssets;
     { O escopo de arquivos do app (o mesmo dos plugins fs, dialog e shell) }
     function Scope: TBorionScope;
@@ -82,11 +100,45 @@ type
     property TitleFromPage: Boolean read FTitleFromPage write FTitleFromPage;
   end;
 
+  { As janelas do app (o global BorionWindows, criado pelo TBorionBuilder.Run) }
+  TBorionWindows = class
+  private
+    FMain: TBorionWindow;
+    FList: TList;
+    FDefs: array of TBorionWindowConfig;
+    FTitle: string;
+    FCsp: string;
+    FUrl: string;
+    FUserDataFolder: string;
+    FOnCloseQuery: TBorionCloseQueryProc;
+    FOnClose: TBorionCloseProc;
+    function GetItem(Index: Integer): TBorionWindow;
+    procedure Preparar(W: TBorionWindow; const Config: TBorionWindowConfig);
+    procedure Abrir(W: TBorionWindow; const Config: TBorionWindowConfig);
+    procedure Saiu(W: TBorionWindow);
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function Count: Integer;
+    property Items[Index: Integer]: TBorionWindow read GetItem; default;
+    property Main: TBorionWindow read FMain;
+    { nil se não estiver aberta }
+    function Find(const WindowLabel: string): TBorionWindow;
+    { A definição do app.json; False se não houver }
+    function Definition(const WindowLabel: string; out Config: TBorionWindowConfig): Boolean;
+    { Abre a janela do app.json com esse rótulo; se já estiver aberta, mostra e
+      traz para frente. EBorionError WINDOW_NOT_FOUND se não houver a definição. }
+    function Open(const WindowLabel: string): TBorionWindow;
+    { Abre uma janela nova (Config.WindowLabel não pode estar aberto) }
+    function CreateWindow(const Config: TBorionWindowConfig): TBorionWindow;
+  end;
+
   TBorionBuilder = class
   private
     FTitle: string;
     FExplicitTitle: Boolean;
     FWindow: TBorionWindowConfig;
+    FDefs: array of TBorionWindowConfig;
     FCsp: string;
     FTitleFromPage: Boolean;
     FUrl: string;
@@ -99,7 +151,7 @@ type
     FSetup: TBorionSetupProc;
     FOnCloseQuery: TBorionCloseQueryProc;
     FOnClose: TBorionCloseProc;
-    procedure Montar(W: TBorionWindow);
+    procedure Montar(W: TBorionWindow; Janelas: TBorionWindows);
   public
     { Title: título do app e da janela (Application.Title, já definido aqui para
       os plugins que o usam como nome). '' = o productName do app.json (ou o
@@ -146,9 +198,10 @@ type
     function Commands(Register: TBorionCommandsProc): TBorionBuilder;
 
     { --- ganchos --- }
-    { Depois de montar a janela e antes de abrir a página: acesso ao form, ao
-      browser, ao IPC e aos plugins }
+    { Depois de montar a janela principal e antes de abrir a página: acesso ao
+      form, ao browser, ao IPC e aos plugins }
     function Setup(Proc: TBorionSetupProc): TBorionBuilder;
+    { Valem para todas as janelas (veja Window.WindowLabel / Window.IsMain) }
     function OnCloseQuery(Proc: TBorionCloseQueryProc): TBorionBuilder;
     function OnClose(Proc: TBorionCloseProc): TBorionBuilder;
 
@@ -157,18 +210,63 @@ type
 
     property Title: string read FTitle;
     property TitleFromPage: Boolean read FTitleFromPage;
-    { A janela como vai ser criada (app.json + métodos do builder) }
+    { A janela principal como vai ser criada (app.json + métodos do builder) }
     property Window: TBorionWindowConfig read FWindow;
+    { Todas as janelas do app.json (a 0 é a principal, com os métodos do builder) }
+    function WindowCount: Integer;
+    function WindowConfig(Index: Integer): TBorionWindowConfig;
     property ContentSecurityPolicy: string read FCsp;
   end;
 
+var
+  { As janelas do app, durante o TBorionBuilder.Run (nil fora dele) }
+  BorionWindows: TBorionWindows;
+
 implementation
+
+{ caminho do app ('/config.html') sobre a raiz da interface }
+function UrlDaJanela(const Base, Caminho: string): string;
+begin
+  Result := Base;
+  while (Result <> '') and (Result[Length(Result)] = '/') do
+    SetLength(Result, Length(Result) - 1);
+  Result := Result + Caminho;
+end;
 
 { TBorionWindow }
 
 constructor TBorionWindow.Create(AOwner: TComponent);
 begin
   inherited CreateNew(AOwner);  { sem .dfm }
+  FWindowLabel := 'main';
+  Preparar;
+  { o IPC antes do CreateWebView: a ponte JS entra já no primeiro documento }
+  FIpc := TBorionIpc.Create(Self, FBrowser);
+end;
+
+constructor TBorionWindow.CreateWindow(AOwner: TComponent; AIpc: TBorionIpc; const AWindowLabel: string);
+begin
+  inherited CreateNew(AOwner);
+  FWindowLabel := AWindowLabel;
+  Preparar;
+  FIpc := AIpc;
+  FIpc.AddWindow(AWindowLabel, FBrowser);
+end;
+
+destructor TBorionWindow.Destroy;
+begin
+  if BorionWindows <> nil then
+    BorionWindows.Saiu(Self);
+  if (FIpc <> nil) and (FIpc.Owner <> Self) then
+  begin
+    FIpc.RemoveWindow(FWindowLabel);
+    FIpc.EmitJson('window:destroyed', '{"label":' + '"' + FWindowLabel + '"}');
+  end;
+  inherited;
+end;
+
+procedure TBorionWindow.Preparar;
+begin
   FTitleFromPage := True;
   Position := poScreenCenter;
   FBrowser := TWebView2Browser.Create(Self);
@@ -176,10 +274,13 @@ begin
   FBrowser.Align := alClient;
   FBrowser.OnInitialized := BrowserInitialized;
   FBrowser.OnTitleChanged := BrowserTitleChanged;
-  { o IPC antes do CreateWebView: a ponte JS entra já no primeiro documento }
-  FIpc := TBorionIpc.Create(Self, FBrowser);
   OnCloseQuery := FecharConsulta;
   OnClose := Fechar;
+end;
+
+function TBorionWindow.IsMain: Boolean;
+begin
+  Result := (FIpc <> nil) and (FIpc.Owner = Self);
 end;
 
 function TBorionWindow.Scope: TBorionScope;
@@ -258,6 +359,9 @@ end;
 
 procedure TBorionWindow.Fechar(Sender: TObject; var Action: TCloseAction);
 begin
+  { a principal fecha o app (é o MainForm); as outras são liberadas }
+  if not IsMain then
+    Action := caFree;
   if Assigned(FOnClose) then
     FOnClose(Self);
 end;
@@ -293,6 +397,8 @@ begin
 end;
 
 function TBorionBuilder.Config(AConfig: TBorionConfig): TBorionBuilder;
+var
+  I: Integer;
 begin
   if not FExplicitTitle then
   begin
@@ -305,7 +411,23 @@ begin
   { um title explícito na janela fica; sem ele, o caption segue o document.title }
   FTitleFromPage := FWindow.Title = '';
   FCsp := AConfig.Csp;
+  SetLength(FDefs, AConfig.WindowCount);
+  for I := 0 to AConfig.WindowCount - 1 do
+    FDefs[I] := AConfig.Windows[I];
   Result := Self;
+end;
+
+function TBorionBuilder.WindowCount: Integer;
+begin
+  Result := Length(FDefs);
+end;
+
+function TBorionBuilder.WindowConfig(Index: Integer): TBorionWindowConfig;
+begin
+  if Index = 0 then
+    Result := FWindow
+  else
+    Result := FDefs[Index];
 end;
 
 function TBorionBuilder.Size(Width, Height: Integer): TBorionBuilder;
@@ -441,16 +563,24 @@ begin
   Result := Self;
 end;
 
-procedure TBorionBuilder.Montar(W: TBorionWindow);
+procedure TBorionBuilder.Montar(W: TBorionWindow; Janelas: TBorionWindows);
 var
   I: Integer;
 begin
-  W.ApplyConfig(FWindow, FTitle);
+  Janelas.FMain := W;
+  Janelas.FList.Add(W);
+  Janelas.FTitle := FTitle;
+  Janelas.FCsp := FCsp;
+  Janelas.FUrl := FUrl;
+  Janelas.FUserDataFolder := FUserDataFolder;
+  Janelas.FOnCloseQuery := FOnCloseQuery;
+  Janelas.FOnClose := FOnClose;
+  SetLength(Janelas.FDefs, Length(FDefs));
+  for I := 0 to High(FDefs) do
+    Janelas.FDefs[I] := FDefs[I];
+  Janelas.FDefs[0] := FWindow;
+  Janelas.Preparar(W, FWindow);
   W.TitleFromPage := FTitleFromPage;
-  W.FOnCloseQuery := FOnCloseQuery;
-  W.FOnClose := FOnClose;
-  if FUserDataFolder <> '' then
-    W.Browser.UserDataFolder := FUserDataFolder;
 
   { o escopo passa a ser do Ipc antes dos plugins, que o procuram no Install }
   if FScope <> nil then
@@ -466,10 +596,6 @@ begin
   for I := 0 to FCommandSets.Count - 1 do
     TBorionCommandsProc(FCommandSets[I])(W.Ipc);
 
-  { a interface: o pacote embutido no exe (ou o --dev-url), ou a URL do Url() }
-  W.FAssets := TBorionAssets.Create(W, W.Browser);
-  if FCsp <> '' then
-    W.Assets.ContentSecurityPolicy := FCsp;
   for I := 0 to FOrigins.Count - 1 do
     W.Ipc.AllowOrigin(FOrigins[I]);
   if FUrl <> '' then
@@ -489,6 +615,7 @@ end;
 procedure TBorionBuilder.Run;
 var
   W: TBorionWindow;
+  I: Integer;
 begin
   try
     Application.Initialize;
@@ -499,22 +626,167 @@ begin
     if BorionAppConfigError <> '' then
       MessageDlg('Configuração do app (app.json) inválida; usando os padrões.'#13#10 +
         BorionAppConfigError, mtWarning, [mbOK], 0);
-    Application.CreateForm(TBorionWindow, W);
-    Montar(W);
+    BorionWindows := TBorionWindows.Create;
     try
-      W.Browser.CreateWebView;
-      if FUrl <> '' then
-        W.Browser.Navigate(FUrl)
-      else
-        W.Browser.Navigate(W.Assets.StartUrl);
-    except
-      on E: Exception do
-        MessageDlg(E.Message, mtError, [mbOK], 0);
+      Application.CreateForm(TBorionWindow, W);
+      Montar(W, BorionWindows);
+      if not FWindow.Visible then
+        Application.ShowMainForm := False;
+      BorionWindows.Abrir(W, FWindow);
+      { as outras janelas do app.json, menos as com "create": false }
+      for I := 1 to High(FDefs) do
+        if FDefs[I].CreateAtStart then
+          try
+            BorionWindows.CreateWindow(FDefs[I]);
+          except
+            on E: Exception do
+              MessageDlg('Janela "' + FDefs[I].WindowLabel + '": ' + E.Message, mtError, [mbOK], 0);
+          end;
+      Application.Run;
+    finally
+      FreeAndNil(BorionWindows);
     end;
-    Application.Run;
   finally
     Free;
   end;
+end;
+
+{ TBorionWindows }
+
+constructor TBorionWindows.Create;
+begin
+  inherited Create;
+  FList := TList.Create;
+end;
+
+destructor TBorionWindows.Destroy;
+begin
+  FList.Free;
+  inherited;
+end;
+
+function TBorionWindows.Count: Integer;
+begin
+  Result := FList.Count;
+end;
+
+function TBorionWindows.GetItem(Index: Integer): TBorionWindow;
+begin
+  Result := TBorionWindow(FList[Index]);
+end;
+
+function TBorionWindows.Find(const WindowLabel: string): TBorionWindow;
+var
+  I: Integer;
+begin
+  for I := 0 to FList.Count - 1 do
+  begin
+    Result := TBorionWindow(FList[I]);
+    if Result.WindowLabel = WindowLabel then
+      Exit;
+  end;
+  Result := nil;
+end;
+
+function TBorionWindows.Definition(const WindowLabel: string; out Config: TBorionWindowConfig): Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to High(FDefs) do
+    if FDefs[I].WindowLabel = WindowLabel then
+    begin
+      Config := FDefs[I];
+      Result := True;
+      Exit;
+    end;
+  Result := False;
+end;
+
+procedure TBorionWindows.Saiu(W: TBorionWindow);
+begin
+  FList.Remove(W);
+  if W = FMain then
+    FMain := nil;
+end;
+
+{ tudo o que a janela precisa antes de criar o WebView }
+procedure TBorionWindows.Preparar(W: TBorionWindow; const Config: TBorionWindowConfig);
+begin
+  W.ApplyConfig(Config, FTitle);
+  { um title explícito fica; sem ele, o caption segue o document.title }
+  W.TitleFromPage := Config.Title = '';
+  W.FOnCloseQuery := FOnCloseQuery;
+  W.FOnClose := FOnClose;
+  if FUserDataFolder <> '' then
+    W.Browser.UserDataFolder := FUserDataFolder;
+  { a interface: o pacote embutido no exe (ou o --dev-url), ou a URL do Url() }
+  W.FAssets := TBorionAssets.Create(W, W.Browser);
+  if FCsp <> '' then
+    W.Assets.ContentSecurityPolicy := FCsp;
+end;
+
+{ cria o WebView e abre a página da janela }
+procedure TBorionWindows.Abrir(W: TBorionWindow; const Config: TBorionWindowConfig);
+var
+  Base: string;
+begin
+  try
+    W.Browser.CreateWebView;
+    if FUrl <> '' then
+    begin
+      if W = FMain then
+        Base := ''
+      else
+        Base := BorionOriginOf(FUrl);
+      if Base = '' then
+        W.Browser.Navigate(FUrl)
+      else
+        W.Browser.Navigate(UrlDaJanela(Base, Config.Url));
+    end
+    else
+      W.Browser.Navigate(UrlDaJanela(W.Assets.StartUrl, Config.Url));
+  except
+    on E: Exception do
+      MessageDlg(E.Message, mtError, [mbOK], 0);
+  end;
+end;
+
+function TBorionWindows.CreateWindow(const Config: TBorionWindowConfig): TBorionWindow;
+begin
+  if FMain = nil then
+    raise EBorionError.Create('NO_WINDOW', 'o app não tem janela principal');
+  if Find(Config.WindowLabel) <> nil then
+    raise EBorionError.Create('WINDOW_EXISTS', 'a janela "' + Config.WindowLabel + '" já está aberta');
+  Result := TBorionWindow.CreateWindow(Application, FMain.Ipc, Config.WindowLabel);
+  try
+    FList.Add(Result);
+    Preparar(Result, Config);
+  except
+    Result.Free;
+    raise;
+  end;
+  Abrir(Result, Config);
+  if Config.Visible then
+    Result.Show;
+  FMain.Ipc.EmitJson('window:created', '{"label":"' + Config.WindowLabel + '"}');
+end;
+
+function TBorionWindows.Open(const WindowLabel: string): TBorionWindow;
+var
+  C: TBorionWindowConfig;
+begin
+  Result := Find(WindowLabel);
+  if Result <> nil then
+  begin
+    Result.Show;
+    if Result.WindowState = wsMinimized then
+      Result.WindowState := wsNormal;
+    SetForegroundWindow(Result.Handle);
+    Exit;
+  end;
+  if not Definition(WindowLabel, C) then
+    raise EBorionError.Create('WINDOW_NOT_FOUND', 'nenhuma janela "' + WindowLabel + '" no app.json');
+  Result := CreateWindow(C);
 end;
 
 end.

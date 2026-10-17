@@ -36,7 +36,8 @@ function ponteFalsa() {
       (ouvintes[evento] = ouvintes[evento] || []).push(cb);
       return () => { ouvintes[evento] = ouvintes[evento].filter((c) => c !== cb); };
     },
-    once() {}, emit() {},
+    once() {}, emit() {}, emitTo() {},
+    label: 'main',
   };
 }
 
@@ -302,6 +303,49 @@ describe('@borion/api/window', () => {
     await parar2();
     await parar2();  // de novo: nada
     assert.equal(chamadas.filter((c) => c[0] === 'window:interceptClose').length, 2);
+  });
+
+  test('getWindow e getCurrent: os mesmos métodos, com o label', async () => {
+    const config = win.getWindow('config');
+    assert.equal(config.label, 'config');
+    assert.ok(Object.isFrozen(config));
+    await config.setSize(400, 300);
+    await config.close();
+    await win.setSize(1, 2);  // a função solta: a janela que chama (sem label)
+    assert.deepEqual(chamadas, [
+      ['window:setSize', { width: 400, height: 300, label: 'config' }],
+      ['window:close', { label: 'config' }],
+      ['window:setSize', { width: 1, height: 2 }],
+    ]);
+    respostas['window:state'] = { maximized: true };
+    assert.equal(await config.isMaximized(), true);
+    assert.deepEqual(chamadas.at(-1), ['window:state', { label: 'config' }]);
+    assert.equal(win.getCurrent().label, 'main', 'o label da ponte');
+    globalThis.__BORION__ = { ...ponteFalsa(), label: 'log' };
+    assert.equal(win.getCurrent().label, 'log');
+  });
+
+  test('getAllWindows, createWindow, onCreated e onDestroyed', async () => {
+    respostas['window:list'] = [
+      { label: 'main', title: 'App', visible: true, main: true },
+      { label: 'config', title: 'Config', visible: false, main: false },
+    ];
+    const todas = await win.getAllWindows();
+    assert.deepEqual(todas.map((w) => [w.label, w.main]), [['main', true], ['config', false]]);
+    await todas[1].show();
+    assert.deepEqual(chamadas.at(-1), ['window:show', { label: 'config' }]);
+
+    respostas['window:create'] = { label: 'nova' };
+    const nova = await win.createWindow('nova', { url: '/nova.html', width: 500 });
+    assert.deepEqual(chamadas.at(-1), ['window:create', { url: '/nova.html', width: 500, label: 'nova' }]);
+    assert.equal(nova.label, 'nova');
+
+    const ev = [];
+    win.onCreated((l) => ev.push('+' + l));
+    win.onDestroyed((l) => ev.push('-' + l));
+    delphiEmite('window:created', { label: 'nova' });
+    delphiEmite('window:destroyed', { label: 'nova' });
+    assert.deepEqual(ev, ['+nova', '-nova']);
   });
 
   test('onCloseRequested: um handler com erro não prende a janela', async () => {

@@ -9,7 +9,7 @@ describe('ponte: instalação', () => {
     assert.ok(borion);
     assert.equal(win.__BORION__, borion);
     assert.ok(Object.isFrozen(borion));
-    for (const fn of ['invoke', 'listen', 'once', 'emit']) assert.equal(typeof borion[fn], 'function');
+    for (const fn of ['invoke', 'listen', 'once', 'emit', 'emitTo']) assert.equal(typeof borion[fn], 'function');
     assert.match(borion.version, /^\d+\.\d+\.\d+$/);
   });
 
@@ -128,6 +128,16 @@ describe('ponte: eventos', () => {
     borion.emit('ping');
     assert.deepEqual(wv.sent[0], { __borion: 1, kind: 'emit', event: 'salvou', payload: { id: 7 } });
     assert.equal(wv.sent[1].payload, null);
+  });
+
+  test('emitTo envia para outra janela; label vem do Delphi (main por padrão)', () => {
+    const { wv, borion } = bootPage();
+    borion.emitTo('config', 'tema', { escuro: true });
+    borion.emitTo('*', 'oi');
+    assert.deepEqual(wv.sent[0], { __borion: 1, kind: 'emitTo', target: 'config', event: 'tema', payload: { escuro: true } });
+    assert.equal(wv.sent[1].target, '*');
+    assert.equal(wv.sent[1].payload, null);
+    assert.equal(borion.label, 'main', 'sem o script do rótulo: main');
   });
 });
 

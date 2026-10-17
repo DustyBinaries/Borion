@@ -1,4 +1,5 @@
 export interface WindowState {
+  label: string;
   title: string;
   x: number;
   y: number;
@@ -73,3 +74,72 @@ export declare function onFocusChanged(handler: (focused: boolean) => void): () 
 export declare function onCloseRequested(
   handler: (event: CloseRequestedEvent) => void | Promise<void>
 ): Promise<() => Promise<void>>;
+
+/** Os métodos de uma janela (getWindow / getCurrent / getAllWindows) */
+export interface BorionWindow {
+  readonly label: string;
+  setTitle(title: string): Promise<void>;
+  minimize(): Promise<void>;
+  unminimize(): Promise<void>;
+  maximize(): Promise<void>;
+  unmaximize(): Promise<void>;
+  toggleMaximize(): Promise<void>;
+  show(): Promise<void>;
+  hide(): Promise<void>;
+  setFocus(): Promise<void>;
+  center(): Promise<void>;
+  setSize(width: number, height: number): Promise<void>;
+  setPosition(x: number, y: number): Promise<void>;
+  setMinSize(width: number | null, height: number | null): Promise<void>;
+  setMaxSize(width: number | null, height: number | null): Promise<void>;
+  setFullscreen(fullscreen: boolean): Promise<void>;
+  setAlwaysOnTop(alwaysOnTop: boolean): Promise<void>;
+  setResizable(resizable: boolean): Promise<void>;
+  setDecorations(decorations: boolean): Promise<void>;
+  state(): Promise<WindowState>;
+  isMinimized(): Promise<boolean>;
+  isMaximized(): Promise<boolean>;
+  isFullscreen(): Promise<boolean>;
+  isVisible(): Promise<boolean>;
+  isFocused(): Promise<boolean>;
+  close(): Promise<void>;
+  destroy(): Promise<void>;
+}
+
+export interface WindowInfo extends BorionWindow {
+  readonly title: string;
+  readonly visible: boolean;
+  /** A janela principal: fechá-la fecha o app */
+  readonly main: boolean;
+}
+
+export interface WindowOptions {
+  /** Caminho do app, começando com '/' (ex.: '/config.html') */
+  url?: string;
+  title?: string;
+  width?: number;
+  height?: number;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  resizable?: boolean;
+  center?: boolean;
+  maximized?: boolean;
+  decorations?: boolean;
+  alwaysOnTop?: boolean;
+  visible?: boolean;
+}
+
+/** A janela desta página */
+export declare function getCurrent(): BorionWindow;
+/** Uma janela pelo rótulo (os métodos rejeitam com WINDOW_NOT_FOUND se ela não estiver aberta) */
+export declare function getWindow(label: string): BorionWindow;
+/** As janelas abertas */
+export declare function getAllWindows(): Promise<WindowInfo[]>;
+/** Abre a janela do app.json com esse rótulo (as opções vencem) ou uma nova. Rejeita com WINDOW_EXISTS se já estiver aberta */
+export declare function createWindow(label: string, options?: WindowOptions): Promise<BorionWindow>;
+/** Uma janela foi aberta (em qualquer janela do app) */
+export declare function onCreated(handler: (label: string) => void): () => void;
+/** Uma janela fechou */
+export declare function onDestroyed(handler: (label: string) => void): () => void;

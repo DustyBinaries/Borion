@@ -2,12 +2,13 @@ unit BorionWindow;
 
 (*
   Borion — Native Application Engine
-  Plugin "window": a janela do app controlada pelo JS (como o window do Tauri).
+  Plugin "window": as janelas do app controladas pelo JS (como o window do Tauri).
 
-    .Plugin(TBorionWindowPlugin.Create)               // no TBorionBuilder
-    Ipc.AddPlugin(TBorionWindowPlugin.Create(Form));  // num form já existente
+    .Plugin(TBorionWindowPlugin.Create)               // no TBorionBuilder: todas as janelas
+    Ipc.AddPlugin(TBorionWindowPlugin.Create(Form));  // num form já existente: só ele
 
-  Comandos (tamanho e posição em pixels, da janela inteira, como no app.json):
+  Cada comando age sobre a janela que chamou, ou sobre a do argumento "label".
+  Tamanho e posição em pixels, da janela inteira, como no app.json:
     window:setTitle {title}
     window:minimize, unminimize, maximize, unmaximize, toggleMaximize
     window:show, hide, setFocus, center
@@ -15,62 +16,52 @@ unit BorionWindow;
     window:setMinSize / setMaxSize {width, height}   (0 = sem limite)
     window:setFullscreen {fullscreen}    window:setAlwaysOnTop {alwaysOnTop}
     window:setResizable {resizable}      window:setDecorations {decorations}
-    window:state -> {title, x, y, width, height, minimized, maximized, fullscreen,
-                     visible, focused, alwaysOnTop, resizable, decorations}
+    window:state -> {label, title, x, y, width, height, minimized, maximized,
+                     fullscreen, visible, focused, alwaysOnTop, resizable, decorations}
     window:close     pede para fechar: passa pelo close-requested e pelo OnCloseQuery
     window:destroy   fecha sem o close-requested (o OnCloseQuery do Delphi ainda vale)
 
-  Eventos:
+  Várias janelas (com o TBorionBuilder):
+    window:list -> [{label, title, visible, main}]
+    window:create {label, url?, title?, width?, ...}   abre uma janela: a do app.json
+                     com esse rótulo (os argumentos vencem) ou uma nova
+
+  Eventos, para a própria janela:
     window:resized {width, height, minimized, maximized}
     window:moved {x, y}
     window:focus-changed {focused}
     window:close-requested {id}
+  (window:created e window:destroyed {label}, para todas, saem do TBorionBuilder)
 
   Fechamento interceptado ("deseja salvar?"): o onCloseRequested do
-  @borion/api/window liga a interceptação (window:interceptClose). Com ela, o
-  WM_CLOSE (o X, Alt+F4, app:exit, window:close) não fecha: vira o evento
-  window:close-requested, e a página responde com window:closeResolve {id,
-  close}. Se ela não confirmar o recebimento (window:closeAck) em AckTimeout
-  ms (página travada ou recarregada sem o listener), a janela fecha assim
-  mesmo: uma página quebrada não prende o app aberto.
+  @borion/api/window liga a interceptação da janela (window:interceptClose).
+  Com ela, o WM_CLOSE (o X, Alt+F4, app:exit, window:close) não fecha: vira o
+  evento window:close-requested, e a página responde com window:closeResolve
+  {id, close}. Se ela não confirmar o recebimento (window:closeAck) em
+  AckTimeout ms (página travada ou recarregada sem o listener), a janela fecha
+  assim mesmo: uma página quebrada não prende o app aberto.
 *)
 
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Controls, Forms, Jsons, BorionIpc;
+  Windows, Messages, SysUtils, Classes, Controls, Forms, Jsons, BorionIpc, WebView2Browser;
 
 type
   TBorionWindowPlugin = class(TBorionPlugin)
   private
-    FForm: TCustomForm;
-    FVigia: TComponent;
-    FOldWndProc: TWndMethod;
-    FHooked: Boolean;
+    FFixedForm: TCustomForm;
+    FJanelas: TList;
     FTimer: HWND;
     FAckTimeout: Cardinal;
-    FIntercept: Boolean;
-    FPendingId: Integer;      { close-requested sem resposta (0 = nenhum) }
     FNextId: Integer;
-    FClosing: Boolean;        { o próximo WM_CLOSE fecha de verdade }
-    FResizable: Boolean;
-    FFullscreen: Boolean;
-    FSavedBounds: TRect;
-    FSavedBorder: TFormBorderStyle;
-    FSavedState: TWindowState;
-    function Formulario: TCustomForm;
-    function EhPrincipal: Boolean;
-    function Minimizada: Boolean;
-    procedure Hook;
-    procedure Unhook;
-    procedure FormWndProc(var Message: TMessage);
     procedure TimerWndProc(var Message: TMessage);
-    procedure PedirFechamento;
-    procedure FecharDeVerdade;
-    procedure AplicarBorda(Decorations: Boolean);
-    procedure EntrarTelaCheia;
-    procedure SairTelaCheia;
-    procedure EmitirTamanho;
+    function Adicionar(const WindowLabel: string; AForm: TCustomForm): TObject;
+    function Achar(const WindowLabel: string): TObject;
+    function Alvo(Call: TBorionCall): TObject;
+    function GetForm: TCustomForm;
+    function GetFullscreen: Boolean;
+    function GetInterceptClose: Boolean;
     procedure CmdSetTitle(Call: TBorionCall);
     procedure CmdMinimize(Call: TBorionCall);
     procedure CmdUnminimize(Call: TBorionCall);
@@ -95,49 +86,73 @@ type
     procedure CmdInterceptClose(Call: TBorionCall);
     procedure CmdCloseAck(Call: TBorionCall);
     procedure CmdCloseResolve(Call: TBorionCall);
+    procedure CmdList(Call: TBorionCall);
+    procedure CmdCreate(Call: TBorionCall);
   protected
     procedure Install; override;
+    procedure WindowAdded(const WindowLabel: string; ABrowser: TWebView2Browser); override;
+    procedure WindowRemoved(const WindowLabel: string; ABrowser: TWebView2Browser); override;
   public
-    { AForm nil: o form do browser do Ipc (ou o MainForm) }
+    { AForm nil: todas as janelas do Ipc (ou o MainForm, sem nenhuma).
+      AForm informado: só esse form, com o rótulo 'main'. }
     constructor Create(AForm: TCustomForm = nil);
     destructor Destroy; override;
     function Name: string; override;
-    { O form foi liberado antes do plugin (chamado pelo vigia) }
-    procedure FormFreed;
-    property Form: TCustomForm read FForm;
+    { O form da janela; nil se ela não existir }
+    function FormOf(const WindowLabel: string): TCustomForm;
     { Espera pela confirmação da página no close-requested (ms, padrão 2000) }
     property AckTimeout: Cardinal read FAckTimeout write FAckTimeout;
-    { A página pediu para interceptar o fechamento }
-    property InterceptClose: Boolean read FIntercept;
-    property Fullscreen: Boolean read FFullscreen;
+    { --- a janela 'main' (ou a única), para o uso com um form só --- }
+    property Form: TCustomForm read GetForm;
+    property InterceptClose: Boolean read GetInterceptClose;
+    property Fullscreen: Boolean read GetFullscreen;
   end;
 
 implementation
 
 uses
-  Borion;
-
-const
-  TIMER_ACK = 1;
+  BorionConfig, Borion;
 
 type
   { acesso às propriedades protegidas do TCustomForm (BorderStyle, FormStyle...) }
   TFormAcesso = class(TCustomForm);
 
-  { avisa o plugin quando o form é liberado }
-  TVigia = class(TComponent)
+  { Uma janela acompanhada: o WindowProc do form, a interceptação do
+    fechamento e o que a tela cheia guardou. Recebe o aviso de form liberado. }
+  TJanela = class(TComponent)
   private
     FPlugin: TBorionWindowPlugin;
+    FLabel: string;
+    FForm: TCustomForm;
+    FOldWndProc: TWndMethod;
+    FHooked: Boolean;
+    FIntercept: Boolean;
+    FPendingId: Integer;      { close-requested sem resposta (0 = nenhum) }
+    FClosing: Boolean;        { o próximo WM_CLOSE fecha de verdade }
+    FResizable: Boolean;
+    FFullscreen: Boolean;
+    FSavedBounds: TRect;
+    FSavedBorder: TFormBorderStyle;
+    FSavedState: TWindowState;
+    procedure Hook;
+    procedure Unhook;
+    procedure FormWndProc(var Message: TMessage);
+    procedure Emitir(const Event, PayloadJson: string);
+    procedure EmitirTamanho;
+    procedure PedirFechamento;
+    procedure FecharDeVerdade;
+    procedure CancelarPedido;
+    procedure AplicarBorda(Decorations: Boolean);
+    procedure EntrarTelaCheia;
+    procedure SairTelaCheia;
+    function EhPrincipal: Boolean;
+    function Minimizada: Boolean;
+    function F: TFormAcesso;
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
+  public
+    destructor Destroy; override;
   end;
-
-procedure TVigia.Notification(AComponent: TComponent; Operation: TOperation);
-begin
-  inherited;
-  if (Operation = opRemove) and (FPlugin <> nil) and (AComponent = FPlugin.FForm) then
-    FPlugin.FormFreed;
-end;
 
 function Logico(B: Boolean): string;
 begin
@@ -147,25 +162,193 @@ begin
     Result := 'false';
 end;
 
+{ TJanela }
+
+destructor TJanela.Destroy;
+begin
+  CancelarPedido;
+  Unhook;
+  inherited;
+end;
+
+procedure TJanela.Notification(AComponent: TComponent; Operation: TOperation);
+begin
+  inherited;
+  if (Operation = opRemove) and (AComponent = FForm) then
+  begin
+    FHooked := False;
+    FForm := nil;
+    CancelarPedido;
+  end;
+end;
+
+function TJanela.F: TFormAcesso;
+begin
+  if FForm = nil then
+    raise EBorionError.Create('NO_WINDOW', 'a janela "' + FLabel + '" não existe mais');
+  Result := TFormAcesso(FForm);
+end;
+
+procedure TJanela.Hook;
+begin
+  if (FForm = nil) or FHooked then
+    Exit;
+  FResizable := TFormAcesso(FForm).BorderStyle in [bsSizeable, bsSizeToolWin, bsNone];
+  FOldWndProc := FForm.WindowProc;
+  FForm.WindowProc := FormWndProc;
+  FHooked := True;
+  FForm.FreeNotification(Self);
+end;
+
+procedure TJanela.Unhook;
+begin
+  if not FHooked then
+    Exit;
+  FHooked := False;
+  FForm.RemoveFreeNotification(Self);
+  { só desfaz se ninguém encadeou outro WindowProc depois do nosso }
+  if TMethod(FForm.WindowProc).Data = Self then
+    FForm.WindowProc := FOldWndProc;
+end;
+
+function TJanela.EhPrincipal: Boolean;
+begin
+  Result := (FForm <> nil) and (FForm = Application.MainForm);
+end;
+
+function TJanela.Minimizada: Boolean;
+begin
+  { no Delphi 7, minimizar o form principal minimiza a janela da TApplication }
+  Result := (EhPrincipal and IsIconic(Application.Handle)) or (FForm.WindowState = wsMinimized);
+end;
+
+procedure TJanela.Emitir(const Event, PayloadJson: string);
+begin
+  if FPlugin.Ipc <> nil then
+    FPlugin.Ipc.EmitJsonTo(FLabel, Event, PayloadJson);
+end;
+
+procedure TJanela.FormWndProc(var Message: TMessage);
+begin
+  if Message.Msg = WM_CLOSE then
+  begin
+    if FClosing then
+      FClosing := False
+    else if FIntercept then
+    begin
+      if FPendingId = 0 then
+        PedirFechamento;  { um pedido de cada vez: o segundo clique no X espera o primeiro }
+      Exit;
+    end;
+  end;
+  FOldWndProc(Message);
+  case Message.Msg of
+    WM_SIZE:
+      EmitirTamanho;
+    WM_MOVE:
+      if FForm <> nil then
+        Emitir('window:moved', Format('{"x":%d,"y":%d}', [FForm.Left, FForm.Top]));
+    WM_ACTIVATE:
+      Emitir('window:focus-changed', '{"focused":' + Logico(LoWord(Message.WParam) <> WA_INACTIVE) + '}');
+  end;
+end;
+
+procedure TJanela.EmitirTamanho;
+begin
+  if FForm = nil then
+    Exit;
+  Emitir('window:resized', Format('{"width":%d,"height":%d,"minimized":%s,"maximized":%s}',
+    [FForm.Width, FForm.Height, Logico(Minimizada), Logico(FForm.WindowState = wsMaximized)]));
+end;
+
+procedure TJanela.PedirFechamento;
+begin
+  Inc(FPlugin.FNextId);
+  FPendingId := FPlugin.FNextId;
+  Emitir('window:close-requested', Format('{"id":%d}', [FPendingId]));
+  { o id do pedido é o id do timer: cada janela tem o seu }
+  SetTimer(FPlugin.FTimer, FPendingId, FPlugin.FAckTimeout, nil);
+end;
+
+procedure TJanela.CancelarPedido;
+begin
+  if FPendingId <> 0 then
+  begin
+    KillTimer(FPlugin.FTimer, FPendingId);
+    FPendingId := 0;
+  end;
+end;
+
+procedure TJanela.FecharDeVerdade;
+begin
+  if FForm = nil then
+    Exit;
+  FClosing := True;
+  { postado: fechar dentro do callback do WebView2 destruiria o browser no meio dele }
+  PostMessage(FForm.Handle, WM_CLOSE, 0, 0);
+end;
+
+procedure TJanela.AplicarBorda(Decorations: Boolean);
+begin
+  if not Decorations then
+    F.BorderStyle := bsNone
+  else if FResizable then
+  begin
+    F.BorderStyle := bsSizeable;
+    F.BorderIcons := F.BorderIcons + [biMaximize];
+  end
+  else
+  begin
+    F.BorderStyle := bsSingle;
+    F.BorderIcons := F.BorderIcons - [biMaximize];
+  end;
+end;
+
+procedure TJanela.EntrarTelaCheia;
+begin
+  if FFullscreen then
+    Exit;
+  FSavedState := F.WindowState;
+  if F.WindowState <> wsNormal then
+    F.WindowState := wsNormal;
+  FSavedBounds := F.BoundsRect;
+  FSavedBorder := F.BorderStyle;
+  F.BorderStyle := bsNone;
+  F.BoundsRect := Screen.MonitorFromWindow(F.Handle).BoundsRect;
+  FFullscreen := True;
+end;
+
+procedure TJanela.SairTelaCheia;
+begin
+  if not FFullscreen then
+    Exit;
+  FFullscreen := False;
+  AplicarBorda(FSavedBorder <> bsNone);
+  F.BoundsRect := FSavedBounds;
+  if FSavedState = wsMaximized then
+    F.WindowState := wsMaximized;
+end;
+
 { TBorionWindowPlugin }
 
 constructor TBorionWindowPlugin.Create(AForm: TCustomForm);
 begin
   inherited Create;
-  FForm := AForm;
+  FFixedForm := AForm;
+  FJanelas := TList.Create;
   FAckTimeout := 2000;
   FTimer := Classes.AllocateHWnd(TimerWndProc);
 end;
 
 destructor TBorionWindowPlugin.Destroy;
+var
+  I: Integer;
 begin
-  Unhook;
+  for I := FJanelas.Count - 1 downto 0 do
+    TJanela(FJanelas[I]).Free;
+  FJanelas.Free;
   if FTimer <> 0 then
-  begin
-    KillTimer(FTimer, TIMER_ACK);
     Classes.DeallocateHWnd(FTimer);
-  end;
-  FVigia.Free;
   inherited;
 end;
 
@@ -174,13 +357,100 @@ begin
   Result := 'window';
 end;
 
-procedure TBorionWindowPlugin.Install;
+function TBorionWindowPlugin.Adicionar(const WindowLabel: string; AForm: TCustomForm): TObject;
+var
+  J: TJanela;
 begin
-  if (FForm = nil) and (Ipc <> nil) and (Ipc.Browser <> nil) then
-    FForm := GetParentForm(Ipc.Browser);
-  if FForm = nil then
-    FForm := Application.MainForm;
-  Hook;
+  Result := Achar(WindowLabel);
+  if (Result <> nil) or (AForm = nil) then
+    Exit;
+  J := TJanela.Create(nil);
+  J.FPlugin := Self;
+  J.FLabel := WindowLabel;
+  J.FForm := AForm;
+  J.Hook;
+  FJanelas.Add(J);
+  Result := J;
+end;
+
+function TBorionWindowPlugin.Achar(const WindowLabel: string): TObject;
+var
+  I: Integer;
+begin
+  for I := 0 to FJanelas.Count - 1 do
+  begin
+    Result := FJanelas[I];
+    if TJanela(Result).FLabel = WindowLabel then
+      Exit;
+  end;
+  Result := nil;
+end;
+
+function TBorionWindowPlugin.Alvo(Call: TBorionCall): TObject;
+var
+  L: string;
+begin
+  L := Call.ArgStr('label', Call.Window);
+  Result := Achar(L);
+  if (Result = nil) and (FJanelas.Count = 1) and (FFixedForm <> nil) and not Call.HasArg('label') then
+    Result := FJanelas[0];  { um form só: é ele }
+  if (Result = nil) or (TJanela(Result).FForm = nil) then
+    raise EBorionError.Create('WINDOW_NOT_FOUND', 'nenhuma janela "' + L + '"');
+end;
+
+function TBorionWindowPlugin.FormOf(const WindowLabel: string): TCustomForm;
+var
+  J: TObject;
+begin
+  J := Achar(WindowLabel);
+  if J = nil then
+    Result := nil
+  else
+    Result := TJanela(J).FForm;
+end;
+
+function TBorionWindowPlugin.GetForm: TCustomForm;
+begin
+  if FJanelas.Count > 0 then
+    Result := TJanela(FJanelas[0]).FForm
+  else
+    Result := nil;
+end;
+
+function TBorionWindowPlugin.GetFullscreen: Boolean;
+begin
+  Result := (FJanelas.Count > 0) and TJanela(FJanelas[0]).FFullscreen;
+end;
+
+function TBorionWindowPlugin.GetInterceptClose: Boolean;
+begin
+  Result := (FJanelas.Count > 0) and TJanela(FJanelas[0]).FIntercept;
+end;
+
+procedure TBorionWindowPlugin.Install;
+var
+  I: Integer;
+  B: TWebView2Browser;
+  L: string;
+begin
+  if FFixedForm <> nil then
+  begin
+    L := 'main';
+    for I := 0 to Ipc.WindowCount - 1 do
+    begin
+      B := Ipc.WindowBrowser(Ipc.WindowLabel(I));
+      if GetParentForm(B) = FFixedForm then
+        L := Ipc.WindowLabel(I);
+    end;
+    Adicionar(L, FFixedForm);
+  end
+  else if Ipc.WindowCount > 0 then
+  begin
+    for I := 0 to Ipc.WindowCount - 1 do
+      WindowAdded(Ipc.WindowLabel(I), Ipc.WindowBrowser(Ipc.WindowLabel(I)));
+  end
+  else if Application.MainForm <> nil then
+    Adicionar('main', Application.MainForm);
 
   Command('setTitle', CmdSetTitle);
   Command('minimize', CmdMinimize);
@@ -206,257 +476,56 @@ begin
   Command('interceptClose', CmdInterceptClose);
   Command('closeAck', CmdCloseAck);
   Command('closeResolve', CmdCloseResolve);
+  Command('list', CmdList);
+  { criar uma janela (e um WebView) não pode ser dentro do callback do WebView2 }
+  CommandLater('create', CmdCreate);
 end;
 
-procedure TBorionWindowPlugin.Hook;
+procedure TBorionWindowPlugin.WindowAdded(const WindowLabel: string; ABrowser: TWebView2Browser);
 begin
-  if (FForm = nil) or FHooked then
+  if FFixedForm = nil then
+    Adicionar(WindowLabel, GetParentForm(ABrowser));
+end;
+
+procedure TBorionWindowPlugin.WindowRemoved(const WindowLabel: string; ABrowser: TWebView2Browser);
+var
+  J: TObject;
+begin
+  if FFixedForm <> nil then
     Exit;
-  FResizable := TFormAcesso(FForm).BorderStyle in [bsSizeable, bsSizeToolWin, bsNone];
-  FOldWndProc := FForm.WindowProc;
-  FForm.WindowProc := FormWndProc;
-  FHooked := True;
-  FVigia := TVigia.Create(nil);
-  TVigia(FVigia).FPlugin := Self;
-  FForm.FreeNotification(FVigia);
-end;
-
-procedure TBorionWindowPlugin.Unhook;
-begin
-  if not FHooked then
-    Exit;
-  FHooked := False;
-  { só desfaz se ninguém encadeou outro WindowProc depois do nosso }
-  if TMethod(FForm.WindowProc).Data = Self then
-    FForm.WindowProc := FOldWndProc;
-end;
-
-procedure TBorionWindowPlugin.FormFreed;
-begin
-  FHooked := False;
-  FForm := nil;
-end;
-
-function TBorionWindowPlugin.Formulario: TCustomForm;
-begin
-  Result := FForm;
-  if Result = nil then
-    raise EBorionError.Create('NO_WINDOW', 'nenhuma janela para controlar');
-end;
-
-function TBorionWindowPlugin.EhPrincipal: Boolean;
-begin
-  Result := (FForm <> nil) and (FForm = Application.MainForm);
-end;
-
-function TBorionWindowPlugin.Minimizada: Boolean;
-begin
-  { no Delphi 7, minimizar o form principal minimiza a janela da TApplication }
-  Result := (EhPrincipal and IsIconic(Application.Handle)) or (FForm.WindowState = wsMinimized);
-end;
-
-{ --- mensagens do form ----------------------------------------------------- }
-
-procedure TBorionWindowPlugin.FormWndProc(var Message: TMessage);
-begin
-  if Message.Msg = WM_CLOSE then
+  J := Achar(WindowLabel);
+  if J <> nil then
   begin
-    if FClosing then
-      FClosing := False
-    else if FIntercept then
-    begin
-      if FPendingId = 0 then
-        PedirFechamento;  { um pedido de cada vez: o segundo clique no X espera o primeiro }
-      Exit;
-    end;
+    FJanelas.Remove(J);
+    J.Free;
   end;
-  FOldWndProc(Message);
-  case Message.Msg of
-    WM_SIZE:
-      EmitirTamanho;
-    WM_MOVE:
-      if (Ipc <> nil) and (FForm <> nil) then
-        Ipc.EmitJson('window:moved', Format('{"x":%d,"y":%d}', [FForm.Left, FForm.Top]));
-    WM_ACTIVATE:
-      if Ipc <> nil then
-        Ipc.EmitJson('window:focus-changed', '{"focused":' +
-          Logico(LoWord(Message.WParam) <> WA_INACTIVE) + '}');
-  end;
-end;
-
-procedure TBorionWindowPlugin.EmitirTamanho;
-begin
-  if (Ipc = nil) or (FForm = nil) then
-    Exit;
-  Ipc.EmitJson('window:resized', Format('{"width":%d,"height":%d,"minimized":%s,"maximized":%s}',
-    [FForm.Width, FForm.Height, Logico(Minimizada), Logico(FForm.WindowState = wsMaximized)]));
 end;
 
 procedure TBorionWindowPlugin.TimerWndProc(var Message: TMessage);
+var
+  I: Integer;
+  J: TJanela;
 begin
-  if (Message.Msg = WM_TIMER) and (Message.WParam = TIMER_ACK) then
+  if Message.Msg = WM_TIMER then
   begin
-    KillTimer(FTimer, TIMER_ACK);
-    { a página não respondeu: fecha mesmo assim }
-    if FPendingId <> 0 then
+    KillTimer(FTimer, Message.WParam);
+    { a página não confirmou o pedido: fecha mesmo assim }
+    for I := 0 to FJanelas.Count - 1 do
     begin
-      FPendingId := 0;
-      FecharDeVerdade;
+      J := TJanela(FJanelas[I]);
+      if (J.FPendingId <> 0) and (J.FPendingId = Integer(Message.WParam)) then
+      begin
+        J.FPendingId := 0;
+        J.FecharDeVerdade;
+        Break;
+      end;
     end;
   end
   else
     Message.Result := DefWindowProc(FTimer, Message.Msg, Message.WParam, Message.LParam);
 end;
 
-procedure TBorionWindowPlugin.PedirFechamento;
-begin
-  Inc(FNextId);
-  FPendingId := FNextId;
-  Ipc.EmitJson('window:close-requested', Format('{"id":%d}', [FPendingId]));
-  SetTimer(FTimer, TIMER_ACK, FAckTimeout, nil);
-end;
-
-procedure TBorionWindowPlugin.FecharDeVerdade;
-begin
-  if FForm = nil then
-    Exit;
-  FClosing := True;
-  { postado: fechar dentro do callback do WebView2 destruiria o browser no meio dele }
-  PostMessage(FForm.Handle, WM_CLOSE, 0, 0);
-end;
-
-{ --- borda e tela cheia ---------------------------------------------------- }
-
-procedure TBorionWindowPlugin.AplicarBorda(Decorations: Boolean);
-var
-  F: TFormAcesso;
-begin
-  F := TFormAcesso(FForm);
-  if not Decorations then
-    F.BorderStyle := bsNone
-  else if FResizable then
-  begin
-    F.BorderStyle := bsSizeable;
-    F.BorderIcons := F.BorderIcons + [biMaximize];
-  end
-  else
-  begin
-    F.BorderStyle := bsSingle;
-    F.BorderIcons := F.BorderIcons - [biMaximize];
-  end;
-end;
-
-procedure TBorionWindowPlugin.EntrarTelaCheia;
-var
-  F: TFormAcesso;
-begin
-  if FFullscreen then
-    Exit;
-  F := TFormAcesso(FForm);
-  FSavedState := F.WindowState;
-  if F.WindowState <> wsNormal then
-    F.WindowState := wsNormal;
-  FSavedBounds := F.BoundsRect;
-  FSavedBorder := F.BorderStyle;
-  F.BorderStyle := bsNone;
-  F.BoundsRect := Screen.MonitorFromWindow(F.Handle).BoundsRect;
-  FFullscreen := True;
-end;
-
-procedure TBorionWindowPlugin.SairTelaCheia;
-var
-  F: TFormAcesso;
-begin
-  if not FFullscreen then
-    Exit;
-  F := TFormAcesso(FForm);
-  FFullscreen := False;
-  AplicarBorda(FSavedBorder <> bsNone);
-  F.BoundsRect := FSavedBounds;
-  if FSavedState = wsMaximized then
-    F.WindowState := wsMaximized;
-end;
-
-{ --- comandos -------------------------------------------------------------- }
-
-procedure TBorionWindowPlugin.CmdSetTitle(Call: TBorionCall);
-var
-  F: TCustomForm;
-begin
-  F := Formulario;
-  F.Caption := Call.ArgStr('title');
-  { o título agora é do JS: não acompanha mais o document.title }
-  if F is TBorionWindow then
-    TBorionWindow(F).TitleFromPage := False;
-end;
-
-procedure TBorionWindowPlugin.CmdMinimize(Call: TBorionCall);
-begin
-  if EhPrincipal then
-    Application.Minimize
-  else
-    Formulario.WindowState := wsMinimized;
-end;
-
-procedure TBorionWindowPlugin.CmdUnminimize(Call: TBorionCall);
-begin
-  Formulario;
-  if EhPrincipal and IsIconic(Application.Handle) then
-    Application.Restore;
-  if FForm.WindowState = wsMinimized then
-    FForm.WindowState := wsNormal;
-end;
-
-procedure TBorionWindowPlugin.CmdMaximize(Call: TBorionCall);
-begin
-  SairTelaCheia;
-  Formulario.WindowState := wsMaximized;
-end;
-
-procedure TBorionWindowPlugin.CmdUnmaximize(Call: TBorionCall);
-begin
-  if Formulario.WindowState = wsMaximized then
-    FForm.WindowState := wsNormal;
-end;
-
-procedure TBorionWindowPlugin.CmdToggleMaximize(Call: TBorionCall);
-begin
-  if Formulario.WindowState = wsMaximized then
-    FForm.WindowState := wsNormal
-  else
-  begin
-    SairTelaCheia;
-    FForm.WindowState := wsMaximized;
-  end;
-end;
-
-procedure TBorionWindowPlugin.CmdShow(Call: TBorionCall);
-begin
-  Formulario.Show;
-end;
-
-procedure TBorionWindowPlugin.CmdHide(Call: TBorionCall);
-begin
-  Formulario.Hide;
-end;
-
-procedure TBorionWindowPlugin.CmdSetFocus(Call: TBorionCall);
-begin
-  Formulario;
-  if EhPrincipal and IsIconic(Application.Handle) then
-    Application.Restore;
-  FForm.Show;
-  SetForegroundWindow(FForm.Handle);
-end;
-
-procedure TBorionWindowPlugin.CmdCenter(Call: TBorionCall);
-var
-  R: TRect;
-begin
-  R := Screen.MonitorFromWindow(Formulario.Handle).WorkareaRect;
-  FForm.SetBounds(R.Left + (R.Right - R.Left - FForm.Width) div 2,
-    R.Top + (R.Bottom - R.Top - FForm.Height) div 2, FForm.Width, FForm.Height);
-end;
+{ --- argumentos ------------------------------------------------------------ }
 
 function Inteiro(Call: TBorionCall; const Nome: string; Minimo: Integer): Integer;
 var
@@ -489,167 +558,359 @@ begin
   Result := V.AsBoolean;
 end;
 
+{ --- comandos -------------------------------------------------------------- }
+
+procedure TBorionWindowPlugin.CmdSetTitle(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  J.F.Caption := Call.ArgStr('title');
+  { o título agora é do JS: não acompanha mais o document.title }
+  if J.FForm is TBorionWindow then
+    TBorionWindow(J.FForm).TitleFromPage := False;
+end;
+
+procedure TBorionWindowPlugin.CmdMinimize(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  if J.EhPrincipal then
+    Application.Minimize
+  else
+    J.F.WindowState := wsMinimized;
+end;
+
+procedure TBorionWindowPlugin.CmdUnminimize(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  if J.EhPrincipal and IsIconic(Application.Handle) then
+    Application.Restore;
+  if J.F.WindowState = wsMinimized then
+    J.F.WindowState := wsNormal;
+end;
+
+procedure TBorionWindowPlugin.CmdMaximize(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  J.SairTelaCheia;
+  J.F.WindowState := wsMaximized;
+end;
+
+procedure TBorionWindowPlugin.CmdUnmaximize(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  if J.F.WindowState = wsMaximized then
+    J.F.WindowState := wsNormal;
+end;
+
+procedure TBorionWindowPlugin.CmdToggleMaximize(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  if J.F.WindowState = wsMaximized then
+    J.F.WindowState := wsNormal
+  else
+  begin
+    J.SairTelaCheia;
+    J.F.WindowState := wsMaximized;
+  end;
+end;
+
+procedure TBorionWindowPlugin.CmdShow(Call: TBorionCall);
+begin
+  TJanela(Alvo(Call)).F.Show;
+end;
+
+procedure TBorionWindowPlugin.CmdHide(Call: TBorionCall);
+begin
+  TJanela(Alvo(Call)).F.Hide;
+end;
+
+procedure TBorionWindowPlugin.CmdSetFocus(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  if J.EhPrincipal and IsIconic(Application.Handle) then
+    Application.Restore;
+  if J.F.WindowState = wsMinimized then
+    J.F.WindowState := wsNormal;
+  J.F.Show;
+  SetForegroundWindow(J.F.Handle);
+end;
+
+procedure TBorionWindowPlugin.CmdCenter(Call: TBorionCall);
+var
+  J: TJanela;
+  R: TRect;
+begin
+  J := TJanela(Alvo(Call));
+  R := Screen.MonitorFromWindow(J.F.Handle).WorkareaRect;
+  J.F.SetBounds(R.Left + (R.Right - R.Left - J.F.Width) div 2,
+    R.Top + (R.Bottom - R.Top - J.F.Height) div 2, J.F.Width, J.F.Height);
+end;
+
 procedure TBorionWindowPlugin.CmdSetSize(Call: TBorionCall);
 var
+  J: TJanela;
   W, H: Integer;
 begin
   W := Inteiro(Call, 'width', 1);
   H := Inteiro(Call, 'height', 1);
-  Formulario;
-  SairTelaCheia;
-  if FForm.WindowState <> wsNormal then
-    FForm.WindowState := wsNormal;
-  FForm.SetBounds(FForm.Left, FForm.Top, W, H);
+  J := TJanela(Alvo(Call));
+  J.SairTelaCheia;
+  if J.F.WindowState <> wsNormal then
+    J.F.WindowState := wsNormal;
+  J.F.SetBounds(J.F.Left, J.F.Top, W, H);
 end;
 
 procedure TBorionWindowPlugin.CmdSetPosition(Call: TBorionCall);
 var
+  J: TJanela;
   X, Y: Integer;
 begin
   X := Posicao(Call, 'x');
   Y := Posicao(Call, 'y');
-  Formulario;
-  SairTelaCheia;
-  if FForm.WindowState <> wsNormal then
-    FForm.WindowState := wsNormal;
-  FForm.SetBounds(X, Y, FForm.Width, FForm.Height);
+  J := TJanela(Alvo(Call));
+  J.SairTelaCheia;
+  if J.F.WindowState <> wsNormal then
+    J.F.WindowState := wsNormal;
+  J.F.SetBounds(X, Y, J.F.Width, J.F.Height);
 end;
 
 procedure TBorionWindowPlugin.CmdSetMinSize(Call: TBorionCall);
 var
+  J: TJanela;
   W, H: Integer;
 begin
   W := Inteiro(Call, 'width', 0);
   H := Inteiro(Call, 'height', 0);
-  TFormAcesso(Formulario).Constraints.MinWidth := W;
-  TFormAcesso(FForm).Constraints.MinHeight := H;
+  J := TJanela(Alvo(Call));
+  J.F.Constraints.MinWidth := W;
+  J.F.Constraints.MinHeight := H;
 end;
 
 procedure TBorionWindowPlugin.CmdSetMaxSize(Call: TBorionCall);
 var
+  J: TJanela;
   W, H: Integer;
 begin
   W := Inteiro(Call, 'width', 0);
   H := Inteiro(Call, 'height', 0);
-  TFormAcesso(Formulario).Constraints.MaxWidth := W;
-  TFormAcesso(FForm).Constraints.MaxHeight := H;
+  J := TJanela(Alvo(Call));
+  J.F.Constraints.MaxWidth := W;
+  J.F.Constraints.MaxHeight := H;
 end;
 
 procedure TBorionWindowPlugin.CmdSetFullscreen(Call: TBorionCall);
+var
+  J: TJanela;
+  B: Boolean;
 begin
-  Formulario;
-  if Logica(Call, 'fullscreen') then
-    EntrarTelaCheia
+  B := Logica(Call, 'fullscreen');
+  J := TJanela(Alvo(Call));
+  if B then
+    J.EntrarTelaCheia
   else
-    SairTelaCheia;
+    J.SairTelaCheia;
 end;
 
 procedure TBorionWindowPlugin.CmdSetAlwaysOnTop(Call: TBorionCall);
+var
+  J: TJanela;
+  B: Boolean;
 begin
-  if Logica(Call, 'alwaysOnTop') then
-    TFormAcesso(Formulario).FormStyle := fsStayOnTop
+  B := Logica(Call, 'alwaysOnTop');
+  J := TJanela(Alvo(Call));
+  if B then
+    J.F.FormStyle := fsStayOnTop
   else
-    TFormAcesso(Formulario).FormStyle := fsNormal;
+    J.F.FormStyle := fsNormal;
 end;
 
 procedure TBorionWindowPlugin.CmdSetResizable(Call: TBorionCall);
+var
+  J: TJanela;
+  B: Boolean;
 begin
-  FResizable := Logica(Call, 'resizable');
-  Formulario;
-  if FFullscreen then
+  B := Logica(Call, 'resizable');
+  J := TJanela(Alvo(Call));
+  J.FResizable := B;
+  if J.FFullscreen then
   begin
     { em tela cheia, vale ao sair dela }
-    if FSavedBorder = bsNone then
+    if J.FSavedBorder = bsNone then
       Exit
-    else if FResizable then
-      FSavedBorder := bsSizeable
+    else if J.FResizable then
+      J.FSavedBorder := bsSizeable
     else
-      FSavedBorder := bsSingle;
+      J.FSavedBorder := bsSingle;
   end
-  else if TFormAcesso(FForm).BorderStyle <> bsNone then
-    AplicarBorda(True);
+  else if J.F.BorderStyle <> bsNone then
+    J.AplicarBorda(True);
 end;
 
 procedure TBorionWindowPlugin.CmdSetDecorations(Call: TBorionCall);
 var
+  J: TJanela;
   D: Boolean;
 begin
   D := Logica(Call, 'decorations');
-  Formulario;
-  if not FFullscreen then
-    AplicarBorda(D)
+  J := TJanela(Alvo(Call));
+  if not J.FFullscreen then
+    J.AplicarBorda(D)
   { em tela cheia, vale ao sair dela }
   else if not D then
-    FSavedBorder := bsNone
-  else if FResizable then
-    FSavedBorder := bsSizeable
+    J.FSavedBorder := bsNone
+  else if J.FResizable then
+    J.FSavedBorder := bsSizeable
   else
-    FSavedBorder := bsSingle;
+    J.FSavedBorder := bsSingle;
 end;
 
 procedure TBorionWindowPlugin.CmdState(Call: TBorionCall);
 var
   O: TJsonObject;
-  F: TFormAcesso;
+  J: TJanela;
 begin
-  F := TFormAcesso(Formulario);
+  J := TJanela(Alvo(Call));
   O := Call.Result.AsObject;
-  O.Put('title', F.Caption);
-  O.Put('x', F.Left);
-  O.Put('y', F.Top);
-  O.Put('width', F.Width);
-  O.Put('height', F.Height);
-  O.Put('minimized', Minimizada);
-  O.Put('maximized', F.WindowState = wsMaximized);
-  O.Put('fullscreen', FFullscreen);
-  O.Put('visible', F.Visible);
-  O.Put('focused', F.HandleAllocated and (GetForegroundWindow = F.Handle));
-  O.Put('alwaysOnTop', F.FormStyle = fsStayOnTop);
-  O.Put('resizable', FResizable);
-  if FFullscreen then
-    O.Put('decorations', FSavedBorder <> bsNone)
+  O.Put('label', J.FLabel);
+  O.Put('title', J.F.Caption);
+  O.Put('x', J.F.Left);
+  O.Put('y', J.F.Top);
+  O.Put('width', J.F.Width);
+  O.Put('height', J.F.Height);
+  O.Put('minimized', J.Minimizada);
+  O.Put('maximized', J.F.WindowState = wsMaximized);
+  O.Put('fullscreen', J.FFullscreen);
+  O.Put('visible', J.F.Visible);
+  O.Put('focused', J.F.HandleAllocated and (GetForegroundWindow = J.F.Handle));
+  O.Put('alwaysOnTop', J.F.FormStyle = fsStayOnTop);
+  O.Put('resizable', J.FResizable);
+  if J.FFullscreen then
+    O.Put('decorations', J.FSavedBorder <> bsNone)
   else
-    O.Put('decorations', F.BorderStyle <> bsNone);
+    O.Put('decorations', J.F.BorderStyle <> bsNone);
 end;
 
 procedure TBorionWindowPlugin.CmdClose(Call: TBorionCall);
 begin
-  PostMessage(Formulario.Handle, WM_CLOSE, 0, 0);
+  PostMessage(TJanela(Alvo(Call)).F.Handle, WM_CLOSE, 0, 0);
 end;
 
 procedure TBorionWindowPlugin.CmdDestroy(Call: TBorionCall);
+var
+  J: TJanela;
 begin
-  Formulario;
-  FPendingId := 0;
-  KillTimer(FTimer, TIMER_ACK);
-  FecharDeVerdade;
+  J := TJanela(Alvo(Call));
+  J.CancelarPedido;
+  J.FecharDeVerdade;
 end;
 
 procedure TBorionWindowPlugin.CmdInterceptClose(Call: TBorionCall);
+var
+  J: TJanela;
 begin
-  FIntercept := Logica(Call, 'enabled');
-  if not FIntercept then
-  begin
-    FPendingId := 0;
-    KillTimer(FTimer, TIMER_ACK);
-  end;
+  J := TJanela(Alvo(Call));
+  J.FIntercept := Logica(Call, 'enabled');
+  if not J.FIntercept then
+    J.CancelarPedido;
 end;
 
 procedure TBorionWindowPlugin.CmdCloseAck(Call: TBorionCall);
+var
+  J: TJanela;
 begin
   { a página recebeu o pedido: a decisão pode levar o tempo que precisar }
-  if (FPendingId <> 0) and (Call.ArgInt('id') = FPendingId) then
-    KillTimer(FTimer, TIMER_ACK);
+  J := TJanela(Alvo(Call));
+  if (J.FPendingId <> 0) and (Call.ArgInt('id') = J.FPendingId) then
+    KillTimer(FTimer, J.FPendingId);
 end;
 
 procedure TBorionWindowPlugin.CmdCloseResolve(Call: TBorionCall);
+var
+  J: TJanela;
 begin
-  if (FPendingId = 0) or (Call.ArgInt('id') <> FPendingId) then
+  J := TJanela(Alvo(Call));
+  if (J.FPendingId = 0) or (Call.ArgInt('id') <> J.FPendingId) then
     Exit;  { resposta a um pedido antigo }
-  FPendingId := 0;
-  KillTimer(FTimer, TIMER_ACK);
+  J.CancelarPedido;
   if Call.ArgBool('close') then
-    FecharDeVerdade;
+    J.FecharDeVerdade;
+end;
+
+procedure TBorionWindowPlugin.CmdList(Call: TBorionCall);
+var
+  A: TJsonArray;
+  O: TJsonObject;
+  I: Integer;
+  J: TJanela;
+begin
+  A := Call.Result.AsArray;
+  for I := 0 to FJanelas.Count - 1 do
+  begin
+    J := TJanela(FJanelas[I]);
+    if J.FForm = nil then
+      Continue;
+    O := A.Add.AsObject;
+    O.Put('label', J.FLabel);
+    O.Put('title', J.FForm.Caption);
+    O.Put('visible', J.FForm.Visible);
+    O.Put('main', (Ipc.WindowCount > 0) and (Ipc.WindowLabel(0) = J.FLabel) or
+      ((Ipc.WindowCount = 0) and (I = 0)));
+  end;
+end;
+
+procedure TBorionWindowPlugin.CmdCreate(Call: TBorionCall);
+var
+  C: TBorionWindowConfig;
+  L: string;
+begin
+  if BorionWindows = nil then
+    raise EBorionError.Create('NOT_SUPPORTED', 'criar janelas exige o app montado pelo TBorionBuilder');
+  L := Call.ArgStr('label');
+  if not BorionIsValidWindowLabel(L) then
+    raise EBorionError.Create('INVALID_LABEL', 'rótulo de janela inválido: "' + L +
+      '" (use letras, dígitos, "-" e "_")');
+  if Ipc.WindowBrowser(L) <> nil then
+    raise EBorionError.Create('WINDOW_EXISTS', 'a janela "' + L + '" já está aberta');
+  { a definição do app.json, se houver; os argumentos vencem }
+  if not BorionWindows.Definition(L, C) then
+  begin
+    C := BorionDefaultWindow;
+    C.WindowLabel := L;
+  end;
+  if Call.HasArg('url') then
+  begin
+    C.Url := Call.ArgStr('url');
+    if (Copy(C.Url, 1, 1) <> '/') or (Copy(C.Url, 1, 2) = '//') then
+      raise EBorionError.Create('INVALID_ARGS', '"url" deve ser um caminho do app começando com "/"');
+  end;
+  if Call.HasArg('title') then C.Title := Call.ArgStr('title');
+  if Call.HasArg('width') then C.Width := Inteiro(Call, 'width', 1);
+  if Call.HasArg('height') then C.Height := Inteiro(Call, 'height', 1);
+  if Call.HasArg('minWidth') then C.MinWidth := Inteiro(Call, 'minWidth', 0);
+  if Call.HasArg('minHeight') then C.MinHeight := Inteiro(Call, 'minHeight', 0);
+  if Call.HasArg('maxWidth') then C.MaxWidth := Inteiro(Call, 'maxWidth', 0);
+  if Call.HasArg('maxHeight') then C.MaxHeight := Inteiro(Call, 'maxHeight', 0);
+  if Call.HasArg('resizable') then C.Resizable := Logica(Call, 'resizable');
+  if Call.HasArg('center') then C.Center := Logica(Call, 'center');
+  if Call.HasArg('maximized') then C.Maximized := Logica(Call, 'maximized');
+  if Call.HasArg('decorations') then C.Decorations := Logica(Call, 'decorations');
+  if Call.HasArg('alwaysOnTop') then C.AlwaysOnTop := Logica(Call, 'alwaysOnTop');
+  if Call.HasArg('visible') then C.Visible := Logica(Call, 'visible');
+  BorionWindows.CreateWindow(C);
+  Call.Result.AsObject.Put('label', L);
 end;
 
 end.

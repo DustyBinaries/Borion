@@ -1,75 +1,62 @@
-// @borion/api/window — a janela do app (plugin "window" do Delphi: TBorionWindowPlugin).
+// @borion/api/window — as janelas do app (plugin "window" do Delphi: TBorionWindowPlugin).
 // Tamanhos e posições em pixels, da janela inteira (como o width/height do app.json).
-import { invoke, listen } from './index.js';
+//
+// As funções soltas (setTitle, setSize...) agem sobre a janela desta página.
+// getWindow('config') devolve um objeto com os mesmos métodos para outra janela.
+import { invoke, listen, windowLabel } from './index.js';
 
 const ok = () => undefined;
-const cmd = (name, args) => invoke('window:' + name, args).then(ok);
 
-export function setTitle(title) {
-  return cmd('setTitle', { title: String(title) });
+// Os métodos de uma janela. label undefined = a janela que chama.
+function methods(label) {
+  const withLabel = (args) => (label === undefined ? args : { ...args, label });
+  const cmd = (name, args) => invoke('window:' + name, withLabel(args)).then(ok);
+  const state = () => invoke('window:state', withLabel());
+  return {
+    setTitle: (title) => cmd('setTitle', { title: String(title) }),
+    minimize: () => cmd('minimize'),
+    unminimize: () => cmd('unminimize'),
+    maximize: () => cmd('maximize'),
+    unmaximize: () => cmd('unmaximize'),
+    toggleMaximize: () => cmd('toggleMaximize'),
+    show: () => cmd('show'),
+    hide: () => cmd('hide'),
+    /** Mostra, restaura e traz a janela para frente. */
+    setFocus: () => cmd('setFocus'),
+    /** Centraliza na área de trabalho do monitor onde a janela está. */
+    center: () => cmd('center'),
+    setSize: (width, height) => cmd('setSize', { width, height }),
+    setPosition: (x, y) => cmd('setPosition', { x, y }),
+    /** 0 (ou null) = sem limite. */
+    setMinSize: (width, height) => cmd('setMinSize', { width: width || 0, height: height || 0 }),
+    setMaxSize: (width, height) => cmd('setMaxSize', { width: width || 0, height: height || 0 }),
+    setFullscreen: (fullscreen) => cmd('setFullscreen', { fullscreen: !!fullscreen }),
+    setAlwaysOnTop: (alwaysOnTop) => cmd('setAlwaysOnTop', { alwaysOnTop: !!alwaysOnTop }),
+    setResizable: (resizable) => cmd('setResizable', { resizable: !!resizable }),
+    /** false: sem borda nem barra de título. */
+    setDecorations: (decorations) => cmd('setDecorations', { decorations: !!decorations }),
+    /** { label, title, x, y, width, height, minimized, maximized, fullscreen, visible, focused, alwaysOnTop, resizable, decorations } */
+    state,
+    isMinimized: () => state().then((s) => s.minimized),
+    isMaximized: () => state().then((s) => s.maximized),
+    isFullscreen: () => state().then((s) => s.fullscreen),
+    isVisible: () => state().then((s) => s.visible),
+    isFocused: () => state().then((s) => s.focused),
+    /** Pede para fechar: passa pelo onCloseRequested da janela e pelo OnCloseQuery do Delphi. */
+    close: () => cmd('close'),
+    /** Fecha sem o onCloseRequested (o OnCloseQuery do Delphi ainda vale). */
+    destroy: () => cmd('destroy'),
+  };
 }
 
-export const minimize = () => cmd('minimize');
-export const unminimize = () => cmd('unminimize');
-export const maximize = () => cmd('maximize');
-export const unmaximize = () => cmd('unmaximize');
-export const toggleMaximize = () => cmd('toggleMaximize');
-export const show = () => cmd('show');
-export const hide = () => cmd('hide');
-/** Mostra, restaura e traz a janela para frente. */
-export const setFocus = () => cmd('setFocus');
-/** Centraliza na área de trabalho do monitor onde a janela está. */
-export const center = () => cmd('center');
+const current = methods(undefined);
 
-export function setSize(width, height) {
-  return cmd('setSize', { width, height });
-}
-
-export function setPosition(x, y) {
-  return cmd('setPosition', { x, y });
-}
-
-/** 0 (ou null) = sem limite. */
-export function setMinSize(width, height) {
-  return cmd('setMinSize', { width: width || 0, height: height || 0 });
-}
-
-export function setMaxSize(width, height) {
-  return cmd('setMaxSize', { width: width || 0, height: height || 0 });
-}
-
-export function setFullscreen(fullscreen) {
-  return cmd('setFullscreen', { fullscreen: !!fullscreen });
-}
-
-export function setAlwaysOnTop(alwaysOnTop) {
-  return cmd('setAlwaysOnTop', { alwaysOnTop: !!alwaysOnTop });
-}
-
-export function setResizable(resizable) {
-  return cmd('setResizable', { resizable: !!resizable });
-}
-
-/** false: sem borda nem barra de título. */
-export function setDecorations(decorations) {
-  return cmd('setDecorations', { decorations: !!decorations });
-}
-
-/** { title, x, y, width, height, minimized, maximized, fullscreen, visible, focused, alwaysOnTop, resizable, decorations } */
-export function state() {
-  return invoke('window:state');
-}
-
-export const isMinimized = () => state().then((s) => s.minimized);
-export const isMaximized = () => state().then((s) => s.maximized);
-export const isFullscreen = () => state().then((s) => s.fullscreen);
-export const isVisible = () => state().then((s) => s.visible);
-export const isFocused = () => state().then((s) => s.focused);
-
-/** Pede para fechar: passa pelo onCloseRequested e pelo OnCloseQuery do Delphi. */
-export const close = () => cmd('close');
-/** Fecha sem o onCloseRequested (o OnCloseQuery do Delphi ainda vale). */
-export const destroy = () => cmd('destroy');
+export const {
+  setTitle, minimize, unminimize, maximize, unmaximize, toggleMaximize, show, hide, setFocus,
+  center, setSize, setPosition, setMinSize, setMaxSize, setFullscreen, setAlwaysOnTop,
+  setResizable, setDecorations, state, isMinimized, isMaximized, isFullscreen, isVisible,
+  isFocused, close, destroy,
+} = current;
 
 /** handler({ width, height, minimized, maximized }) */
 export function onResized(handler) {
@@ -86,11 +73,55 @@ export function onFocusChanged(handler) {
   return listen('window:focus-changed', (p) => handler(p.focused));
 }
 
+// --- várias janelas -----------------------------------------------------------
+
+function windowObject(label) {
+  return Object.freeze({ label, ...methods(label) });
+}
+
+/** A janela desta página: { label, setTitle, setSize, ... }. */
+export function getCurrent() {
+  return windowObject(windowLabel() || 'main');
+}
+
+/** Uma janela pelo rótulo (sem verificar se está aberta: os métodos rejeitam com WINDOW_NOT_FOUND). */
+export function getWindow(label) {
+  return windowObject(String(label));
+}
+
+/** As janelas abertas: [{ label, title, visible, main, setTitle, ... }]. */
+export async function getAllWindows() {
+  const list = await invoke('window:list');
+  return list.map((w) => Object.freeze({ ...w, ...methods(w.label) }));
+}
+
+/**
+ * Abre uma janela: a do app.json com esse rótulo (as opções vencem) ou uma nova.
+ * options: { url, title, width, height, minWidth, minHeight, maxWidth, maxHeight,
+ * resizable, center, maximized, decorations, alwaysOnTop, visible }.
+ * Rejeita com WINDOW_EXISTS se ela já estiver aberta.
+ */
+export async function createWindow(label, options = {}) {
+  await invoke('window:create', { ...options, label: String(label) });
+  return getWindow(label);
+}
+
+/** Uma janela foi aberta: handler(label). Vale para todas as janelas do app. */
+export function onCreated(handler) {
+  return listen('window:created', (p) => handler(p.label));
+}
+
+/** Uma janela fechou: handler(label). */
+export function onDestroyed(handler) {
+  return listen('window:destroyed', (p) => handler(p.label));
+}
+
 // --- fechamento interceptado ---------------------------------------------------
-// Com pelo menos um handler, o Delphi não fecha a janela sozinho: avisa a página
-// (window:close-requested), que confirma o recebimento na hora (closeAck) e
-// responde depois dos handlers (closeResolve). Sem a confirmação, o Delphi fecha
-// assim mesmo depois de um tempo: uma página travada não prende o app.
+// Com pelo menos um handler, o Delphi não fecha esta janela sozinho: avisa a
+// página (window:close-requested), que confirma o recebimento na hora
+// (closeAck) e responde depois dos handlers (closeResolve). Sem a confirmação,
+// o Delphi fecha assim mesmo depois de um tempo: uma página travada não prende
+// o app.
 
 const closeHandlers = [];
 let stopListening = null;
@@ -115,7 +146,7 @@ async function closeRequested(payload) {
 }
 
 /**
- * Chamado quando o usuário tenta fechar a janela (X, Alt+F4, app.exit, close()).
+ * Chamado quando o usuário tenta fechar esta janela (X, Alt+F4, app.exit, close()).
  * event.preventDefault() mantém a janela aberta; o handler pode ser async (um
  * diálogo "deseja salvar?"). Devolve uma Promise com a função para parar.
  */
@@ -134,6 +165,6 @@ export async function onCloseRequested(handler) {
     if (closeHandlers.length > 0) return Promise.resolve();
     stopListening();
     stopListening = null;
-    return cmd('interceptClose', { enabled: false });
+    return invoke('window:interceptClose', { enabled: false }).then(ok);
   };
 }

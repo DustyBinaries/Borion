@@ -1,0 +1,28 @@
+{
+  "productName": "Borion: várias janelas",
+  "version": "0.1.0",
+  "identifier": "com.borion.exemplo.multiwindow",
+  "build": {
+    "frontendDist": "web"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "width": 900,
+        "height": 680,
+        "minWidth": 600,
+        "minHeight": 420
+      },
+      {
+        "label": "config",
+        "url": "/config.html",
+        "title": "Configurações",
+        "width": 420,
+        "height": 360,
+        "resizable": false,
+        "create": false
+      }
+    ]
+  }
+}

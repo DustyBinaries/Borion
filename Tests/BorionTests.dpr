@@ -52,7 +52,8 @@ uses
   TestBorionNew in 'TestBorionNew.pas',
   TestBorionProject in 'TestBorionProject.pas',
   TestBorionConfig in 'TestBorionConfig.pas',
-  TestBorionWindow in 'TestBorionWindow.pas';
+  TestBorionWindow in 'TestBorionWindow.pas',
+  TestBorionMultiWindow in 'TestBorionMultiWindow.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);
