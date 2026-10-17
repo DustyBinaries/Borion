@@ -196,7 +196,7 @@ type
     { Durante um comando ou listener: o rótulo da janela que chamou }
     property CurrentWindow: string read FCurrentWindow;
 
-    { Origens que podem usar o IPC, ex.: 'https://app.local'. '*' libera todas. }
+    { Origens que podem usar o IPC, ex.: 'https://app.localhost'. '*' libera todas. }
     procedure AllowOrigin(const Origin: string);
     function IsOriginAllowed(const Source: WideString): Boolean;
 
@@ -251,7 +251,7 @@ type
 { A ponte JS injetada em todo documento (window.borion / window.__BORION__) }
 function BorionBridgeScript: WideString;
 
-{ 'https://app.local/x/y?z' -> 'https://app.local' }
+{ 'https://app.localhost/x/y?z' -> 'https://app.localhost' }
 function BorionOriginOf(const Url: WideString): string;
 
 implementation

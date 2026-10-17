@@ -355,11 +355,11 @@ begin
   Janela := TBorionWindow.Create(nil);
   try
     Janela.Ipc.OnPost := Postou;
-    Janela.Ipc.AllowOrigin('https://app.local/');
+    Janela.Ipc.AllowOrigin('https://app.localhost/');
     Janela.Ipc.AddPlugin(TBorionWindowPlugin.Create);  { acha o form pelo browser do Ipc }
     Check(Janela.TitleFromPage);
     Janela.Ipc.ProcessMessage('{"__borion":1,"kind":"invoke","id":"1","cmd":"window:setTitle",' +
-      '"args":{"title":"Do JS"}}', 'https://app.local/');
+      '"args":{"title":"Do JS"}}', 'https://app.localhost/');
     CheckEquals('Do JS', Janela.Caption);
     CheckFalse(Janela.TitleFromPage, 'o document.title não sobrescreve mais');
   finally

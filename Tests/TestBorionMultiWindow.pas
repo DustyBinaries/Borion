@@ -70,7 +70,7 @@ type
 implementation
 
 const
-  ORIGEM = 'https://app.local/';
+  ORIGEM = 'https://app.localhost/';
 
 type
   TPluginEspiao = class(TBorionPlugin)

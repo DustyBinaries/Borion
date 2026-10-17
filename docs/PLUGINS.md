@@ -726,7 +726,7 @@ attachConsole();    // o que for gravado (inclusive pelo Delphi) aparece no cons
 2026-10-15 10:40:00.564 [INFO ] [delphi] janela criada
 2026-10-15 10:40:07.676 [WARN ] [js] pedido 42 salvo por José 😀
 2026-10-15 10:40:07.680 [ERROR] [console] Error: algo deu errado
-    at onclick (https://app.local/app.js:22:50)
+    at onclick (https://app.localhost/app.js:22:50)
 ```
 
 | JS (`@borion/api/log`) | O que faz |

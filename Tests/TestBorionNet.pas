@@ -607,7 +607,7 @@ var
 begin
   Antes := FPosts.Count;
   Check(FIpc.ProcessMessage(AnsiJsonToWide('{"__borion":1,"kind":"invoke","id":2,"cmd":"http:fetch",' +
-    '"args":{"rid":"lenta","url":' + JsonQuote(Url('/lento')) + '}}'), 'https://app.local/'));
+    '"args":{"rid":"lenta","url":' + JsonQuote(Url('/lento')) + '}}'), 'https://app.localhost/'));
   CheckEquals(Antes, FPosts.Count, 'o fetch é adiado');
   Sleep(300);  { a requisição já está esperando o servidor }
   CheckEquals('true', Ok('http:cancel', '{"rid":"lenta"}'));

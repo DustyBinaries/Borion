@@ -135,7 +135,7 @@ type
 implementation
 
 const
-  ORIGEM = 'https://app.local/';
+  ORIGEM = 'https://app.localhost/';
   FILE_ATTRIBUTE_REPARSE_POINT = $400;
 
 function PastaTestes(const Nome: string): string;

@@ -30,7 +30,9 @@ uses
   Windows, Messages, SysUtils, Classes, WebView2Browser, BorionPack;
 
 const
-  BORION_DEFAULT_HOST = 'app.local';
+  { .localhost, não .local: o Windows resolve .local por mDNS/LLMNR e cada
+    navegação esperava ~2 s antes de pedir o CSS e o JS da página }
+  BORION_DEFAULT_HOST = 'app.localhost';
 
 type
   TBorionAssets = class(TComponent)

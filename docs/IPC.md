@@ -56,10 +56,10 @@ Num form existente, criando o IPC à mão:
 FBrowser := TWebView2Browser.Create(Self);
 ...
 FIpc := TBorionIpc.Create(Self, FBrowser);   // antes do CreateWebView
-FIpc.AllowOrigin('https://app.local');        // quem pode usar o IPC
+FIpc.AllowOrigin('https://app.localhost');        // quem pode usar o IPC
 FIpc.RegisterCommand('somar', CmdSomar);
 
-FBrowser.ServeEmbeddedResources('app.local');
+FBrowser.ServeEmbeddedResources('app.localhost');
 FBrowser.CreateWebView;
 FBrowser.Navigate(FBrowser.EmbeddedUrl('index.html'));
 ```
@@ -318,7 +318,7 @@ O IPC é **negado por padrão**. Só documentos de origens liberadas com `AllowO
 comandos ou emitir eventos:
 
 ```pascal
-Ipc.AllowOrigin('https://app.local');        // a página embutida
+Ipc.AllowOrigin('https://app.localhost');        // a página embutida
 Ipc.AllowOrigin('http://localhost:5173');    // servidor de desenvolvimento (Vite)
 Ipc.AllowOrigin('*');                        // qualquer origem: só para testes
 ```
@@ -390,7 +390,7 @@ peças também servem para diagnóstico num app real:
 
 ```pascal
 Ipc.OnPost := RegistrarSaida;   // cada resposta/evento enviado à página
-Ipc.ProcessMessage('{"__borion":1,"kind":"invoke","id":1,"cmd":"info"}', 'https://app.local/');
+Ipc.ProcessMessage('{"__borion":1,"kind":"invoke","id":1,"cmd":"info"}', 'https://app.localhost/');
 ```
 
 ## Limitações conhecidas

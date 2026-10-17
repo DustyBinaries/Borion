@@ -58,7 +58,7 @@ begin
   RegistrarComandos(FIpc);
 
   { A interface: o pacote BORION_ASSETS do exe (gerado por "borion pack web
-    web.res"), servido em https://app.local/. Com --dev-url=<url>, carrega
+    web.res"), servido em https://app.localhost/. Com --dev-url=<url>, carrega
     do servidor de desenvolvimento em vez do pacote. }
   FAssets := TBorionAssets.Create(Self, FBrowser);
   FIpc.AllowOrigin(BorionOriginOf(FAssets.StartUrl));  { só a interface do app usa o IPC }

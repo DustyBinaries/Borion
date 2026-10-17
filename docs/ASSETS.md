@@ -16,7 +16,7 @@ Como a interface (HTML/CSS/JS, inclusive o `dist/` de um build do Vite) entra no
 ## Visão geral
 
 ```
-frontend/dist/  --borion pack-->  app.res  --{$R app.res}-->  .exe  --TBorionAssets-->  https://app.local/
+frontend/dist/  --borion pack-->  app.res  --{$R app.res}-->  .exe  --TBorionAssets-->  https://app.localhost/
  (qualquer                         (recurso                     (um arquivo              (WebView2, com
   estrutura)                        BORION_ASSETS)               só)                      fallback de SPA)
 ```
@@ -26,7 +26,7 @@ frontend/dist/  --borion pack-->  app.res  --{$R app.res}-->  .exe  --TBorionAss
    arquivo com hash (`index-SVctTc9F.css`), subpastas e acentos funcionam.
 2. O projeto inclui o `.res` com `{$R app.res}`.
 3. Em tempo de execução, o `TBorionAssets` lê o pacote do próprio exe e responde às requisições
-   para `https://app.local/`.
+   para `https://app.localhost/`.
 
 Comparando com o `ServeEmbeddedResources` do [`TWebView2Browser`](../../WebView2/README.md), que
 continua existindo para casos simples: lá, cada arquivo é uma linha manual num `.rc`, e o nome
@@ -71,14 +71,14 @@ chamando o pack internamente, e o `borion dev` abre o app em modo dev (veja
 uses BorionAssets;
 
 FAssets := TBorionAssets.Create(Self, FBrowser);          // lê BORION_ASSETS do exe
-FIpc.AllowOrigin(BorionOriginOf(FAssets.StartUrl));       // app.local, ou o servidor dev
+FIpc.AllowOrigin(BorionOriginOf(FAssets.StartUrl));       // app.localhost, ou o servidor dev
 FBrowser.CreateWebView;
-FBrowser.Navigate(FAssets.StartUrl);                      // https://app.local/
+FBrowser.Navigate(FAssets.StartUrl);                      // https://app.localhost/
 ```
 
 | Membro | Descrição |
 |---|---|
-| `Create(Owner, Browser, [Host])` | Carrega o pacote do exe, registra o filtro de `https://<Host>/*` e assume o `Browser.OnWebResourceRequested`. `Host` padrão: `app.local` |
+| `Create(Owner, Browser, [Host])` | Carrega o pacote do exe, registra o filtro de `https://<Host>/*` e assume o `Browser.OnWebResourceRequested`. `Host` padrão: `app.localhost` |
 | `StartUrl` | Onde navegar: o `DevUrl` em modo dev, senão a raiz `https://<Host>/` |
 | `Url(Caminho)` / `Origin` | `https://<Host>/<Caminho>` / `https://<Host>` |
 | `IsDev` / `DevUrl` | Modo dev (veja abaixo) |
@@ -143,7 +143,7 @@ no lugar do pacote embutido:
 | Parâmetro | `app.exe --dev-dir=web` (ou `--dev-dir web`) |
 | Variável de ambiente | `set BORION_DEV_DIR=C:\meu-app\web` |
 
-A origem continua `https://app.local/`, então nada muda no IPC. Os arquivos saem com
+A origem continua `https://app.localhost/`, então nada muda no IPC. Os arquivos saem com
 `Cache-Control: no-store`, o fallback de SPA vale igual, e caminhos com `..`, `:` ou começando por
 `\` são recusados. Com `LiveReload = True` (o padrão), uma thread vigia a pasta e as subpastas e,
 depois de 200 ms sem novas mudanças, recarrega a página (o evento `OnLiveReload` avisa antes).
@@ -162,7 +162,7 @@ origem esteja liberada. Por isso o padrão é:
 FIpc.AllowOrigin(BorionOriginOf(FAssets.StartUrl));
 ```
 
-Em produção libera `https://app.local`; em dev, `http://localhost:5173`. O app nunca libera as duas
+Em produção libera `https://app.localhost`; em dev, `http://localhost:5173`. O app nunca libera as duas
 ao mesmo tempo.
 
 ## Fluxo com Vite

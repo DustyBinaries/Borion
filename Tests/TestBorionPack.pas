@@ -561,16 +561,16 @@ procedure TTestBorionAssets.TestStartUrlEOrigem;
 var
   A: TBorionAssets;
 begin
-  CheckEquals('https://app.local', FAssets.Origin);
-  CheckEquals('https://app.local/', FAssets.StartUrl, 'raiz, não /index.html (rota desconhecida em SPAs)');
+  CheckEquals('https://app.localhost', FAssets.Origin);
+  CheckEquals('https://app.localhost/', FAssets.StartUrl, 'raiz, não /index.html (rota desconhecida em SPAs)');
   CheckFalse(FAssets.IsDev);
   FAssets.DevUrl := 'http://localhost:5173';
   Check(FAssets.IsDev);
   CheckEquals('http://localhost:5173', FAssets.StartUrl);
-  A := TBorionAssets.Create(nil, nil, 'MeuApp.Local');
+  A := TBorionAssets.Create(nil, nil, 'MeuApp.Localhost');
   try
-    CheckEquals('https://meuapp.local', A.Origin);
-    CheckEquals('https://meuapp.local/x.js', A.Url('x.js'));
+    CheckEquals('https://meuapp.localhost', A.Origin);
+    CheckEquals('https://meuapp.localhost/x.js', A.Url('x.js'));
   finally
     A.Free;
   end;
@@ -582,7 +582,7 @@ var
 begin
   FAssets.DevDir := FPasta;  { como o --dev-dir=web do "borion dev" }
   Check(FAssets.IsDev);
-  CheckEquals('https://app.local/', string(FAssets.StartUrl), 'sem servidor: continua no host do app');
+  CheckEquals('https://app.localhost/', string(FAssets.StartUrl), 'sem servidor: continua no host do app');
   FAssets.ServePath('', FResp);
   CheckEquals(200, FResp.StatusCode);
   CheckEquals(INDEX_HTML, Corpo);

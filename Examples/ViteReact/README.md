@@ -24,7 +24,7 @@ ViteReact.exe
 
 Na ordem: `npm install` (só na primeira vez), `npm run build`, `borion pack frontend\dist app.res`,
 `dcc32`. O resultado é um único `ViteReact.exe` (mais o `WebView2Loader.dll`), com a interface
-embutida e servida em `https://app.local/`.
+embutida e servida em `https://app.localhost/`.
 
 ## Desenvolvimento
 
@@ -47,7 +47,7 @@ página avisa que está fora do Borion, e os comandos falham com `NOT_AVAILABLE`
 - **Erros:** `/clientes/99` mostra o `EBorionError('NAO_ENCONTRADO', ...)` do Delphi.
 - **Thread:** em *Tarefa*, o progresso chega por `listen('tarefa:progresso')`, registrado num
   `useEffect` cujo cleanup é a própria função devolvida pelo `listen`.
-- **Origem:** o IPC só libera a origem de onde a interface veio: `https://app.local` no build,
+- **Origem:** o IPC só libera a origem de onde a interface veio: `https://app.localhost` no build,
   `http://localhost:5173` no dev.
 
 Detalhes em [docs/ASSETS.md](../../docs/ASSETS.md).

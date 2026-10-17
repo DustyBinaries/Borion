@@ -10,7 +10,7 @@ uses
   Windows, Messages, SysUtils, Classes, TestFramework, Jsons, BorionJson, BorionIpc;
 
 const
-  ORIGEM = 'https://app.local/index.html';
+  ORIGEM = 'https://app.localhost/index.html';
 
 type
   TTestBorionIpc = class(TTestCase)
@@ -167,7 +167,7 @@ begin
   FIpc := TBorionIpc.Create(nil, nil);
   FIpc.OnPost := Postou;
   FIpc.OnLog := Logou;
-  FIpc.AllowOrigin('https://app.local');
+  FIpc.AllowOrigin('https://app.localhost');
   FIpc.RegisterCommand('somar', CmdSomar);
   FIpc.RegisterCommand('args', CmdArgs);
   FIpc.RegisterCommand('objeto', CmdObjeto);
@@ -629,7 +629,7 @@ end;
 
 procedure TTestBorionIpc.TestOrigemComPortaDiferenteNegada;
 begin
-  Invocar('somar', '{}', 'https://app.local:8443/index.html');
+  Invocar('somar', '{}', 'https://app.localhost:8443/index.html');
   CheckEquals('FORBIDDEN_ORIGIN', UltimoErro);
 end;
 
@@ -642,8 +642,8 @@ end;
 
 procedure TTestBorionIpc.TestBorionOriginOf;
 begin
-  CheckEquals('https://app.local', BorionOriginOf('https://app.local/a/b.html?x=1'));
-  CheckEquals('https://app.local', BorionOriginOf('HTTPS://APP.LOCAL'));
+  CheckEquals('https://app.localhost', BorionOriginOf('https://app.localhost/a/b.html?x=1'));
+  CheckEquals('https://app.localhost', BorionOriginOf('HTTPS://APP.LOCALHOST'));
   CheckEquals('http://localhost:5173', BorionOriginOf('http://localhost:5173/#/rota'));
   CheckEquals('https://h', BorionOriginOf('https://h?q'));
   CheckEquals('about:blank', BorionOriginOf('about:blank'));
