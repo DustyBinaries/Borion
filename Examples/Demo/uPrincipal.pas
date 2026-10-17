@@ -50,7 +50,7 @@ begin
   FBrowser.Align := alClient;
   FBrowser.OnInitialized := BrowserInitialized;
 
-  { Borion IPC. Criado antes do CreateWebView para a ponte JS (window.borion)
+  { Borion IPC. Criado antes do CreateWebView para a ponte JS (window.__BORION__)
     entrar já no primeiro documento. }
   FIpc := TBorionIpc.Create(Self, FBrowser);
   FIpc.OnLog := IpcLog;
@@ -102,7 +102,7 @@ begin
   btnDevTools.Enabled := Succeeded(ErrorCode);
 end;
 
-{ borion.emit(...) da página }
+{ __BORION__.emit(...) da página }
 procedure TfrmPrincipal.IpcEvento(const Event: string; Payload: TJsonValue);
 begin
   Log('evento da página: ' + Event + ' ' + Payload.Stringify);

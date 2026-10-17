@@ -4,19 +4,19 @@ import assert from 'node:assert/strict';
 import { bootPage, fakeWebview, response, failure, event } from './helpers.js';
 
 describe('ponte: instalação', () => {
-  test('expõe window.borion e window.__BORION__ (o mesmo objeto, congelado)', () => {
+  test('expõe window.__BORION__ (congelado), sem window.borion', () => {
     const { win, borion } = bootPage();
     assert.ok(borion);
-    assert.equal(win.__BORION__, borion);
+    assert.equal(win.borion, undefined);
     assert.ok(Object.isFrozen(borion));
     for (const fn of ['invoke', 'listen', 'once', 'emit', 'emitTo']) assert.equal(typeof borion[fn], 'function');
     assert.match(borion.version, /^\d+\.\d+\.\d+$/);
   });
 
-  test('a página não consegue substituir window.borion', () => {
+  test('a página não consegue substituir window.__BORION__', () => {
     const { win, borion } = bootPage();
-    assert.throws(() => { win.borion = {}; }, TypeError);
-    assert.equal(win.borion, borion);
+    assert.throws(() => { win.__BORION__ = {}; }, TypeError);
+    assert.equal(win.__BORION__, borion);
   });
 
   test('sem chrome.webview (navegador comum) a API não é criada', () => {

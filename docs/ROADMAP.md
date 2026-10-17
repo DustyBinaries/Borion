@@ -13,9 +13,9 @@ Marque os itens conforme forem concluídos. Cada fase termina num marco utilizá
 |---|---|---|
 | WRY (WebView do sistema) | `TWebView2Browser` + `WebView2.pas` | ✅ básico pronto |
 | Assets embutidos (protocolo customizado) | `borion pack` + `TBorionAssets` (SPA, zlib, headers) | ✅ Fase 2 |
-| `invoke('comando', args)` → `#[tauri::command]` | `borion.invoke()` → `TBorionIpc.RegisterCommand` | ✅ Fase 1 |
-| Eventos `emit`/`listen` | `borion.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
-| `@tauri-apps/api` | Ponte injetada (`window.borion`) + pacote ESM `@borion/api` | ✅ Fase 1 |
+| `invoke('comando', args)` → `#[tauri::command]` | `__BORION__.invoke()` → `TBorionIpc.RegisterCommand` | ✅ Fase 1 |
+| Eventos `emit`/`listen` | `__BORION__.emit/listen` ↔ `Ipc.Emit/Listen` | ✅ Fase 1 |
+| `@tauri-apps/api` | Ponte injetada (`window.__BORION__`) + pacote ESM `@borion/api` | ✅ Fase 1 |
 | `tauri.conf.json` | `app.json` embutido | ✅ Fase 3 |
 | Janelas (`WebviewWindow`, `emitTo`) | `BorionWindows` + plugin `window`, um IPC para todas | ✅ Fase 3 |
 | Plugins (fs, dialog, shell, store...) | Units Delphi que registram comandos | ✅ Fase 4 |
@@ -97,7 +97,7 @@ Documentação: [IPC.md](IPC.md).
 **Lado JS**
 - [x] Declarar `AddScriptToExecuteOnDocumentCreated` e injetar a ponte antes de qualquer script
       da página (`TWebView2Browser.AddScriptOnDocumentCreated`).
-- [x] `borion.invoke(cmd, args, {timeout})`: Promise, com tabela de pendentes por id.
+- [x] `__BORION__.invoke(cmd, args, {timeout})`: Promise, com tabela de pendentes por id.
 - [x] `listen` / `once` / `emit`; `listen` devolve a função para cancelar.
 - [x] Mensagens do Borion isoladas dos listeners da página (`stopImmediatePropagation`).
 - [x] Tipos TypeScript: `js/borion.d.ts`.
@@ -107,7 +107,7 @@ Documentação: [IPC.md](IPC.md).
       `Borion/Tests/run-tests.bat`.
 - [ ] Publicar o `@borion/api` no npm (hoje: `npm install <caminho>/Borion/js`).
 
-**Marco 1:** ✅ `await borion.invoke('somar', {a: 20, b: 22})` devolve `42` vindo de um comando
+**Marco 1:** ✅ `await __BORION__.invoke('somar', {a: 20, b: 22})` devolve `42` vindo de um comando
 Delphi registrado em uma linha.
 
 ---

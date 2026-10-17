@@ -1,5 +1,7 @@
-// window.borion é injetado pelo TBorionIpc antes deste script.
+// window.__BORION__ é injetado pelo TBorionIpc antes deste script.
 // Tipos: js/borion.d.ts
+
+var borion = window.__BORION__;
 
 function $(id) { return document.getElementById(id); }
 function valor(id) { return $(id).value; }
@@ -7,7 +9,7 @@ function num(id) { return Number($(id).value); }
 function mostrar(id, texto) { $(id).textContent = texto; }
 
 $('origem').textContent = location.origin;
-$('versao').textContent = window.borion ? 'v' + borion.version : '(não injetada)';
+$('versao').textContent = borion ? 'v' + borion.version : '(não injetada)';
 
 // --- 1 e 2: comandos e erros ------------------------------------------------
 
@@ -73,7 +75,7 @@ function emitir() {
   borion.emit('pagina:mensagem', { texto: valor('evento-texto'), quando: new Date().toISOString() });
 }
 
-if (window.borion) {
+if (borion) {
   borion.listen('delphi:mensagem', function (p) {
     var ul = $('eventos');
     if (ul.querySelector('em')) ul.innerHTML = '';

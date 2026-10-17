@@ -5,7 +5,7 @@ estilo do Tauri. A página chama **comandos** Delphi e recebe o resultado numa P
 lados trocam **eventos**.
 
 ```js
-const soma = await borion.invoke('somar', { a: 20, b: 22 });   // 42
+const soma = await __BORION__.invoke('somar', { a: 20, b: 22 });   // 42
 ```
 
 ```pascal
@@ -66,7 +66,7 @@ FBrowser.Navigate(FBrowser.EmbeddedUrl('index.html'));
 
 O `TBorionIpc`:
 
-- injeta a ponte JS (`window.borion`) em todo documento, **antes** dos scripts da página.
+- injeta a ponte JS (`window.__BORION__`) em todo documento, **antes** dos scripts da página.
   Crie o IPC antes do `CreateWebView`; se criar depois, a ponte só aparece a partir do próximo
   documento.
 - assume o `OnWebMessageJson` do browser. Mensagens que não são do Borion continuam chegando no
@@ -199,7 +199,7 @@ Call.Reject('sem permissão', 'NEGADO');                       // sem exceção
 
 ```js
 try {
-  await borion.invoke('saudacao', { nome: '' });
+  await __BORION__.invoke('saudacao', { nome: '' });
 } catch (e) {
   console.log(e.code, e.message, e.command);   // VALIDACAO  Informe o nome.  saudacao
 }
@@ -230,14 +230,14 @@ end;
 ```
 
 ```js
-const parar = borion.listen('progresso', (p) => console.log(p.pct));
+const parar = __BORION__.listen('progresso', (p) => console.log(p.pct));
 parar();   // deixa de escutar
 ```
 
 **JS → Delphi**
 
 ```js
-borion.emit('salvou', { id: 7 });
+__BORION__.emit('salvou', { id: 7 });
 ```
 
 ```pascal
@@ -270,10 +270,10 @@ Ipc.AddWindow('config', OutroBrowser);              // antes do CreateWebView de
   mensagem.
 - **Eventos:** `Ipc.Emit` vai para todas as janelas. `Ipc.EmitTo('config', ...)` e
   `Ipc.EmitJsonTo` vão só para uma (`'*'` = todas).
-- **Entre janelas:** a página manda com `borion.emitTo('main', 'evento', payload)` (ou `'*'`).
+- **Entre janelas:** a página manda com `__BORION__.emitTo('main', 'evento', payload)` (ou `'*'`).
   O Delphi só repassa como um evento comum, e o `listen` da outra janela recebe. A origem
   precisa estar liberada; um destino que não existe é ignorado e registrado no `OnLog`.
-- **Rótulo na página:** cada página recebe o seu em `borion.label` (`windowLabel()` no
+- **Rótulo na página:** cada página recebe o seu em `__BORION__.label` (`windowLabel()` no
   `@borion/api`).
 - **Fechar:** liberar o browser tira a janela do IPC. Uma resposta adiada para uma janela que já
   fechou é descartada.
@@ -282,7 +282,7 @@ Ipc.AddWindow('config', OutroBrowser);              // antes do CreateWebView de
 
 ## API JavaScript
 
-A ponte é injetada como `window.borion` (e `window.__BORION__`), congelada e não
+A ponte é injetada como `window.__BORION__`, congelada e não
 sobrescrevível. Os tipos estão em [`js/borion.d.ts`](../js/borion.d.ts).
 
 | Função | Descrição |
@@ -296,7 +296,7 @@ sobrescrevível. Os tipos estão em [`js/borion.d.ts`](../js/borion.d.ts).
 | `version` | Versão do Borion |
 
 Sem `chrome.webview` (página aberta num navegador comum), a ponte não é criada. Teste com
-`if (window.borion)`.
+`if (window.__BORION__)`.
 
 ### Com bundler: pacote `@borion/api`
 

@@ -16,7 +16,7 @@
   </header>
 
   <section class="card">
-    <h2>1. Comandos <code>borion.invoke(cmd, args)</code></h2>
+    <h2>1. Comandos <code>__BORION__.invoke(cmd, args)</code></h2>
     <p class="dica">Cada botão chama um comando registrado em <code>uComandos.pas</code> e mostra o
       valor devolvido pela Promise.</p>
     <div class="linha">
@@ -66,7 +66,7 @@
     <h2>4. Eventos</h2>
     <div class="colunas">
       <div>
-        <h3>Página → Delphi <code>borion.emit</code></h3>
+        <h3>Página → Delphi <code>__BORION__.emit</code></h3>
         <div class="linha">
           <input id="evento-texto" value="clicou em salvar">
           <button onclick="emitir()">emitir</button>
@@ -74,7 +74,7 @@
         <p class="nota">Aparece no log da janela (<code>Ipc.Listen</code>).</p>
       </div>
       <div>
-        <h3>Delphi → página <code>borion.listen</code></h3>
+        <h3>Delphi → página <code>__BORION__.listen</code></h3>
         <ul id="eventos" class="eventos"><li><em>use "Emitir" no painel da janela</em></li></ul>
       </div>
     </div>
@@ -87,7 +87,7 @@
       <code>invoke</code> é recusado com <code>FORBIDDEN_ORIGIN</code> e o <code>emit</code> é
       ignorado. Para testar, abra o DevTools, navegue para outro site
       (<code>location.href = "https://example.com"</code>) e rode
-      <code>borion.invoke("info")</code>.</p>
+      <code>__BORION__.invoke("info")</code>.</p>
   </section>
 
 <script src="app.js"></script>

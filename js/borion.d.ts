@@ -1,5 +1,5 @@
 // Borion — Native Application Engine
-// Tipos da ponte injetada pelo TBorionIpc em todo documento (window.borion).
+// Tipos da ponte injetada pelo TBorionIpc em todo documento (window.__BORION__).
 // Copie para o projeto do frontend (ex.: src/borion.d.ts) para ter autocomplete.
 
 export interface BorionError extends Error {
@@ -37,8 +37,7 @@ export interface Borion {
 
 declare global {
   interface Window {
-    borion: Borion;
     __BORION__: Borion;
   }
-  const borion: Borion;
+  const __BORION__: Borion;
 }

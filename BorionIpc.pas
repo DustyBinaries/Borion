@@ -4,7 +4,7 @@ unit BorionIpc;
   Borion — Native Application Engine
   IPC entre a página (JavaScript) e o Delphi, no estilo do Tauri:
 
-    JS:     const soma = await borion.invoke('somar', { a: 20, b: 22 });
+    JS:     const soma = await __BORION__.invoke('somar', { a: 20, b: 22 });
     Delphi: Ipc.RegisterCommand('somar', CmdSomar);
 
             procedure TForm1.CmdSomar(Call: TBorionCall);
@@ -13,8 +13,8 @@ unit BorionIpc;
             end;
 
   Eventos nos dois sentidos:
-    Delphi -> JS:  Ipc.Emit('progresso', Payload)   /  borion.listen('progresso', cb)
-    JS -> Delphi:  borion.emit('salvou', {...})      /  Ipc.Listen('salvou', Handler)
+    Delphi -> JS:  Ipc.Emit('progresso', Payload)   /  __BORION__.listen('progresso', cb)
+    JS -> Delphi:  __BORION__.emit('salvou', {...})  /  Ipc.Listen('salvou', Handler)
 
   Transporte: chrome.webview.postMessage (JS -> Delphi) e PostWebMessageAsJson
   (Delphi -> JS), com um id de correlação por invoke. As mensagens do Borion
@@ -183,7 +183,7 @@ type
     { --- janelas --- }
     { Mais uma janela usando este IPC (antes do CreateWebView dela). Rótulo:
       letras, dígitos, '-' e '_', único. A página recebe o rótulo em
-      window.borion.label. }
+      window.__BORION__.label. }
     procedure AddWindow(const WindowLabel: string; ABrowser: TWebView2Browser);
     { A janela deixa o IPC (liberar o browser também a tira) }
     procedure RemoveWindow(const WindowLabel: string);
@@ -248,7 +248,7 @@ type
     procedure Later(Call: TBorionCall; Handler: TBorionCommandMethod);
   end;
 
-{ A ponte JS injetada em todo documento (window.borion / window.__BORION__) }
+{ A ponte JS injetada em todo documento (window.__BORION__) }
 function BorionBridgeScript: WideString;
 
 { 'https://app.localhost/x/y?z' -> 'https://app.localhost' }
@@ -364,7 +364,6 @@ begin
     '  var api = Object.freeze({ invoke: invoke, listen: listen, once: once, emit: emit,' + #10 +
     '    emitTo: emitTo, label: label, version: "' + BORION_VERSION + '" });' + #10 +
     '  Object.defineProperty(window, "__BORION__", { value: api });' + #10 +
-    '  Object.defineProperty(window, "borion", { value: api });' + #10 +
     '})();';
 end;
 

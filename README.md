@@ -8,7 +8,7 @@ O controle [`TWebView2Browser`](WebView2/README.md), em `WebView2/`, é a base d
 depende dele e pode ser usado sozinho num app Delphi 7 comum.
 
 ```js
-const soma = await borion.invoke('somar', { a: 20, b: 22 });   // comando Delphi -> 42
+const soma = await __BORION__.invoke('somar', { a: 20, b: 22 });   // comando Delphi -> 42
 ```
 
 ```pascal
@@ -42,10 +42,10 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
   A janela, o IPC e o frontend embutido são montados pelo `Run`. Veja [Criando um app](#criando-um-app).
 - **Configuração** (`app.json`): nome, versão, identificador, a janela principal e a CSP num
   arquivo embutido no exe, como o `tauri.conf.json`. Veja [CONFIG.md](docs/CONFIG.md).
-- **Comandos**: `borion.invoke(cmd, args)` → procedure Delphi, com resultado numa Promise.
+- **Comandos**: `__BORION__.invoke(cmd, args)` → procedure Delphi, com resultado numa Promise.
 - **Erros** com código: exceção Delphi → Promise rejeitada com `error.code`.
 - **Comandos assíncronos**: `Call.Defer` + `Resolve`/`Reject`, inclusive de outras threads.
-- **Eventos** nos dois sentidos: `Ipc.Emit` → `borion.listen`; `borion.emit` → `Ipc.Listen`.
+- **Eventos** nos dois sentidos: `Ipc.Emit` → `__BORION__.listen`; `__BORION__.emit` → `Ipc.Listen`.
 - **Segurança por origem**: só documentos de origens liberadas usam o IPC.
 - **Unicode correto** entre o JS e o ANSI do Delphi 7.
 - **Frontend embutido no exe**: `borion pack` empacota o `dist/` (Vite ou qualquer pasta) e o
@@ -190,7 +190,7 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `WebView2/docs/WebResourceRequested.md` | Interceptando requisições do WebView2 |
 | `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `window`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion new` (com os templates em `Tools/templates`), `borion dev`, `borion build`, `borion pack`, `borion list` |
-| `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
+| `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.__BORION__`) |
 | `docs/IPC.md` | Guia completo do IPC |
 | `docs/ASSETS.md` | Assets do frontend, `borion pack`, fallback de SPA e modo dev |
 | `docs/CONFIG.md` | O `app.json`: referência das chaves, precedência e como ele vai para o exe |
@@ -254,7 +254,7 @@ soltas.
 | 1. Comandos | `somar`, `saudacao` (Unicode nos dois sentidos), `info` (objeto), `listarArquivos` (array) |
 | 2. Erros | `EBorionError`, validação, comando inexistente e `timeout` no JS |
 | 3. Comando assíncrono | `tarefaLonga`: `Call.Defer`, thread, eventos de progresso, `Resolve` |
-| 4. Eventos | `borion.emit` → log da janela; botão "Emitir" da janela → `borion.listen` |
+| 4. Eventos | `__BORION__.emit` → log da janela; botão "Emitir" da janela → `__BORION__.listen` |
 | 5. Segurança | Origem liberada com `AllowOrigin`; outras recebem `FORBIDDEN_ORIGIN` |
 
 Abra `BorionDemo.dpr` na IDE, ou pela linha de comando:

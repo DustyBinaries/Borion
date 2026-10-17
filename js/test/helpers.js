@@ -62,7 +62,7 @@ export function bootPage({ webview = fakeWebview(), runs = 1 } = {}) {
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   for (let i = 0; i < runs; i++) vm.runInContext(bridgeSource(), sandbox);
-  return { win: sandbox, wv: webview, borion: sandbox.borion, consoleErrors };
+  return { win: sandbox, wv: webview, borion: sandbox.__BORION__, consoleErrors };
 }
 
 export function response(id, result) {

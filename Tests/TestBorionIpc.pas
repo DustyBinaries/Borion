@@ -808,7 +808,7 @@ var
   S: string;
 begin
   S := BorionBridgeScript;
-  Check(Pos('defineProperty(window, "borion"', S) > 0);
+  Check(Pos('defineProperty(window, "borion"', S) = 0, 'sem window.borion, só __BORION__');
   Check(Pos('defineProperty(window, "__BORION__"', S) > 0);
   Check(Pos('version: "' + BORION_VERSION + '"', S) > 0, 'versão da ponte');
   Check(Pos('''', S) = 0, 'a ponte não deve ter aspas simples (vive numa string Pascal)');

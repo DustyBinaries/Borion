@@ -11,8 +11,8 @@ const parar = listen('progresso', (p) => console.log(p.pct));
 emit('salvou', { id: 7 });
 ```
 
-É uma camada fina sobre a ponte que o `TBorionIpc` injeta em toda página (`window.borion`).
-Sem bundler, use a ponte direto, sem instalar nada: `window.borion.invoke(...)`.
+É uma camada fina sobre a ponte que o `TBorionIpc` injeta em toda página (`window.__BORION__`).
+Sem bundler, use a ponte direto, sem instalar nada: `window.__BORION__.invoke(...)`.
 
 ## Instalação
 
@@ -32,7 +32,7 @@ ou no `package.json` do frontend:
 }
 ```
 
-Os tipos TypeScript vêm junto (`index.d.ts`). Para tipar também o `window.borion` global,
+Os tipos TypeScript vêm junto (`index.d.ts`). Para tipar também o `window.__BORION__` global,
 importe os tipos globais uma vez:
 
 ```ts

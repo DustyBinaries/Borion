@@ -1,6 +1,6 @@
 unit uComandos;
 
-{ Comandos da demonstração, chamados pela página com borion.invoke(...).
+{ Comandos da demonstração, chamados pela página com __BORION__.invoke(...).
   São procedures simples (RegisterCommandProc): o "backend" não precisa de form. }
 
 interface
