@@ -179,8 +179,9 @@ Documentação: [CONFIG.md](CONFIG.md).
 - [x] Evento `close-requested` interceptável pelo JS ("deseja salvar?"): `onCloseRequested` com
       handler `async` e `preventDefault()`. Uma página que não responde não prende a janela.
 - [ ] Persistir tamanho, posição e estado (plugin *window-state*).
-- [ ] **Janela sem borda** com barra de título em HTML: arrastar pela região
-      (`app-region: drag` no runtime recente, ou `WM_NCHITTEST` no form).
+- [x] **Janela sem borda** com barra de título em HTML: `data-borion-drag-region` (arrastar e
+      duplo clique para maximizar), `startDragging`/`startResizeDragging`, a beirada da página
+      redimensionando e o maximizado na área de trabalho (`Examples/Titlebar`).
 - [ ] **DPI**: manifesto per-monitor e escalonamento. A VCL do Delphi 7 não é DPI-aware, então
       precisa de atenção.
 

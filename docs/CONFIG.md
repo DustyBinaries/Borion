@@ -99,7 +99,7 @@ chave ausente.
 | `app.windows[].resizable` | lógico | `false`: borda fixa, sem maximizar (padrão `true`) |
 | `app.windows[].center` | lógico | `false`: posição escolhida pelo Windows (padrão `true`, centralizada) |
 | `app.windows[].maximized` | lógico | Abre maximizada |
-| `app.windows[].decorations` | lógico | `false`: sem borda nem barra de título. Feche a janela pelo plugin `app` (`exit`). A barra de título em HTML está no roadmap |
+| `app.windows[].decorations` | lógico | `false`: sem borda nem barra de título, para desenhar a barra em HTML ([plugin `window`](PLUGINS.md#barra-de-título-em-html): arrastar, maximizar, redimensionar pela beirada e os botões) |
 | `app.windows[].alwaysOnTop` | lógico | Sempre por cima das outras janelas |
 | `app.security.csp` | texto | O header `Content-Security-Policy` dos assets embutidos e da pasta no `--dev-dir`. Não vale para o servidor do Vite |
 | `bundle.icon` | lista | Os ícones do app, relativos ao `app.json`, como no `tauri.conf.json`. O primeiro `.ico` da lista vira o ícone do exe ([ícone](#ícone)); os `.png` e `.icns` são aceitos e ignorados |

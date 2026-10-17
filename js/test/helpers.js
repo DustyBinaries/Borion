@@ -25,6 +25,17 @@ export function bridgeSource() {
   return source;
 }
 
+// O script de arrastar do plugin window, exportado por
+// TTestBorionWindow.TestExportaScriptParaTestesJs
+export const WINDOW_DRAG_PATH = path.resolve(here, '../../Tests/out/borion-window-drag.js');
+
+export function windowDragSource() {
+  if (!fs.existsSync(WINDOW_DRAG_PATH)) {
+    throw new Error('Script não encontrado em ' + WINDOW_DRAG_PATH + '. Rode Tests/run-tests.bat.');
+  }
+  return fs.readFileSync(WINDOW_DRAG_PATH, 'utf8');
+}
+
 export function fakeWebview() {
   const handlers = [];
   const sent = [];

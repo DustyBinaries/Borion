@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: titlebar</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O borion build copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/window": "./borion-api/window.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <!-- A barra de título: arrasta pelo próprio elemento com data-borion-drag-region
+       (não pelos filhos: o título também tem o atributo; os botões, não). -->
+  <div class="titlebar" data-borion-drag-region>
+    <span class="titulo" data-borion-drag-region>Borion: titlebar</span>
+    <div class="controles">
+      <button id="min" title="Minimizar">&#xE921;</button>
+      <button id="max" title="Maximizar">&#xE922;</button>
+      <button id="close" class="fechar" title="Fechar">&#xE8BB;</button>
+    </div>
+  </div>
+
+  <main>
+    <h2>Janela sem borda, barra de título em HTML</h2>
+    <p>O <code>app.json</code> tem <code>"decorations": false</code>. A barra acima é HTML:</p>
+    <ul>
+      <li>arraste pela barra (<code>data-borion-drag-region</code>);</li>
+      <li>duplo clique na barra maximiza e restaura;</li>
+      <li>os botões usam <code>minimize()</code>, <code>toggleMaximize()</code> e <code>close()</code>
+        do <code>@borion/api/window</code>;</li>
+      <li>a beirada da página (5 px) redimensiona a janela; maximizada, ela fica na área de trabalho,
+        sem cobrir a barra de tarefas.</li>
+    </ul>
+
+    <section>
+      <h3>Opções</h3>
+      <label><input type="checkbox" id="resizable" checked> <code>setResizable()</code>: redimensionável</label>
+      <label><input type="checkbox" id="decorations"> <code>setDecorations()</code>: borda do Windows
+        (esconde a barra em HTML)</label>
+      <p class="dica">Sem a barra, <code>startDragging()</code> também arrasta a partir de qualquer
+        elemento: segure o mouse no quadro abaixo.</p>
+      <div id="alca" class="alca">arraste-me (<code>startDragging()</code> no <code>mousedown</code>)</div>
+    </section>
+
+    <p class="dica" id="estado"></p>
+  </main>
+</body>
+</html>

@@ -290,7 +290,8 @@ plugin [`window`](#window).
 
 ## `window`
 
-Exemplos: [`Examples/Window`](../Examples/Window/README.md) e
+Exemplos: [`Examples/Window`](../Examples/Window/README.md),
+[`Examples/Titlebar`](../Examples/Titlebar/README.md) (barra de título em HTML) e
 [`Examples/MultiWindow`](../Examples/MultiWindow/README.md).
 
 `TBorionWindowPlugin.Create([AForm])`: as páginas controlam as janelas, como o `window` do
@@ -308,6 +309,8 @@ o `width`/`height` do [`app.json`](CONFIG.md).
 | `setMinSize(w, h)`, `setMaxSize(w, h)` | Limites (`0` ou `null` = sem limite) |
 | `setFullscreen(b)` | Tela cheia: sem borda, o monitor inteiro; ao sair, volta como estava |
 | `setAlwaysOnTop(b)`, `setResizable(b)`, `setDecorations(b)` | Camada, borda redimensionável, borda e barra de título |
+| `startDragging()` | Arrasta a janela com o mouse; chame num `mousedown`. Numa barra de título, basta o atributo `data-borion-drag-region` ([abaixo](#barra-de-título-em-html)) |
+| `startResizeDragging(direcao)` | Redimensiona por uma borda (`'North'`, `'South'`, `'East'`, `'West'`, `'NorthEast'`, `'NorthWest'`, `'SouthEast'`, `'SouthWest'`); chame num `mousedown`. Sem decorations, a beirada da página já faz isso |
 | `state()` | `{title, x, y, width, height, minimized, maximized, fullscreen, visible, focused, alwaysOnTop, resizable, decorations}` |
 | `isMinimized()`, `isMaximized()`, `isFullscreen()`, `isVisible()`, `isFocused()` | Atalhos do `state()` |
 | `close()` | Pede para fechar, como o X: passa pelo `onCloseRequested` e pelo `OnCloseQuery` |
@@ -349,9 +352,8 @@ await win.onCloseRequested(async (event) => {
   redesenhar, agrupe num `requestAnimationFrame` (o exemplo faz isso).
 - **Form principal:** no Delphi 7, minimizá-lo minimiza a janela da `TApplication` (o botão da
   barra de tarefas), como o `app.minimize()`.
-- **`setDecorations(false)`:** sem borda, a janela não pode ser arrastada nem fechada pelo X;
-  deixe na página um jeito de voltar ou de fechar. A barra de título em HTML (região de
-  arrastar) está no [roadmap](ROADMAP.md).
+- **`setDecorations(false)`:** sem borda, não há o X; a página precisa de um jeito de fechar
+  (veja a barra de título em HTML, abaixo).
 - **Tela cheia:** mudar a borda em tela cheia vale para quando ela terminar. `setSize`,
   `setPosition` e `maximize` saem da tela cheia.
 
@@ -380,6 +382,45 @@ emitTo('main', 'nota', { texto: '...' });       // na nota; a principal faz list
   num form próprio, rejeita com `NOT_SUPPORTED`.
 - Fechar a janela principal fecha o app e as outras, sem passar pelo `onCloseRequested` das
   secundárias.
+
+### Barra de título em HTML
+
+Como no Tauri: tire a borda (`"decorations": false` no [`app.json`](CONFIG.md),
+`.Decorations(False)` no builder ou `setDecorations(false)`) e desenhe a barra na página. O
+plugin injeta em cada janela um script que:
+
+- **arrasta** a janela pelo elemento com o atributo `data-borion-drag-region` (o
+  `data-tauri-drag-region` do Tauri). Vale o próprio elemento, não os filhos: marque também os
+  textos da barra; os botões, sem o atributo, continuam botões. `data-borion-drag-region="false"`
+  desliga;
+- **maximiza e restaura** com um duplo clique nesse elemento, se a janela for redimensionável;
+- **redimensiona** pela beirada da página (5 px, cantos um pouco maiores), com o cursor de
+  redimensionar, se a janela não tiver decorations, for redimensionável e não estiver
+  maximizada nem em tela cheia. Nessa faixa, a página não recebe o `mousedown`.
+
+Sem borda, a janela maximizada fica na área de trabalho do monitor, sem cobrir a barra de
+tarefas. Os botões são comuns:
+
+```html
+<div class="titlebar" data-borion-drag-region>
+  <span data-borion-drag-region>Meu app</span>
+  <div class="controles">
+    <button id="min">–</button>
+    <button id="max">□</button>
+    <button id="close">✕</button>
+  </div>
+</div>
+```
+
+```js
+import * as win from '@borion/api/window';
+
+document.getElementById('min').onclick = () => win.minimize();
+document.getElementById('max').onclick = () => win.toggleMaximize();
+document.getElementById('close').onclick = () => win.close();   // passa pelo onCloseRequested
+```
+
+Fora da barra, `startDragging()` num `mousedown` arrasta a janela a partir de qualquer elemento.
 
 ## `clipboard`
 

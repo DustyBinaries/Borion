@@ -198,6 +198,7 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, num form Delphi tradicional, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
 | `Examples/Editor/` | Editor de texto com Vite + JS puro, feito só com os plugins oficiais ([README](Examples/Editor/README.md)) |
+| `Examples/Titlebar/` | Janela sem borda com a barra de título em HTML: arrastar, maximizar com duplo clique, redimensionar pela beirada e botões próprios ([README](Examples/Titlebar/README.md)) |
 | `Examples/MultiWindow/` | Várias janelas: uma do `app.json` aberta sob demanda, outras criadas pela página, tema e notas trocados com `emitTo` ([README](Examples/MultiWindow/README.md)) |
 | `Examples/Menu/`, `Tray/`, `App/`, `Window/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/`, `GlobalShortcut/`, `Log/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Window](Examples/Window/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md), [GlobalShortcut](Examples/GlobalShortcut/README.md), [Log](Examples/Log/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
@@ -233,6 +234,11 @@ lado a lado, uma página que o `fetch` do navegador não alcança por CORS; noti
 botões; o app que abre uma vez só e recebe os argumentos das próximas execuções; links
 `borion-exemplo://` abrindo o app; a inicialização com o Windows; atalhos globais com o app
 em segundo plano; e o log do Delphi e da página no mesmo arquivo.
+
+**[`Examples/Titlebar/`](Examples/Titlebar/README.md):** janela sem borda (`"decorations": false`)
+com a barra de título em HTML, como a do Tauri: arrasta pelos elementos com
+`data-borion-drag-region`, maximiza com duplo clique, redimensiona pela beirada da página e tem
+os botões de minimizar, maximizar e fechar feitos na página.
 
 **[`Examples/MultiWindow/`](Examples/MultiWindow/README.md):** várias janelas. A principal lista
 as abertas, abre a de configurações (definida no `app.json`, com `"create": false`) e cria notas

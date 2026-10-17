@@ -16,6 +16,9 @@ unit BorionWindow;
     window:setMinSize / setMaxSize {width, height}   (0 = sem limite)
     window:setFullscreen {fullscreen}    window:setAlwaysOnTop {alwaysOnTop}
     window:setResizable {resizable}      window:setDecorations {decorations}
+    window:startDragging                 arrasta a janela (com o botão do mouse apertado)
+    window:startResizeDragging {direction}   redimensiona por uma borda: North, South,
+                     East, West, NorthEast, NorthWest, SouthEast ou SouthWest
     window:state -> {label, title, x, y, width, height, minimized, maximized,
                      fullscreen, visible, focused, alwaysOnTop, resizable, decorations}
     window:close     pede para fechar: passa pelo close-requested e pelo OnCloseQuery
@@ -32,6 +35,17 @@ unit BorionWindow;
     window:focus-changed {focused}
     window:close-requested {id}
   (window:created e window:destroyed {label}, para todas, saem do TBorionBuilder)
+
+  Barra de título em HTML (janela sem decorations): o plugin injeta em cada
+  janela um script (BorionWindowDragScript) que arrasta a janela pelos
+  elementos com o atributo data-borion-drag-region e maximiza/restaura com um
+  duplo clique neles. Vale o próprio elemento, não os filhos: marque também os
+  textos da barra, e os botões dentro dela continuam botões. Sem decorations e
+  redimensionável, a borda da página (5 px) redimensiona a janela. Só para o
+  script: window:internalToggleMaximize (só se redimensionável),
+  window:internalResizeBorder -> {enabled} e o evento window:resize-border
+  {enabled}. Uma janela sem decorations maximizada fica na área de trabalho,
+  sem cobrir a barra de tarefas.
 
   Fechamento interceptado ("deseja salvar?"): o onCloseRequested do
   @borion/api/window liga a interceptação da janela (window:interceptClose).
@@ -80,6 +94,10 @@ type
     procedure CmdSetAlwaysOnTop(Call: TBorionCall);
     procedure CmdSetResizable(Call: TBorionCall);
     procedure CmdSetDecorations(Call: TBorionCall);
+    procedure CmdStartDragging(Call: TBorionCall);
+    procedure CmdStartResizeDragging(Call: TBorionCall);
+    procedure CmdInternalToggleMaximize(Call: TBorionCall);
+    procedure CmdInternalResizeBorder(Call: TBorionCall);
     procedure CmdState(Call: TBorionCall);
     procedure CmdClose(Call: TBorionCall);
     procedure CmdDestroy(Call: TBorionCall);
@@ -108,6 +126,10 @@ type
     property Fullscreen: Boolean read GetFullscreen;
   end;
 
+{ O script que o plugin injeta em cada janela: a região de arrastar
+  (data-borion-drag-region) e a borda de redimensionar sem decorations }
+function BorionWindowDragScript: WideString;
+
 implementation
 
 uses
@@ -130,6 +152,7 @@ type
     FPendingId: Integer;      { close-requested sem resposta (0 = nenhum) }
     FClosing: Boolean;        { o próximo WM_CLOSE fecha de verdade }
     FResizable: Boolean;
+    FResizeBorder: Boolean;   { o último window:resize-border emitido }
     FFullscreen: Boolean;
     FSavedBounds: TRect;
     FSavedBorder: TFormBorderStyle;
@@ -143,6 +166,12 @@ type
     procedure FecharDeVerdade;
     procedure CancelarPedido;
     procedure AplicarBorda(Decorations: Boolean);
+    function Redimensionavel: Boolean;
+    procedure SetRedimensionavel(Value: Boolean);
+    function BordaDaPagina: Boolean;
+    procedure AvisarBordaDaPagina;
+    procedure LimitarMaximizada(Info: PMinMaxInfo);
+    procedure Arrastar(HitTest: Integer);
     procedure EntrarTelaCheia;
     procedure SairTelaCheia;
     function EhPrincipal: Boolean;
@@ -194,6 +223,7 @@ begin
   if (FForm = nil) or FHooked then
     Exit;
   FResizable := TFormAcesso(FForm).BorderStyle in [bsSizeable, bsSizeToolWin, bsNone];
+  FResizeBorder := BordaDaPagina;
   FOldWndProc := FForm.WindowProc;
   FForm.WindowProc := FormWndProc;
   FHooked := True;
@@ -243,8 +273,13 @@ begin
   end;
   FOldWndProc(Message);
   case Message.Msg of
+    WM_GETMINMAXINFO:
+      LimitarMaximizada(PMinMaxInfo(Message.LParam));
     WM_SIZE:
-      EmitirTamanho;
+      begin
+        EmitirTamanho;
+        AvisarBordaDaPagina;
+      end;
     WM_MOVE:
       if FForm <> nil then
         Emitir('window:moved', Format('{"x":%d,"y":%d}', [FForm.Left, FForm.Top]));
@@ -292,7 +327,7 @@ procedure TJanela.AplicarBorda(Decorations: Boolean);
 begin
   if not Decorations then
     F.BorderStyle := bsNone
-  else if FResizable then
+  else if Redimensionavel then
   begin
     F.BorderStyle := bsSizeable;
     F.BorderIcons := F.BorderIcons + [biMaximize];
@@ -302,6 +337,90 @@ begin
     F.BorderStyle := bsSingle;
     F.BorderIcons := F.BorderIcons - [biMaximize];
   end;
+  AvisarBordaDaPagina;
+end;
+
+{ a TBorionWindow guarda o "resizable" do app.json (sem borda, o BorderStyle
+  não diz); um form comum, só o plugin }
+function TJanela.Redimensionavel: Boolean;
+begin
+  if FForm is TBorionWindow then
+    Result := TBorionWindow(FForm).Resizable
+  else
+    Result := FResizable;
+end;
+
+procedure TJanela.SetRedimensionavel(Value: Boolean);
+begin
+  FResizable := Value;
+  if FForm is TBorionWindow then
+    TBorionWindow(FForm).Resizable := Value;
+end;
+
+{ a página redimensiona a janela pela borda: sem decorations, redimensionável
+  e no tamanho normal }
+function TJanela.BordaDaPagina: Boolean;
+begin
+  Result := (FForm <> nil) and not FFullscreen and (TFormAcesso(FForm).BorderStyle = bsNone) and
+    Redimensionavel and (FForm.WindowState = wsNormal) and not Minimizada;
+end;
+
+procedure TJanela.AvisarBordaDaPagina;
+var
+  B: Boolean;
+begin
+  B := BordaDaPagina;
+  if B = FResizeBorder then
+    Exit;
+  FResizeBorder := B;
+  Emitir('window:resize-border', '{"enabled":' + Logico(B) + '}');
+end;
+
+{ sem borda, o Windows maximiza sobre o monitor inteiro, cobrindo a barra de
+  tarefas: maximizada, a janela fica na área de trabalho }
+procedure TJanela.LimitarMaximizada(Info: PMinMaxInfo);
+var
+  M: TMonitor;
+begin
+  if (FForm = nil) or FFullscreen or (TFormAcesso(FForm).BorderStyle <> bsNone) or
+    not FForm.HandleAllocated then
+    Exit;
+  M := Screen.MonitorFromWindow(FForm.Handle);
+  if M = nil then
+    Exit;
+  { relativa ao monitor da janela }
+  Info.ptMaxPosition := Point(M.WorkareaRect.Left - M.BoundsRect.Left,
+    M.WorkareaRect.Top - M.BoundsRect.Top);
+  Info.ptMaxSize := Point(M.WorkareaRect.Right - M.WorkareaRect.Left,
+    M.WorkareaRect.Bottom - M.WorkareaRect.Top);
+end;
+
+function BotaoPrincipalApertado: Boolean;
+var
+  VK: Integer;
+begin
+  { o GetAsyncKeyState vê o botão físico }
+  if GetSystemMetrics(SM_SWAPBUTTON) <> 0 then
+    VK := VK_RBUTTON
+  else
+    VK := VK_LBUTTON;
+  Result := GetAsyncKeyState(VK) < 0;
+end;
+
+{ Arrasta (HTCAPTION) ou redimensiona (HTLEFT...) como se o clique fosse na
+  borda da janela: o Windows faz o resto, com o botão ainda apertado. A
+  mensagem chega pelo WebView2 depois do mousedown; se o botão já foi solto, o
+  loop do Windows ficaria preso ao mouse até o próximo clique. Postada: o loop
+  roda fora do callback do WebView2. }
+procedure TJanela.Arrastar(HitTest: Integer);
+var
+  P: TPoint;
+begin
+  if not BotaoPrincipalApertado then
+    Exit;
+  GetCursorPos(P);
+  ReleaseCapture;
+  PostMessage(F.Handle, WM_NCLBUTTONDOWN, HitTest, MakeLParam(Word(P.X), Word(P.Y)));
 end;
 
 procedure TJanela.EntrarTelaCheia;
@@ -443,6 +562,9 @@ begin
         L := Ipc.WindowLabel(I);
     end;
     Adicionar(L, FFixedForm);
+    B := Ipc.WindowBrowser(L);
+    if B <> nil then
+      B.AddScriptOnDocumentCreated(BorionWindowDragScript);
   end
   else if Ipc.WindowCount > 0 then
   begin
@@ -470,6 +592,10 @@ begin
   Command('setAlwaysOnTop', CmdSetAlwaysOnTop);
   Command('setResizable', CmdSetResizable);
   Command('setDecorations', CmdSetDecorations);
+  Command('startDragging', CmdStartDragging);
+  Command('startResizeDragging', CmdStartResizeDragging);
+  Command('internalToggleMaximize', CmdInternalToggleMaximize);
+  Command('internalResizeBorder', CmdInternalResizeBorder);
   Command('state', CmdState);
   Command('close', CmdClose);
   Command('destroy', CmdDestroy);
@@ -484,7 +610,10 @@ end;
 procedure TBorionWindowPlugin.WindowAdded(const WindowLabel: string; ABrowser: TWebView2Browser);
 begin
   if FFixedForm = nil then
+  begin
     Adicionar(WindowLabel, GetParentForm(ABrowser));
+    ABrowser.AddScriptOnDocumentCreated(BorionWindowDragScript);
+  end;
 end;
 
 procedure TBorionWindowPlugin.WindowRemoved(const WindowLabel: string; ABrowser: TWebView2Browser);
@@ -744,19 +873,21 @@ var
 begin
   B := Logica(Call, 'resizable');
   J := TJanela(Alvo(Call));
-  J.FResizable := B;
+  J.SetRedimensionavel(B);
   if J.FFullscreen then
   begin
     { em tela cheia, vale ao sair dela }
     if J.FSavedBorder = bsNone then
       Exit
-    else if J.FResizable then
+    else if B then
       J.FSavedBorder := bsSizeable
     else
       J.FSavedBorder := bsSingle;
   end
   else if J.F.BorderStyle <> bsNone then
-    J.AplicarBorda(True);
+    J.AplicarBorda(True)
+  else
+    J.AvisarBordaDaPagina;
 end;
 
 procedure TBorionWindowPlugin.CmdSetDecorations(Call: TBorionCall);
@@ -771,10 +902,57 @@ begin
   { em tela cheia, vale ao sair dela }
   else if not D then
     J.FSavedBorder := bsNone
-  else if J.FResizable then
+  else if J.Redimensionavel then
     J.FSavedBorder := bsSizeable
   else
     J.FSavedBorder := bsSingle;
+end;
+
+procedure TBorionWindowPlugin.CmdStartDragging(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  if not J.FFullscreen then
+    J.Arrastar(HTCAPTION);
+end;
+
+procedure TBorionWindowPlugin.CmdStartResizeDragging(Call: TBorionCall);
+const
+  Direcoes: array[0..7] of string = ('West', 'East', 'North', 'NorthWest', 'NorthEast',
+    'South', 'SouthWest', 'SouthEast');
+  HitTests: array[0..7] of Integer = (HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT,
+    HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT);
+var
+  J: TJanela;
+  D: string;
+  I: Integer;
+begin
+  D := Call.ArgStr('direction');
+  I := High(Direcoes);
+  while (I >= 0) and (Direcoes[I] <> D) do
+    Dec(I);
+  if I < 0 then
+    raise EBorionError.Create('INVALID_ARGS', '"direction" deve ser North, South, East, West, ' +
+      'NorthEast, NorthWest, SouthEast ou SouthWest');
+  J := TJanela(Alvo(Call));
+  if J.Redimensionavel and not J.FFullscreen and (J.F.WindowState = wsNormal) then
+    J.Arrastar(HitTests[I]);
+end;
+
+{ o duplo clique na região de arrastar, como na barra de título do Windows }
+procedure TBorionWindowPlugin.CmdInternalToggleMaximize(Call: TBorionCall);
+var
+  J: TJanela;
+begin
+  J := TJanela(Alvo(Call));
+  if J.Redimensionavel and not J.FFullscreen then
+    CmdToggleMaximize(Call);
+end;
+
+procedure TBorionWindowPlugin.CmdInternalResizeBorder(Call: TBorionCall);
+begin
+  Call.Result.AsObject.Put('enabled', TJanela(Alvo(Call)).BordaDaPagina);
 end;
 
 procedure TBorionWindowPlugin.CmdState(Call: TBorionCall);
@@ -796,7 +974,7 @@ begin
   O.Put('visible', J.F.Visible);
   O.Put('focused', J.F.HandleAllocated and (GetForegroundWindow = J.F.Handle));
   O.Put('alwaysOnTop', J.F.FormStyle = fsStayOnTop);
-  O.Put('resizable', J.FResizable);
+  O.Put('resizable', J.Redimensionavel);
   if J.FFullscreen then
     O.Put('decorations', J.FSavedBorder <> bsNone)
   else
@@ -911,6 +1089,77 @@ begin
   if Call.HasArg('visible') then C.Visible := Logica(Call, 'visible');
   BorionWindows.CreateWindow(C);
   Call.Result.AsObject.Put('label', L);
+end;
+
+{ --- script da página ------------------------------------------------------ }
+
+function BorionWindowDragScript: WideString;
+begin
+  { JS só com aspas duplas, para não precisar escapar no Pascal }
+  Result :=
+    '(function () {' + #10 +
+    '  "use strict";' + #10 +
+    '  if (window.__BORION_DRAG__ || window !== window.top) return;' + #10 +
+    '  var b = window.__BORION__;' + #10 +
+    '  if (!b) return;' + #10 +
+    '  Object.defineProperty(window, "__BORION_DRAG__", { value: true });' + #10 +
+    '  var ATTR = "data-borion-drag-region", EDGE = 5;' + #10 +
+    '  var CURSORS = { North: "ns", South: "ns", East: "ew", West: "ew",' + #10 +
+    '    NorthWest: "nwse", SouthEast: "nwse", NorthEast: "nesw", SouthWest: "nesw" };' + #10 +
+    '  var border = false, cursor = "", style = null;' + #10 +
+    '  function ignore() {}' + #10 +
+    '  function cmd(name, args) { b.invoke("window:" + name, args).catch(ignore); }' + #10 +
+    '  function setCursor(c) {' + #10 +
+    '    var root = document.documentElement;' + #10 +
+    '    if (c === cursor || !root) return;' + #10 +
+    '    cursor = c;' + #10 +
+    '    if (c && !style) {' + #10 +
+    '      style = document.createElement("style");' + #10 +
+    '      style.textContent = ["ns", "ew", "nwse", "nesw"].map(function (k) {' + #10 +
+    '        var s = "html[data-borion-resize=" + k + "]";' + #10 +
+    '        return s + ", " + s + " * { cursor: " + k + "-resize !important; }";' + #10 +
+    '      }).join("\n");' + #10 +
+    '      (document.head || root).appendChild(style);' + #10 +
+    '    }' + #10 +
+    '    if (c) root.setAttribute("data-borion-resize", c);' + #10 +
+    '    else root.removeAttribute("data-borion-resize");' + #10 +
+    '  }' + #10 +
+    '  function setBorder(p) {' + #10 +
+    '    border = !!(p && p.enabled);' + #10 +
+    '    if (!border) setCursor("");' + #10 +
+    '  }' + #10 +
+    '  /* a borda que redimensiona: so sem decorations, com a janela redimensionavel e normal */' + #10 +
+    '  function direction(e) {' + #10 +
+    '    if (!border) return "";' + #10 +
+    '    var w = window.innerWidth, h = window.innerHeight, x = e.clientX, y = e.clientY;' + #10 +
+    '    var n = y < EDGE, s = y >= h - EDGE, l = x < EDGE, r = x >= w - EDGE;' + #10 +
+    '    /* cantos mais largos que a borda */' + #10 +
+    '    if (n || s) { l = x < EDGE * 3; r = x >= w - EDGE * 3; }' + #10 +
+    '    else if (l || r) { n = y < EDGE * 3; s = y >= h - EDGE * 3; }' + #10 +
+    '    return (n ? "North" : s ? "South" : "") + (l ? "West" : r ? "East" : "");' + #10 +
+    '  }' + #10 +
+    '  b.invoke("window:internalResizeBorder").then(setBorder, ignore);' + #10 +
+    '  b.listen("window:resize-border", setBorder);' + #10 +
+    '  window.addEventListener("mousemove", function (e) {' + #10 +
+    '    var d = direction(e);' + #10 +
+    '    setCursor(d ? CURSORS[d] : "");' + #10 +
+    '  }, true);' + #10 +
+    '  window.addEventListener("mousedown", function (e) {' + #10 +
+    '    var d = e.button === 0 ? direction(e) : "";' + #10 +
+    '    if (!d) return;' + #10 +
+    '    e.preventDefault();' + #10 +
+    '    e.stopImmediatePropagation();' + #10 +
+    '    cmd("startResizeDragging", { direction: d });' + #10 +
+    '  }, true);' + #10 +
+    '  /* a regiao de arrastar: o proprio elemento com o atributo, nao os filhos */' + #10 +
+    '  document.addEventListener("mousedown", function (e) {' + #10 +
+    '    var t = e.target, v = t && t.getAttribute ? t.getAttribute(ATTR) : null;' + #10 +
+    '    if (e.button !== 0 || v === null || v === "false" || (e.detail !== 1 && e.detail !== 2)) return;' + #10 +
+    '    e.preventDefault();' + #10 +
+    '    e.stopImmediatePropagation();' + #10 +
+    '    cmd(e.detail === 2 ? "internalToggleMaximize" : "startDragging");' + #10 +
+    '  });' + #10 +
+    '})();';
 end;
 
 end.

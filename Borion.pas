@@ -69,6 +69,7 @@ type
     FWindowLabel: string;
     FAssets: TBorionAssets;
     FTitleFromPage: Boolean;
+    FResizable: Boolean;
     FOnCloseQuery: TBorionCloseQueryProc;
     FOnClose: TBorionCloseProc;
     procedure WMMove(var Message: TWMMove); message WM_MOVE;
@@ -98,6 +99,9 @@ type
     procedure ApplyConfig(const Config: TBorionWindowConfig; const DefaultTitle: string);
     { O caption acompanha o document.title da página (padrão: True) }
     property TitleFromPage: Boolean read FTitleFromPage write FTitleFromPage;
+    { Redimensionável pelo usuário. Sem decorations, pela borda da página
+      (plugin window); com elas, pela borda da janela. }
+    property Resizable: Boolean read FResizable write FResizable;
   end;
 
   { As janelas do app (o global BorionWindows, criado pelo TBorionBuilder.Run) }
@@ -268,6 +272,7 @@ end;
 procedure TBorionWindow.Preparar;
 begin
   FTitleFromPage := True;
+  FResizable := True;
   Position := poScreenCenter;
   FBrowser := TWebView2Browser.Create(Self);
   FBrowser.Parent := Self;
@@ -300,6 +305,7 @@ begin
   Constraints.MinHeight := Config.MinHeight;
   Constraints.MaxWidth := Config.MaxWidth;
   Constraints.MaxHeight := Config.MaxHeight;
+  FResizable := Config.Resizable;
   if Config.Center then
     Position := poScreenCenter
   else

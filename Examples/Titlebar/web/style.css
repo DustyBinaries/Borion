@@ -1,0 +1,41 @@
+:root {
+  --fundo: #f6f7f9; --painel: #fff; --texto: #1d2129; --suave: #5f6673; --borda: #dfe2e7;
+  --destaque: #6e56cf; --barra: #ece9f7; --barra-inativa: #f3f3f5;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; display: flex; flex-direction: column; background: var(--fundo); color: var(--texto);
+  font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+  /* sem a borda do Windows, uma linha fina marca a beirada da janela */
+  border: 1px solid var(--borda);
+}
+body.decorada { border: 0; }
+
+.titlebar {
+  height: 32px; flex: none; display: flex; justify-content: space-between; align-items: center;
+  background: var(--barra); user-select: none;
+}
+body.inativa .titlebar { background: var(--barra-inativa); color: var(--suave); }
+body.decorada .titlebar { display: none; }
+.titulo { padding-left: 12px; font-size: 12px; }
+.controles { display: flex; height: 100%; }
+.controles button {
+  width: 46px; height: 100%; border: 0; background: transparent; color: inherit; cursor: default;
+  font: 10px "Segoe MDL2 Assets", "Segoe Fluent Icons", sans-serif;
+}
+.controles button:hover { background: rgba(0, 0, 0, .08); }
+.controles .fechar:hover { background: #c42b1c; color: #fff; }
+
+main { flex: 1; overflow: auto; padding: 16px 20px; max-width: 760px; }
+h2 { font-size: 16px; margin: 0 0 8px; }
+h3 { font-size: 14px; margin: 0 0 6px; }
+section { background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 12px 16px; }
+section label { display: block; margin: 4px 0; }
+.dica { color: var(--suave); font-size: 13px; }
+code { font: 12px Consolas, monospace; background: var(--fundo); border: 1px solid var(--borda); border-radius: 4px; padding: 0 4px; }
+.alca {
+  margin-top: 8px; padding: 18px; text-align: center; border: 1px dashed var(--destaque); border-radius: 6px;
+  color: var(--destaque); user-select: none; cursor: move;
+}

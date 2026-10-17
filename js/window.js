@@ -35,6 +35,17 @@ function methods(label) {
     setResizable: (resizable) => cmd('setResizable', { resizable: !!resizable }),
     /** false: sem borda nem barra de título. */
     setDecorations: (decorations) => cmd('setDecorations', { decorations: !!decorations }),
+    /**
+     * Arrasta a janela com o mouse, chamado num mousedown (botão principal apertado).
+     * Para a barra de título em HTML, o atributo data-borion-drag-region já faz isso.
+     */
+    startDragging: () => cmd('startDragging'),
+    /**
+     * Redimensiona pela borda, chamado num mousedown: 'North', 'South', 'East', 'West',
+     * 'NorthEast', 'NorthWest', 'SouthEast' ou 'SouthWest'. Sem decorations, a borda da
+     * página já faz isso.
+     */
+    startResizeDragging: (direction) => cmd('startResizeDragging', { direction: String(direction) }),
     /** { label, title, x, y, width, height, minimized, maximized, fullscreen, visible, focused, alwaysOnTop, resizable, decorations } */
     state,
     isMinimized: () => state().then((s) => s.minimized),
@@ -54,7 +65,7 @@ const current = methods(undefined);
 export const {
   setTitle, minimize, unminimize, maximize, unmaximize, toggleMaximize, show, hide, setFocus,
   center, setSize, setPosition, setMinSize, setMaxSize, setFullscreen, setAlwaysOnTop,
-  setResizable, setDecorations, state, isMinimized, isMaximized, isFullscreen, isVisible,
+  setResizable, setDecorations, startDragging, startResizeDragging, state, isMinimized, isMaximized, isFullscreen, isVisible,
   isFocused, close, destroy,
 } = current;
 

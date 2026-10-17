@@ -225,11 +225,12 @@ describe('@borion/api/window', () => {
     await win.setAlwaysOnTop(false);
     await win.setResizable(true);
     await win.setDecorations(0);
+    await win.startResizeDragging('SouthEast');
     for (const fn of [win.minimize, win.unminimize, win.maximize, win.unmaximize, win.toggleMaximize,
-      win.show, win.hide, win.setFocus, win.center, win.close, win.destroy]) {
+      win.show, win.hide, win.setFocus, win.center, win.startDragging, win.close, win.destroy]) {
       assert.equal(await fn(), undefined);
     }
-    assert.deepEqual(chamadas.slice(0, 9), [
+    assert.deepEqual(chamadas.slice(0, 10), [
       ['window:setTitle', { title: '42' }],
       ['window:setSize', { width: 800, height: 600 }],
       ['window:setPosition', { x: -10, y: 20 }],
@@ -239,10 +240,11 @@ describe('@borion/api/window', () => {
       ['window:setAlwaysOnTop', { alwaysOnTop: false }],
       ['window:setResizable', { resizable: true }],
       ['window:setDecorations', { decorations: false }],
+      ['window:startResizeDragging', { direction: 'SouthEast' }],
     ]);
-    assert.deepEqual(chamadas.slice(9).map((c) => c[0]), ['window:minimize', 'window:unminimize',
+    assert.deepEqual(chamadas.slice(10).map((c) => c[0]), ['window:minimize', 'window:unminimize',
       'window:maximize', 'window:unmaximize', 'window:toggleMaximize', 'window:show', 'window:hide',
-      'window:setFocus', 'window:center', 'window:close', 'window:destroy']);
+      'window:setFocus', 'window:center', 'window:startDragging', 'window:close', 'window:destroy']);
   });
 
   test('state e os atalhos is*', async () => {

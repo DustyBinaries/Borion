@@ -7,7 +7,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Controls, Forms, TestFramework, Jsons,
-  BorionIpc, BorionWindow, Borion, TestBorionPlugins;
+  BorionIpc, BorionWindow, Borion, BorionConfig, TestBorionPlugins;
 
 type
   TTestBorionWindow = class(TTesteComIpc)
@@ -41,6 +41,12 @@ type
     procedure TestDesligarInterceptacao;
     procedure TestFormLiberadoAntesDoPlugin;
     procedure TestTituloFixoNaTBorionWindow;
+    procedure TestArrastarSemBotaoApertado;
+    procedure TestBordaDaPagina;
+    procedure TestDuploCliqueSoSeRedimensionavel;
+    procedure TestMaximizadaSemBordaNaAreaDeTrabalho;
+    procedure TestRedimensionavelDoAppJsonSemBorda;
+    procedure TestExportaScriptParaTestesJs;
   end;
 
 implementation
@@ -365,6 +371,137 @@ begin
   finally
     Janela.Free;
   end;
+end;
+
+procedure TTestBorionWindow.TestArrastarSemBotaoApertado;
+begin
+  { sem o botão do mouse apertado, nada acontece (o loop do Windows ficaria
+    preso ao mouse) }
+  Ok('window:startDragging', '');
+  Ok('window:startResizeDragging', '{"direction":"SouthEast"}');
+  CheckEquals(100, FForm.Left);
+  CheckEquals(800, FForm.Width);
+  CheckEquals('INVALID_ARGS', Erro('window:startResizeDragging', '{"direction":"Sul"}'));
+  CheckEquals('INVALID_ARGS', Erro('window:startResizeDragging', ''));
+end;
+
+procedure TTestBorionWindow.TestBordaDaPagina;
+
+  function Ligada: Boolean;
+  begin
+    Result := Ok('window:internalResizeBorder', '') = '{"enabled":true}';
+  end;
+
+begin
+  CheckFalse(Ligada, 'com borda, quem redimensiona é o Windows');
+  FPosts.Clear;
+  Ok('window:setDecorations', '{"decorations":false}');
+  Check(Ligada);
+  Check(Pos('"event":"window:resize-border","payload":{"enabled":true}', FPosts.Text) > 0, FPosts.Text);
+  FPosts.Clear;
+  Ok('window:setResizable', '{"resizable":false}');
+  CheckFalse(Ligada);
+  Check(Pos('"payload":{"enabled":false}', FPosts.Text) > 0, FPosts.Text);
+  Ok('window:setResizable', '{"resizable":true}');
+  Check(Ligada);
+  Ok('window:maximize', '');
+  CheckFalse(Ligada, 'maximizada não redimensiona');
+  Ok('window:unmaximize', '');
+  Check(Ligada);
+  Ok('window:setFullscreen', '{"fullscreen":true}');
+  CheckFalse(Ligada, 'nem em tela cheia');
+  Ok('window:setFullscreen', '{"fullscreen":false}');
+  Check(Ligada);
+  FPosts.Clear;
+  Ok('window:state', '');
+  CheckEquals(0, Eventos('window:resize-border'), 'só avisa quando muda');
+  Ok('window:setDecorations', '{"decorations":true}');
+  CheckFalse(Ligada);
+end;
+
+procedure TTestBorionWindow.TestDuploCliqueSoSeRedimensionavel;
+begin
+  Ok('window:setResizable', '{"resizable":false}');
+  Ok('window:internalToggleMaximize', '');
+  Check(FForm.WindowState = wsNormal, 'como a barra de título do Windows');
+  Ok('window:setResizable', '{"resizable":true}');
+  Ok('window:internalToggleMaximize', '');
+  Check(FForm.WindowState = wsMaximized);
+  Ok('window:internalToggleMaximize', '');
+  Check(FForm.WindowState = wsNormal);
+end;
+
+procedure TTestBorionWindow.TestMaximizadaSemBordaNaAreaDeTrabalho;
+var
+  Info: TMinMaxInfo;
+  M: TMonitor;
+begin
+  M := Screen.MonitorFromWindow(FForm.Handle);
+  Ok('window:setDecorations', '{"decorations":false}');
+  FillChar(Info, SizeOf(Info), 0);
+  SendMessage(FForm.Handle, WM_GETMINMAXINFO, 0, Integer(@Info));
+  CheckEquals(M.WorkareaRect.Right - M.WorkareaRect.Left, Info.ptMaxSize.X);
+  CheckEquals(M.WorkareaRect.Bottom - M.WorkareaRect.Top, Info.ptMaxSize.Y);
+  CheckEquals(M.WorkareaRect.Left - M.BoundsRect.Left, Info.ptMaxPosition.X);
+  CheckEquals(M.WorkareaRect.Top - M.BoundsRect.Top, Info.ptMaxPosition.Y);
+  { com borda, o Windows decide }
+  Ok('window:setDecorations', '{"decorations":true}');
+  FillChar(Info, SizeOf(Info), 0);
+  SendMessage(FForm.Handle, WM_GETMINMAXINFO, 0, Integer(@Info));
+  CheckEquals(0, Info.ptMaxSize.X);
+end;
+
+procedure TTestBorionWindow.TestRedimensionavelDoAppJsonSemBorda;
+var
+  Janela: TBorionWindow;
+  C: TBorionWindowConfig;
+  Win: TBorionWindowPlugin;
+
+  function Invocar(const Cmd: string): string;
+  begin
+    FPosts.Clear;
+    Janela.Ipc.ProcessMessage('{"__borion":1,"kind":"invoke","id":"1","cmd":"' + Cmd +
+      '","args":{}}', 'https://app.localhost/');
+    Result := FPosts.Text;
+  end;
+
+begin
+  Janela := TBorionWindow.Create(nil);
+  try
+    Janela.Ipc.OnPost := Postou;
+    Janela.Ipc.AllowOrigin('https://app.localhost/');
+    C := BorionDefaultWindow;
+    C.Decorations := False;
+    C.Resizable := False;
+    Janela.ApplyConfig(C, 'x');
+    Win := TBorionWindowPlugin(Janela.Ipc.AddPlugin(TBorionWindowPlugin.Create));
+    Check(Win.Form = Janela);
+    { sem borda, o BorderStyle não diz se é redimensionável: vem da TBorionWindow }
+    Check(Pos('"resizable":false', Invocar('window:state')) > 0, FPosts.Text);
+    Check(Pos('"enabled":false', Invocar('window:internalResizeBorder')) > 0, FPosts.Text);
+  finally
+    Janela.Free;
+  end;
+end;
+
+procedure TTestBorionWindow.TestExportaScriptParaTestesJs;
+var
+  Pasta, Arquivo: string;
+  F: TextFile;
+begin
+  Check(Pos('''', BorionWindowDragScript) = 0, 'o script não deve ter aspas simples');
+  { os testes JS (js/test) carregam o script deste arquivo }
+  Pasta := ExtractFilePath(ParamStr(0)) + 'out';
+  ForceDirectories(Pasta);
+  Arquivo := Pasta + '\borion-window-drag.js';
+  AssignFile(F, Arquivo);
+  Rewrite(F);
+  try
+    Write(F, string(BorionWindowDragScript));  { só ASCII }
+  finally
+    CloseFile(F);
+  end;
+  Check(FileExists(Arquivo));
 end;
 
 initialization

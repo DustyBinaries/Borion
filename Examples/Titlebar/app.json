@@ -1,0 +1,19 @@
+{
+  "productName": "Borion: titlebar",
+  "version": "0.1.0",
+  "identifier": "com.borion.exemplo.titlebar",
+  "build": {
+    "frontendDist": "web"
+  },
+  "app": {
+    "windows": [
+      {
+        "width": 900,
+        "height": 600,
+        "minWidth": 480,
+        "minHeight": 320,
+        "decorations": false
+      }
+    ]
+  }
+}

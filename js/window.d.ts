@@ -28,6 +28,10 @@ export interface WindowPosition {
   y: number;
 }
 
+export type ResizeDirection =
+  | 'North' | 'South' | 'East' | 'West'
+  | 'NorthEast' | 'NorthWest' | 'SouthEast' | 'SouthWest';
+
 export interface CloseRequestedEvent {
   readonly id: number;
   readonly defaultPrevented: boolean;
@@ -54,6 +58,13 @@ export declare function setFullscreen(fullscreen: boolean): Promise<void>;
 export declare function setAlwaysOnTop(alwaysOnTop: boolean): Promise<void>;
 export declare function setResizable(resizable: boolean): Promise<void>;
 export declare function setDecorations(decorations: boolean): Promise<void>;
+/**
+ * Arrasta a janela com o mouse; chame num mousedown. Para a barra de título em HTML,
+ * basta o atributo data-borion-drag-region.
+ */
+export declare function startDragging(): Promise<void>;
+/** Redimensiona pela borda; chame num mousedown. Sem decorations, a borda da página já faz isso. */
+export declare function startResizeDragging(direction: ResizeDirection): Promise<void>;
 export declare function state(): Promise<WindowState>;
 export declare function isMinimized(): Promise<boolean>;
 export declare function isMaximized(): Promise<boolean>;
@@ -96,6 +107,8 @@ export interface BorionWindow {
   setAlwaysOnTop(alwaysOnTop: boolean): Promise<void>;
   setResizable(resizable: boolean): Promise<void>;
   setDecorations(decorations: boolean): Promise<void>;
+  startDragging(): Promise<void>;
+  startResizeDragging(direction: ResizeDirection): Promise<void>;
   state(): Promise<WindowState>;
   isMinimized(): Promise<boolean>;
   isMaximized(): Promise<boolean>;
