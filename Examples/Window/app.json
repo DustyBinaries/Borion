@@ -1,0 +1,18 @@
+{
+  "productName": "Borion: window",
+  "version": "0.1.0",
+  "identifier": "com.borion.exemplo.window",
+  "build": {
+    "frontendDist": "web"
+  },
+  "app": {
+    "windows": [
+      {
+        "width": 960,
+        "height": 760,
+        "minWidth": 640,
+        "minHeight": 480
+      }
+    ]
+  }
+}

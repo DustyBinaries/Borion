@@ -1,7 +1,7 @@
 # Borion: plugins
 
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
-`clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut`, `log`), com API tipada no JS
+`window`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut`, `log`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Borion/Plugins/`, adicionada com uma
 linha no [`TBorionBuilder`](../README.md#criando-um-app):
 
@@ -35,6 +35,7 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`menu`](#menu)
 - [`tray`](#tray)
 - [`app`](#app)
+- [`window`](#window)
 - [`clipboard`](#clipboard)
 - [`store`](#store)
 - [`os`](#os)
@@ -282,7 +283,75 @@ item "Sair" não tem como fechar o app sem ela.
 | `exit()` | Fecha a janela principal (passa pelo `OnCloseQuery`/`OnClose` do form) |
 | `show()` | Mostra e traz a janela para frente, inclusive se estiver na bandeja |
 | `hide()` / `minimize()` | Esconde / minimiza a janela |
-| `info()` | `{name, version, exe, pid}`; `version` é o `FileVersion` do exe (`''` se não houver) |
+| `info()` | `{name, version, identifier, exe, pid}`; `version` e `identifier` vêm do [`app.json`](CONFIG.md); sem eles, o `FileVersion` do exe e `''` |
+
+Para controlar a janela em detalhe (tamanho, tela cheia, o "deseja salvar?" ao fechar), use o
+plugin [`window`](#window).
+
+## `window`
+
+Exemplo: [`Examples/Window`](../Examples/Window/README.md).
+
+`TBorionWindowPlugin.Create([AForm])`: a página controla a própria janela, como o `window` do
+Tauri. Sem `AForm`, controla o form do browser do Ipc. Tamanhos e posições são em pixels, da
+janela inteira, como o `width`/`height` do [`app.json`](CONFIG.md).
+
+| JS (`@borion/api/window`) | O que faz |
+|---|---|
+| `setTitle(titulo)` | Muda o título. Numa `TBorionWindow`, ele deixa de acompanhar o `document.title` |
+| `minimize()`, `unminimize()`, `maximize()`, `unmaximize()`, `toggleMaximize()` | Estado da janela |
+| `show()`, `hide()`, `setFocus()` | Mostra, esconde, traz para frente (restaurando se minimizada) |
+| `center()` | Centraliza na área de trabalho do monitor onde a janela está |
+| `setSize(w, h)`, `setPosition(x, y)` | Tamanho e posição; saem da tela cheia e do maximizado |
+| `setMinSize(w, h)`, `setMaxSize(w, h)` | Limites (`0` ou `null` = sem limite) |
+| `setFullscreen(b)` | Tela cheia: sem borda, o monitor inteiro; ao sair, volta como estava |
+| `setAlwaysOnTop(b)`, `setResizable(b)`, `setDecorations(b)` | Camada, borda redimensionável, borda e barra de título |
+| `state()` | `{title, x, y, width, height, minimized, maximized, fullscreen, visible, focused, alwaysOnTop, resizable, decorations}` |
+| `isMinimized()`, `isMaximized()`, `isFullscreen()`, `isVisible()`, `isFocused()` | Atalhos do `state()` |
+| `close()` | Pede para fechar, como o X: passa pelo `onCloseRequested` e pelo `OnCloseQuery` |
+| `destroy()` | Fecha sem o `onCloseRequested` (o `OnCloseQuery` do Delphi ainda vale) |
+| `onResized(({width, height, minimized, maximized}) => ...)` | A janela mudou de tamanho ou de estado |
+| `onMoved(({x, y}) => ...)` | A janela mudou de lugar |
+| `onFocusChanged((focada) => ...)` | Ganhou ou perdeu o foco |
+| `onCloseRequested(async (event) => ...)` | Alguém tentou fechar; `event.preventDefault()` mantém a janela aberta. Resolve com a função para parar |
+
+```js
+import * as win from '@borion/api/window';
+
+await win.onCloseRequested(async (event) => {
+  if (!alterado) return;                       // deixa fechar
+  const escolha = await perguntarSalvar();     // um <dialog> em HTML, pode demorar
+  if (escolha === 'cancelar') event.preventDefault();
+  else if (escolha === 'salvar') await salvar();
+});
+```
+
+**O fechamento interceptado:**
+
+- Com pelo menos um `onCloseRequested`, todo pedido de fechar vira o evento: o X, o Alt+F4, o
+  `app.exit()` e o `close()`.
+- O handler pode ser `async` e levar o tempo que precisar. Os handlers rodam em ordem, e um
+  `preventDefault()` em qualquer um deles mantém a janela aberta.
+- Enquanto um pedido está em aberto, os próximos esperam: um segundo clique no X não abre
+  outro diálogo.
+- **Se a página não responder,** a janela fecha assim mesmo, para uma página travada, recarregada
+  ou com erro no handler não prender o app aberto. A página confirma o recebimento na hora; sem
+  essa confirmação em `AckTimeout` ms (padrão 2000), o Delphi fecha. Um handler que lança erro
+  também deixa fechar (o erro vai para o `console.error`).
+- Depois do JS, o `OnCloseQuery` do Delphi (`.OnCloseQuery` do builder) ainda pode recusar.
+- Parar o último handler desliga a interceptação.
+
+**Outros detalhes:**
+
+- **Eventos em rajada:** `onResized` e `onMoved` chegam várias vezes por segundo ao arrastar. Para
+  redesenhar, agrupe num `requestAnimationFrame` (o exemplo faz isso).
+- **Form principal:** no Delphi 7, minimizá-lo minimiza a janela da `TApplication` (o botão da
+  barra de tarefas), como o `app.minimize()`.
+- **`setDecorations(false)`:** sem borda, a janela não pode ser arrastada nem fechada pelo X;
+  deixe na página um jeito de voltar ou de fechar. A barra de título em HTML (região de
+  arrastar) está no [roadmap](ROADMAP.md).
+- **Tela cheia:** mudar a borda em tela cheia vale para quando ela terminar. `setSize`,
+  `setPosition` e `maximize` saem da tela cheia.
 
 ## `clipboard`
 
@@ -712,6 +781,8 @@ end;
   [Unicode completo](#unicode-completo-json-só-com-ascii)).
 - Os atalhos do `menu` só funcionam com o foco na janela do app (não são atalhos globais do
   sistema). O `popup` e o menu da bandeja são menus Win32 sem ícones.
+- O `window` controla uma janela: a do Ipc em que foi adicionado. Várias janelas estão no
+  roadmap.
 - Ainda faltam os caminhos do `os`/`app`,
   imagens no `clipboard` e o upload com `FormData` no `http`: veja o
   [roadmap](ROADMAP.md).

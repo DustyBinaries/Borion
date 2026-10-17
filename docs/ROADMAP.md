@@ -162,11 +162,14 @@ Documentação: [CONFIG.md](CONFIG.md).
 
 **Janelas**
 - [ ] `TAppWindow`: um form com browser, criado pela configuração ou em tempo de execução.
-- [ ] API JS de janela: `setTitle`, `minimize`, `maximize`, `close`, `setSize`, `center`,
-      `setFullscreen`, `setAlwaysOnTop`, `show`/`hide`.
+- [x] API JS de janela: plugin `window` (`@borion/api/window`) com `setTitle`, `minimize`,
+      `maximize`, `close`, `setSize`, `setPosition`, `center`, `setFullscreen`, `setAlwaysOnTop`,
+      `setResizable`, `setDecorations`, `show`/`hide`, `state()` e os eventos `onResized`,
+      `onMoved` e `onFocusChanged`.
 - [ ] Múltiplas janelas, com rótulo e mensagens entre elas (`app.windows[1..]`, que hoje só geram
       aviso; `TBorionWindow.ApplyConfig` já aplica uma `TBorionWindowConfig` a qualquer janela).
-- [ ] Evento `close-requested` interceptável pelo JS ("deseja salvar?").
+- [x] Evento `close-requested` interceptável pelo JS ("deseja salvar?"): `onCloseRequested` com
+      handler `async` e `preventDefault()`. Uma página que não responde não prende a janela.
 - [ ] Persistir tamanho, posição e estado (plugin *window-state*).
 - [ ] **Janela sem borda** com barra de título em HTML: arrastar pela região
       (`app-region: drag` no runtime recente, ou `WM_NCHITTEST` no form).
@@ -185,7 +188,7 @@ Documentação: [PLUGINS.md](PLUGINS.md).
       `plugin:comando`), adicionado com `Ipc.AddPlugin(...)` numa linha. `CommandLater` /
       `Ipc.Later` para comandos que abrem janelas modais fora do callback do WebView2.
 - [ ] Script JS opcional por plugin (injetado junto com a ponte).
-- [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`,
+- [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`, `/window`,
       `/clipboard`, `/store`, `/os`, `/http`,
       `/notification`, `/single-instance`, `/deep-link`, `/autostart`,
       `/global-shortcut`, `/log`.
@@ -335,5 +338,6 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4, a CLI `borion new`/`dev`/`build` fechou o Marco 6, e o `app.json`
-configura o app e a janela principal. Próximos candidatos: as janelas da Fase 3 (`TAppWindow`, API
-JS de janela, várias janelas, rumo ao Marco 3), o `sql` (opcional) e os caminhos do `os`/`app`.
+configura o app e a janela principal, que a página controla pelo plugin `window`. Próximos
+candidatos: várias janelas (`TAppWindow`, rumo ao Marco 3) e o *window-state* na Fase 3, o `sql`
+(opcional) e os caminhos do `os`/`app`.

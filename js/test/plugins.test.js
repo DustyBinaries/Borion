@@ -19,6 +19,7 @@ import * as deepLink from '../deep-link.js';
 import * as autostart from '../autostart.js';
 import * as globalShortcut from '../global-shortcut.js';
 import * as log from '../log.js';
+import * as win from '../window.js';
 
 let chamadas;
 let respostas;
@@ -206,6 +207,115 @@ describe('@borion/api/app', () => {
     assert.equal((await app.info()).name, 'Editor');
     for (const fn of [app.exit, app.show, app.hide, app.minimize]) assert.equal(await fn(), undefined);
     assert.deepEqual(chamadas.map((c) => c[0]), ['app:info', 'app:exit', 'app:show', 'app:hide', 'app:minimize']);
+  });
+});
+
+describe('@borion/api/window', () => {
+  // o handler do close-requested é async: espera as Promises encadeadas dele
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+
+  test('comandos e argumentos', async () => {
+    await win.setTitle(42);
+    await win.setSize(800, 600);
+    await win.setPosition(-10, 20);
+    await win.setMinSize(400, null);
+    await win.setMaxSize();
+    await win.setFullscreen(1);
+    await win.setAlwaysOnTop(false);
+    await win.setResizable(true);
+    await win.setDecorations(0);
+    for (const fn of [win.minimize, win.unminimize, win.maximize, win.unmaximize, win.toggleMaximize,
+      win.show, win.hide, win.setFocus, win.center, win.close, win.destroy]) {
+      assert.equal(await fn(), undefined);
+    }
+    assert.deepEqual(chamadas.slice(0, 9), [
+      ['window:setTitle', { title: '42' }],
+      ['window:setSize', { width: 800, height: 600 }],
+      ['window:setPosition', { x: -10, y: 20 }],
+      ['window:setMinSize', { width: 400, height: 0 }],
+      ['window:setMaxSize', { width: 0, height: 0 }],
+      ['window:setFullscreen', { fullscreen: true }],
+      ['window:setAlwaysOnTop', { alwaysOnTop: false }],
+      ['window:setResizable', { resizable: true }],
+      ['window:setDecorations', { decorations: false }],
+    ]);
+    assert.deepEqual(chamadas.slice(9).map((c) => c[0]), ['window:minimize', 'window:unminimize',
+      'window:maximize', 'window:unmaximize', 'window:toggleMaximize', 'window:show', 'window:hide',
+      'window:setFocus', 'window:center', 'window:close', 'window:destroy']);
+  });
+
+  test('state e os atalhos is*', async () => {
+    respostas['window:state'] = { maximized: true, minimized: false, fullscreen: false, visible: true, focused: true };
+    assert.equal((await win.state()).maximized, true);
+    assert.equal(await win.isMaximized(), true);
+    assert.equal(await win.isMinimized(), false);
+    assert.equal(await win.isFullscreen(), false);
+    assert.equal(await win.isVisible(), true);
+    assert.equal(await win.isFocused(), true);
+  });
+
+  test('eventos', () => {
+    const ev = [];
+    const parar = win.onResized((s) => ev.push('tam:' + s.width + 'x' + s.height));
+    win.onMoved((p) => ev.push('pos:' + p.x + ',' + p.y));
+    win.onFocusChanged((f) => ev.push('foco:' + f));
+    delphiEmite('window:resized', { width: 800, height: 600, minimized: false, maximized: false });
+    delphiEmite('window:moved', { x: 5, y: 6 });
+    delphiEmite('window:focus-changed', { focused: false });
+    parar();
+    delphiEmite('window:resized', { width: 1, height: 1 });
+    assert.deepEqual(ev, ['tam:800x600', 'pos:5,6', 'foco:false']);
+  });
+
+  test('onCloseRequested: liga a interceptação, confirma e deixa fechar', async () => {
+    const vistos = [];
+    const parar = await win.onCloseRequested((e) => vistos.push(e.id));
+    assert.deepEqual(chamadas, [['window:interceptClose', { enabled: true }]]);
+    delphiEmite('window:close-requested', { id: 1 });
+    await tick();
+    assert.deepEqual(vistos, [1]);
+    assert.deepEqual(chamadas.slice(1), [
+      ['window:closeAck', { id: 1 }],
+      ['window:closeResolve', { id: 1, close: true }],
+    ]);
+    await parar();
+    assert.deepEqual(chamadas.at(-1), ['window:interceptClose', { enabled: false }]);
+  });
+
+  test('onCloseRequested: preventDefault num handler async mantém a janela', async () => {
+    let liberar;
+    const parar1 = await win.onCloseRequested(async (e) => {
+      await new Promise((r) => { liberar = r; });  // o "deseja salvar?" aberto
+      e.preventDefault();
+    });
+    const parar2 = await win.onCloseRequested((e) => { if (e.defaultPrevented) chamadas.push(['viu']); });
+    assert.equal(chamadas.filter((c) => c[0] === 'window:interceptClose').length, 1, 'liga uma vez só');
+    delphiEmite('window:close-requested', { id: 7 });
+    await tick();
+    assert.deepEqual(chamadas.at(-1), ['window:closeAck', { id: 7 }], 'confirma antes de decidir');
+    liberar();
+    await tick();
+    await tick();
+    assert.deepEqual(chamadas.slice(-2), [['viu'], ['window:closeResolve', { id: 7, close: false }]]);
+    await parar1();
+    assert.equal(chamadas.at(-1)[0], 'window:closeResolve', 'ainda há um handler: continua interceptando');
+    await parar2();
+    await parar2();  // de novo: nada
+    assert.equal(chamadas.filter((c) => c[0] === 'window:interceptClose').length, 2);
+  });
+
+  test('onCloseRequested: um handler com erro não prende a janela', async () => {
+    const original = console.error;
+    console.error = () => {};
+    try {
+      const parar = await win.onCloseRequested(() => { throw new Error('bug'); });
+      delphiEmite('window:close-requested', { id: 3 });
+      await tick();
+      assert.deepEqual(chamadas.at(-1), ['window:closeResolve', { id: 3, close: true }]);
+      await parar();
+    } finally {
+      console.error = original;
+    }
   });
 });
 

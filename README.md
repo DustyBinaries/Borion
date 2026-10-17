@@ -56,6 +56,9 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
   as pastas liberadas e o que o usuário escolher nos diálogos.
 - **Menus e bandeja**: plugins `menu` (barra de menu com atalhos de teclado e menu de contexto
   nativos), `tray` (ícone, menu e notificações na bandeja) e `app` (sair, mostrar, minimizar).
+- **Janela**: plugin `window` (título, tamanho, posição, maximizar, tela cheia, borda, sempre no
+  topo, eventos) e o `onCloseRequested`, que intercepta o fechamento para um "deseja salvar?" em
+  HTML.
 - **Dados**: `clipboard` (texto e HTML) e `store` (chave-valor persistido em JSON), com Unicode
   completo, inclusive emoji, apesar de o Delphi 7 ser ANSI.
 - **Sistema e rede**: `os` (versão real do Windows, arquitetura, idioma) e `http` (o `fetch` feito
@@ -178,7 +181,7 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `BorionAssets.pas` | `TBorionAssets`: serve o frontend embutido (SPA, headers, MIME) e o modo dev |
 | `BorionPack.pas` | Formato do pacote de assets, compressão e leitura/escrita de `.res` |
 | `BorionConfig.pas` | `TBorionConfig`: leitura e validação do `app.json`, e o `BorionAppConfig` embutido no exe |
-| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
+| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `window`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion new` (com os templates em `Tools/templates`), `borion dev`, `borion build`, `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.borion`) |
 | `docs/IPC.md` | Guia completo do IPC |
@@ -188,7 +191,7 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `Examples/Demo/` | Exemplo com todas as funcionalidades do IPC, num form Delphi tradicional, página em HTML/JS puro (veja abaixo) |
 | `Examples/ViteReact/` | App React + Vite: build embutido no exe e modo dev com hot-reload ([README](Examples/ViteReact/README.md)) |
 | `Examples/Editor/` | Editor de texto com Vite + JS puro, feito só com os plugins oficiais ([README](Examples/Editor/README.md)) |
-| `Examples/Menu/`, `Tray/`, `App/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/`, `GlobalShortcut/`, `Log/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md), [GlobalShortcut](Examples/GlobalShortcut/README.md), [Log](Examples/Log/README.md)) |
+| `Examples/Menu/`, `Tray/`, `App/`, `Window/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/`, `GlobalShortcut/`, `Log/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Window](Examples/Window/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md), [GlobalShortcut](Examples/GlobalShortcut/README.md), [Log](Examples/Log/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
 Para usar num projeto: ponha no *Search path* as pastas `WebView2/`, `Borion/` e
@@ -202,7 +205,8 @@ sem nenhum comando Delphi próprio, só com os plugins oficiais. Mostra o escopo
 prática, a barra de menu nativa com atalhos, o ícone na bandeja e preferências no `store`.
 
 **[`Examples/Menu/`](Examples/Menu/README.md), [`Tray/`](Examples/Tray/README.md),
-[`App/`](Examples/App/README.md), [`Clipboard/`](Examples/Clipboard/README.md),
+[`App/`](Examples/App/README.md), [`Window/`](Examples/Window/README.md),
+[`Clipboard/`](Examples/Clipboard/README.md),
 [`Store/`](Examples/Store/README.md), [`Os/`](Examples/Os/README.md),
 [`Http/`](Examples/Http/README.md), [`Notification/`](Examples/Notification/README.md),
 [`SingleInstance/`](Examples/SingleInstance/README.md), [`DeepLink/`](Examples/DeepLink/README.md),
@@ -210,7 +214,8 @@ prática, a barra de menu nativa com atalhos, o ícone na bandeja e preferência
 [`Log/`](Examples/Log/README.md):** um exemplo isolado para cada plugin, com página em HTML/JS
 puro e o app inteiro num `.dpr` de poucas linhas (`TBorionBuilder`). Mostram tudo o que o plugin faz: barra de menu,
 atalhos, `update` e `popup`; ícone, menu, notificações e minimizar para a bandeja; `app.info`,
-minimizar, esconder e sair passando pelo `OnCloseQuery`; copiar e colar texto com emoji e
+minimizar, esconder e sair passando pelo `OnCloseQuery`; a janela controlada pela página, com
+tela cheia, borda e um "deseja salvar?" em HTML ao fechar; copiar e colar texto com emoji e
 copiar HTML; preferências que sobrevivem entre execuções, inclusive a posição da janela,
 gravada pelo Delphi no mesmo store; a versão real do Windows; o `fetch` do Borion buscando,
 lado a lado, uma página que o `fetch` do navegador não alcança por CORS; notificações nativas com
@@ -247,7 +252,7 @@ Examples\Demo\build.bat
 Tests\run-tests.bat
 ```
 
-Roda **275 testes DUnit** e **67 testes JS** (`node:test`):
+Roda **293 testes DUnit** e **73 testes JS** (`node:test`):
 
 - DUnit: o Unicode do `BorionJson`, o roteamento do `TBorionIpc` sem WebView2, e o pacote de
   assets e o `TBorionAssets` (compressão, caminhos UTF-8, `.res`, fallback de SPA, headers,
@@ -255,6 +260,8 @@ Roda **275 testes DUnit** e **67 testes JS** (`node:test`):
   e os plugins (escopo contra `..`, prefixo vizinho, dispositivos e streams; todo o `fs` pelo IPC,
   inclusive uma junção apontando para fora do escopo; política do `shell`; `Ipc.Later`; menu
   montado a partir do JSON, atalhos e popup; bandeja com o `Shell_NotifyIcon` capturado; `app`;
+  `window` (tamanho, limites, bordas, tela cheia, eventos e o fechamento interceptado, com e sem
+  resposta da página);
   `clipboard` com a área de transferência real e emoji; `store` com arquivo corrompido,
   editado à mão e sem `AutoSave`; o JSON só com ASCII; `os`; `http` contra um servidor HTTP
   local: escopo, redirecionamentos, timeout, cancelamento, binário e limites; XML e eventos do
@@ -265,7 +272,7 @@ Roda **275 testes DUnit** e **67 testes JS** (`node:test`):
   (tipos, valores, avisos, UTF-8, o recurso no `.res` e a aplicação no builder e na janela); o
   `borion new` com os templates de verdade; a detecção do projeto do `borion build`, com e sem
   `app.json`, e um build de verdade de um projeto gerado);
-- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `clipboard`, `store`, `os`, `http`, `notification`,
+- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `window`, `clipboard`, `store`, `os`, `http`, `notification`,
   `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão
 `C:\dev\lib\dunit\src`) e do Node.js 18+. Detalhes no [guia do IPC](docs/IPC.md#testes).

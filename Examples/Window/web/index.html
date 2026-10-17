@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: window</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- O borion build copia o @borion/api (Borion\js) para web\borion-api\;
+       o import map deixa importar pelo nome do pacote, como num projeto com Vite. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/window": "./borion-api/window.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h2>Plugin <code>window</code></h2>
+      <p>A página controla a própria janela e decide se ela pode fechar.</p>
+    </header>
+
+    <section>
+      <h3>1. Estado (<code>state()</code>, atualizado pelos eventos)</h3>
+      <table id="estado" class="estado"><tr><td>carregando...</td></tr></table>
+      <p class="dica">Arraste e redimensione a janela: <code>onResized</code>, <code>onMoved</code> e
+        <code>onFocusChanged</code> atualizam a tabela.</p>
+    </section>
+
+    <section>
+      <h3>2. Título</h3>
+      <div class="linha">
+        <input id="titulo" value="Pedido 42 - Borion">
+        <button id="definir-titulo">setTitle</button>
+      </div>
+      <p class="dica">Até aqui o título acompanha o <code>&lt;title&gt;</code> da página; depois do
+        <code>setTitle</code>, fica o que o JS definiu.</p>
+    </section>
+
+    <section>
+      <h3>3. Tamanho e posição</h3>
+      <div class="linha">
+        <button data-tamanho="800x600">800 × 600</button>
+        <button data-tamanho="1024x768">1024 × 768</button>
+        <button data-tamanho="400x300">400 × 300 (abaixo do mínimo)</button>
+        <button id="centralizar">center</button>
+        <button id="canto">setPosition(0, 0)</button>
+      </div>
+      <p class="dica">O mínimo de 640 × 480 vem do <code>app.json</code>; o <code>setSize</code> respeita.</p>
+    </section>
+
+    <section>
+      <h3>4. Estado da janela</h3>
+      <div class="linha">
+        <button id="minimizar">Minimizar (volta em 3 s)</button>
+        <button id="maximizar">toggleMaximize</button>
+        <button id="tela-cheia">Tela cheia (Esc sai)</button>
+      </div>
+      <div class="linha">
+        <label><input type="checkbox" id="topo"> Sempre no topo</label>
+        <label><input type="checkbox" id="redimensionavel" checked> Redimensionável</label>
+        <label><input type="checkbox" id="borda" checked> Borda e barra de título</label>
+      </div>
+      <p class="dica">Sem borda, a janela não tem como ser arrastada nem fechada pelo X: o
+        checkbox continua aqui para trazê-la de volta.</p>
+    </section>
+
+    <section>
+      <h3>5. Fechar: <code>onCloseRequested</code></h3>
+      <p>Edite o texto e feche a janela pelo X, por Alt+F4 ou pelo botão abaixo: com alterações,
+        a página pergunta antes (um diálogo em HTML, não um <code>MessageBox</code>).</p>
+      <textarea id="documento">Um documento qualquer.</textarea>
+      <div class="linha">
+        <span id="situacao" class="dica">sem alterações</span>
+      </div>
+      <div class="linha">
+        <button id="fechar">close() (pergunta)</button>
+        <button id="destruir">destroy() (fecha sem perguntar)</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>Log</h3>
+      <ol id="log" class="log"></ol>
+    </section>
+  </main>
+
+  <dialog id="salvar">
+    <p><strong>Salvar as alterações?</strong></p>
+    <p class="dica">O texto foi editado desde a última vez que foi salvo.</p>
+    <div class="linha">
+      <button value="salvar">Salvar</button>
+      <button value="descartar">Não salvar</button>
+      <button value="cancelar">Cancelar</button>
+    </div>
+  </dialog>
+</body>
+</html>

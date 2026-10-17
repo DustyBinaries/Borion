@@ -75,6 +75,10 @@
       "types": "./log.d.ts",
       "default": "./log.js"
     },
+    "./window": {
+      "types": "./window.d.ts",
+      "default": "./window.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -117,7 +121,9 @@
     "global-shortcut.js",
     "global-shortcut.d.ts",
     "log.js",
-    "log.d.ts"
+    "log.d.ts",
+    "window.js",
+    "window.d.ts"
   ],
   "sideEffects": false,
   "scripts": {
