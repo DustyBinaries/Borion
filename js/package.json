@@ -79,6 +79,10 @@
       "types": "./window.d.ts",
       "default": "./window.js"
     },
+    "./window-state": {
+      "types": "./window-state.d.ts",
+      "default": "./window-state.js"
+    },
     "./global": {
       "types": "./borion.d.ts"
     }
@@ -123,7 +127,9 @@
     "log.js",
     "log.d.ts",
     "window.js",
-    "window.d.ts"
+    "window.d.ts",
+    "window-state.js",
+    "window-state.d.ts"
   ],
   "sideEffects": false,
   "scripts": {

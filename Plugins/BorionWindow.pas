@@ -432,6 +432,9 @@ begin
     F.WindowState := wsNormal;
   FSavedBounds := F.BoundsRect;
   FSavedBorder := F.BorderStyle;
+  { antes de mudar a borda e o tamanho: o NormalBounds fica o de antes }
+  if FForm is TBorionWindow then
+    TBorionWindow(FForm).Fullscreen := True;
   F.BorderStyle := bsNone;
   F.BoundsRect := Screen.MonitorFromWindow(F.Handle).BoundsRect;
   FFullscreen := True;
@@ -444,6 +447,8 @@ begin
   FFullscreen := False;
   AplicarBorda(FSavedBorder <> bsNone);
   F.BoundsRect := FSavedBounds;
+  if FForm is TBorionWindow then
+    TBorionWindow(FForm).Fullscreen := False;
   if FSavedState = wsMaximized then
     F.WindowState := wsMaximized;
 end;

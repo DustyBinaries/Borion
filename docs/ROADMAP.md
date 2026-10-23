@@ -178,7 +178,8 @@ Documentação: [CONFIG.md](CONFIG.md).
       perguntar).
 - [x] Evento `close-requested` interceptável pelo JS ("deseja salvar?"): `onCloseRequested` com
       handler `async` e `preventDefault()`. Uma página que não responde não prende a janela.
-- [ ] Persistir tamanho, posição e estado (plugin *window-state*).
+- [x] Persistir tamanho, posição e maximizado (plugin `window-state`): restaurados antes de a
+      janela aparecer e gravados ao fechar, em `%APPDATA%\<identifier>\.window-state.json`.
 - [x] **Janela sem borda** com barra de título em HTML: `data-borion-drag-region` (arrastar e
       duplo clique para maximizar), `startDragging`/`startResizeDragging`, a beirada da página
       redimensionando e o maximizado na área de trabalho (`Examples/Titlebar`).
@@ -203,7 +204,7 @@ Documentação: [PLUGINS.md](PLUGINS.md).
 - [x] Módulos JS tipados por plugin: `@borion/api/dialog`, `/fs`, `/shell`, `/menu`, `/tray`, `/app`, `/window`,
       `/clipboard`, `/store`, `/os`, `/http`,
       `/notification`, `/single-instance`, `/deep-link`, `/autostart`,
-      `/global-shortcut`, `/log`.
+      `/global-shortcut`, `/log`, `/window-state`.
 
 Plugins, em ordem de utilidade:
 - [x] `dialog`: abrir (arquivo, vários, pasta) e salvar, mensagem, confirmação e Sim/Não. O que
@@ -352,6 +353,7 @@ Esses cinco passos formam uma **v0.1** utilizável. Configuração, CLI e distri
 
 **Situação:** os cinco passos estão feitos: **v0.1 completa.** Depois dela, os plugins `menu`, `tray` e o
 `app` mínimo fecharam o Marco 4, a CLI `borion new`/`dev`/`build` fechou o Marco 6, e o `app.json`
-com várias janelas, controladas pelo plugin `window`, fechou o Marco 3. Próximos candidatos: o
-resto da Fase 3 (*window-state*, janela sem borda com barra de título em HTML, DPI), a segurança
-da Fase 5, o `sql` (opcional) e os caminhos do `os`/`app`.
+com várias janelas, controladas pelo plugin `window`, fechou o Marco 3. Depois, vieram a janela sem
+borda com barra de título em HTML e o *window-state*. Próximos candidatos: o resto da Fase 3
+(DPI, menu nas secundárias), a segurança da Fase 5, o `sql` (opcional) e os caminhos do
+`os`/`app`.

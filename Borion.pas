@@ -70,9 +70,14 @@ type
     FAssets: TBorionAssets;
     FTitleFromPage: Boolean;
     FResizable: Boolean;
+    FNormalBounds: TRect;
+    FFullscreen: Boolean;
     FOnCloseQuery: TBorionCloseQueryProc;
     FOnClose: TBorionCloseProc;
     procedure WMMove(var Message: TWMMove); message WM_MOVE;
+    procedure WMSize(var Message: TWMSize); message WM_SIZE;
+    procedure GuardarNormal;
+    procedure Ligar(AIpc: TBorionIpc);
     procedure BrowserInitialized(Sender: TObject; ErrorCode: HResult);
     procedure BrowserTitleChanged(Sender: TObject; const Value: WideString);
     procedure FecharConsulta(Sender: TObject; var CanClose: Boolean);
@@ -81,7 +86,8 @@ type
   public
     { A janela 'main', com um IPC próprio (o do app) }
     constructor Create(AOwner: TComponent); override;
-    { Mais uma janela no IPC de outra (o do app), com esse rótulo }
+    { Mais uma janela no IPC de outra (o do app), com esse rótulo. AIpc nil:
+      entra no IPC depois (o TBorionWindows, já com a configuração aplicada). }
     constructor CreateWindow(AOwner: TComponent; AIpc: TBorionIpc; const AWindowLabel: string);
     destructor Destroy; override;
     property Browser: TWebView2Browser read FBrowser;
@@ -102,6 +108,12 @@ type
     { Redimensionável pelo usuário. Sem decorations, pela borda da página
       (plugin window); com elas, pela borda da janela. }
     property Resizable: Boolean read FResizable write FResizable;
+    { Tamanho e posição no estado normal: os atuais ou, maximizada ou
+      minimizada, os de antes (o plugin window-state grava estes). Vazio até a
+      janela ter um handle. }
+    property NormalBounds: TRect read FNormalBounds write FNormalBounds;
+    { Em tela cheia (o plugin window marca): o NormalBounds fica o de antes dela }
+    property Fullscreen: Boolean read FFullscreen write FFullscreen;
   end;
 
   { As janelas do app (o global BorionWindows, criado pelo TBorionBuilder.Run) }
@@ -253,8 +265,14 @@ begin
   inherited CreateNew(AOwner);
   FWindowLabel := AWindowLabel;
   Preparar;
+  if AIpc <> nil then
+    Ligar(AIpc);
+end;
+
+procedure TBorionWindow.Ligar(AIpc: TBorionIpc);
+begin
+  AIpc.AddWindow(FWindowLabel, FBrowser);
   FIpc := AIpc;
-  FIpc.AddWindow(AWindowLabel, FBrowser);
 end;
 
 destructor TBorionWindow.Destroy;
@@ -337,6 +355,20 @@ begin
   inherited;
   if FBrowser <> nil then
     FBrowser.NotifyParentWindowPositionChanged;
+  GuardarNormal;
+end;
+
+procedure TBorionWindow.WMSize(var Message: TWMSize);
+begin
+  inherited;
+  GuardarNormal;
+end;
+
+{ o NormalBounds acompanha a janela só no estado normal }
+procedure TBorionWindow.GuardarNormal;
+begin
+  if HandleAllocated and not FFullscreen and not IsIconic(Handle) and not IsZoomed(Handle) then
+    FNormalBounds := BoundsRect;
 end;
 
 procedure TBorionWindow.BrowserInitialized(Sender: TObject; ErrorCode: HResult);
@@ -763,10 +795,13 @@ begin
     raise EBorionError.Create('NO_WINDOW', 'o app não tem janela principal');
   if Find(Config.WindowLabel) <> nil then
     raise EBorionError.Create('WINDOW_EXISTS', 'a janela "' + Config.WindowLabel + '" já está aberta');
-  Result := TBorionWindow.CreateWindow(Application, FMain.Ipc, Config.WindowLabel);
+  Result := TBorionWindow.CreateWindow(Application, nil, Config.WindowLabel);
   try
     FList.Add(Result);
     Preparar(Result, Config);
+    { no IPC só agora: os plugins já recebem a janela configurada (o
+      window-state restaura o tamanho dela antes de aparecer) }
+    Result.Ligar(FMain.Ipc);
   except
     Result.Free;
     raise;

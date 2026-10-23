@@ -69,6 +69,7 @@ import { setMenu, update, popup, onItems } from '@borion/api/menu';
 import { show, setMenu as menuDaBandeja, notify, onMenu } from '@borion/api/tray';
 import { exit, show as mostrarJanela, minimize, info } from '@borion/api/app';
 import { setTitle, setSize, setFullscreen, onCloseRequested } from '@borion/api/window';
+import { saveWindowState, restoreState } from '@borion/api/window-state';
 import { writeText, readText, writeHtml } from '@borion/api/clipboard';
 import { load } from '@borion/api/store';
 import { version, arch, locale } from '@borion/api/os';

@@ -6,7 +6,7 @@ program MultiWindowDemo;
   plugin window servem todas, e cada chamada sabe de que janela veio. }
 
 uses
-  SysUtils, Borion, BorionIpc, BorionWindow;
+  SysUtils, Borion, BorionIpc, BorionWindow, BorionWindowState;
 
 { Jsons (json4delphi) vem do ACBr; as pastas do Borion e do WebView2 estão no
   search path (MultiWindowDemo.dof, usado pelo borion build) }
@@ -28,6 +28,7 @@ end;
 begin
   TBorionBuilder.Create
     .Plugin(TBorionWindowPlugin.Create)
+    .Plugin(TBorionWindowStatePlugin.Create)  { tamanho e posição de cada janela, de uma execução para outra }
     .Command('contar', Contar)
     .Run;
 end.

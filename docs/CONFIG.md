@@ -85,7 +85,7 @@ chave ausente.
 |---|---|---|
 | `productName` | texto | Nome do app: `Application.Title`, o título da janela e o nome usado pelos plugins (`autostart`, `deep-link`, escopo do `$APPDATA`...) |
 | `version` | texto | Versão no formato `1.2.3` (até 4 números de 0 a 65535, sufixo opcional `-beta.1` ou `+build`). É o que o `app:info` devolve |
-| `identifier` | texto | Identificador reverso (`com.empresa.app`): letras, dígitos, `-` e `_`, em duas partes ou mais. O `app:info` devolve; os próximos recursos (instalador, AppUserModelID) vão usá-lo |
+| `identifier` | texto | Identificador reverso (`com.empresa.app`): letras, dígitos, `-` e `_`, em duas partes ou mais. O `app:info` devolve, e o `window-state` grava na pasta `%APPDATA%\<identifier>`; os próximos recursos (instalador, AppUserModelID) vão usá-lo |
 | `build.frontendDist` | texto | Pasta da interface pronta, relativa ao `app.json` (veja abaixo) |
 | `build.devUrl` | texto | URL do servidor de desenvolvimento (`http://` ou `https://`). O `borion dev` abre o app nela, e a porta vai para o Vite (`--port`) |
 | `app.windows` | lista | As janelas; a primeira é a principal ([várias janelas](#várias-janelas)) |

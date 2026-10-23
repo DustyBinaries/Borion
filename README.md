@@ -61,7 +61,7 @@ O Borion roda sobre o [`TWebView2Browser`](WebView2/README.md) e acrescenta:
   nativos), `tray` (ícone, menu e notificações na bandeja) e `app` (sair, mostrar, minimizar).
 - **Janela**: plugin `window` (título, tamanho, posição, maximizar, tela cheia, borda, sempre no
   topo, eventos) e o `onCloseRequested`, que intercepta o fechamento para um "deseja salvar?" em
-  HTML.
+  HTML. O `window-state` faz cada janela reabrir no tamanho e no lugar em que foi fechada.
 - **Várias janelas**: definidas no `app.json` ou criadas pela página (`createWindow`), todas no
   mesmo IPC (plugins e comandos servem todas), com eventos entre elas (`emitTo`).
 - **Dados**: `clipboard` (texto e HTML) e `store` (chave-valor persistido em JSON), com Unicode
@@ -188,7 +188,7 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `BorionConfig.pas` | `TBorionConfig`: leitura e validação do `app.json`, e o `BorionAppConfig` embutido no exe |
 | `WebView2/` | O controle `TWebView2Browser`, sem dependências ([README](WebView2/README.md)), com a `WebView2Loader.dll`, um exemplo e testes próprios |
 | `WebView2/docs/WebResourceRequested.md` | Interceptando requisições do WebView2 |
-| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `window`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
+| `Plugins/` | `TBorionScope` (escopo de arquivos) e os plugins `fs`, `dialog`, `shell`, `menu`, `tray`, `app`, `window`, `window-state`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log` ([docs](docs/PLUGINS.md)) |
 | `Tools/` | CLI `borion` (console Delphi): `borion new` (com os templates em `Tools/templates`), `borion dev`, `borion build`, `borion pack`, `borion list` |
 | `js/` | Pacote ESM [`@borion/api`](js/README.md) para apps com bundler, e `borion.d.ts` (tipos do `window.__BORION__`) |
 | `docs/IPC.md` | Guia completo do IPC |
@@ -292,7 +292,8 @@ Roda **313 testes DUnit** e **76 testes JS** (`node:test`):
   montado a partir do JSON, atalhos e popup; bandeja com o `Shell_NotifyIcon` capturado; `app`;
   `window` (tamanho, limites, bordas, tela cheia, eventos e o fechamento interceptado, com e sem
   resposta da página); várias janelas (respostas e eventos para a janela certa, `emitTo`, os
-  avisos aos plugins e o `window` com duas janelas no mesmo IPC);
+  avisos aos plugins e o `window` com duas janelas no mesmo IPC); `window-state` (gravar e
+  restaurar, maximizada, tela cheia, monitor desligado, arquivo corrompido, sem recriar a janela);
   `clipboard` com a área de transferência real e emoji; `store` com arquivo corrompido,
   editado à mão e sem `AutoSave`; o JSON só com ASCII; `os`; `http` contra um servidor HTTP
   local: escopo, redirecionamentos, timeout, cancelamento, binário e limites; XML e eventos do
@@ -303,7 +304,7 @@ Roda **313 testes DUnit** e **76 testes JS** (`node:test`):
   (tipos, valores, avisos, UTF-8, o recurso no `.res` e a aplicação no builder e na janela); o
   `borion new` com os templates de verdade; a detecção do projeto do `borion build`, com e sem
   `app.json`, e um build de verdade de um projeto gerado);
-- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `window`, `clipboard`, `store`, `os`, `http`, `notification`,
+- JS: a ponte real, o pacote `@borion/api` e os módulos `dialog`, `fs`, `shell`, `menu`, `tray`, `app`, `window`, `window-state`, `clipboard`, `store`, `os`, `http`, `notification`,
   `single-instance`, `deep-link`, `autostart`, `global-shortcut` e `log`.
 Precisa do [DUnit](https://dunit.sourceforge.net/) (variável `DUNIT`, padrão
 `C:\dev\lib\dunit\src`) e do Node.js 18+. Detalhes no [guia do IPC](docs/IPC.md#testes).

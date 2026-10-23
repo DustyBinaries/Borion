@@ -1,7 +1,7 @@
 # Borion: plugins
 
 Plugins são conjuntos de comandos nativos prontos (`dialog`, `fs`, `shell`, `menu`, `tray`, `app`,
-`window`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut`, `log`), com API tipada no JS
+`window`, `window-state`, `clipboard`, `store`, `os`, `http`, `notification`, `single-instance`, `deep-link`, `autostart`, `global-shortcut`, `log`), com API tipada no JS
 e regras de segurança embutidas. Cada um é uma unit em `Plugins/`, adicionada com uma
 linha no [`TBorionBuilder`](../README.md#criando-um-app):
 
@@ -36,6 +36,7 @@ if (caminho) console.log(await readTextFile(caminho));
 - [`tray`](#tray)
 - [`app`](#app)
 - [`window`](#window)
+- [`window-state`](#window-state)
 - [`clipboard`](#clipboard)
 - [`store`](#store)
 - [`os`](#os)
@@ -421,6 +422,67 @@ document.getElementById('close').onclick = () => win.close();   // passa pelo on
 ```
 
 Fora da barra, `startDragging()` num `mousedown` arrasta a janela a partir de qualquer elemento.
+
+## `window-state`
+
+Exemplo: [`Examples/MultiWindow`](../Examples/MultiWindow/README.md).
+
+`TBorionWindowStatePlugin.Create([AppName, Flags])`. Lembra o tamanho, a posição e o maximizado
+de cada janela de uma execução para outra, como o window-state do Tauri. Não precisa de código
+na página: com o plugin no builder, cada janela volta como estava.
+
+```pascal
+uses Borion, BorionWindowState;
+
+begin
+  TBorionBuilder.Create
+    .Plugin(TBorionWindowStatePlugin.Create)                    // todas as janelas
+    // .Plugin(TBorionWindowStatePlugin.Create.Ignore('splash'))  // menos essa
+    .Run;
+end.
+```
+
+- **Quando restaura:** quando a janela entra no IPC (a principal no `Run`, as outras ao abrir),
+  antes de aparecer, então ela não pula de lugar. O `app.json` e os métodos do builder valem até
+  a primeira gravação.
+- **Quando grava:** quando a janela fecha. Fechar a principal fecha o app e grava todas.
+- **Arquivo:** `%APPDATA%\<pasta>\.window-state.json`, uma entrada por rótulo de janela. A pasta
+  é o `AppName` ou, sem ele, o `identifier` do [`app.json`](CONFIG.md) (ou o nome do exe; o título
+  do app pode ter caracteres que não valem em nome de pasta). Para outro lugar, use
+  `FileName`.
+
+```json
+{
+  "main": {"x": 123, "y": 77, "width": 750, "height": 520, "maximized": true},
+  "config": {"x": 300, "y": 200, "width": 420, "height": 360, "maximized": false}
+}
+```
+
+`Flags` diz o que é restaurado (padrão: tudo):
+
+| Flag | O que volta |
+|---|---|
+| `wsfSize` | `width` e `height`, só numa janela redimensionável (senão vale o tamanho do `app.json`) |
+| `wsfPosition` | `x` e `y`, se a barra de título ainda cair num monitor. Com o monitor desligado, a janela abre na posição do `app.json` |
+| `wsfMaximized` | `maximized` |
+
+| JS (`@borion/api/window-state`) | O que faz |
+|---|---|
+| `saveWindowState()` | Grava agora o estado das janelas abertas |
+| `restoreState(label?)` | Volta a janela da página (ou a do rótulo) ao estado gravado. `false` se não houver estado dela |
+| `filename()` | O caminho do arquivo |
+
+No Delphi: `SaveState`, `RestoreState(Label)`, `Ignore(Label)`, `FileName` e `Flags`.
+
+- Maximizada, minimizada ou em tela cheia, o tamanho e a posição gravados são os do estado
+  normal, para quando ela sair do maximizado. A `TBorionWindow` acompanha esse tamanho em
+  `NormalBounds`; num form comum, fica o da última vez em que ele estava normal.
+- Minimizada e tela cheia não voltam: a janela abre normal (ou maximizada).
+- Uma janela que nunca apareceu (`"visible": false`, nunca mostrada) não é gravada.
+- O arquivo é gravado num temporário e trocado, então uma queda no meio não o deixa pela
+  metade. Um arquivo ilegível é ignorado e substituído na próxima gravação.
+- Se o app morrer sem fechar as janelas (processo encerrado à força), o estado dessa execução
+  não é gravado. Para gravar antes, chame `saveWindowState()`.
 
 ## `clipboard`
 

@@ -37,6 +37,7 @@ uses
   BorionGlobalShortcut in '..\Plugins\BorionGlobalShortcut.pas',
   BorionLog in '..\Plugins\BorionLog.pas',
   BorionWindow in '..\Plugins\BorionWindow.pas',
+  BorionWindowState in '..\Plugins\BorionWindowState.pas',
   Borion in '..\Borion.pas',
   BorionNew in '..\Tools\BorionNew.pas',
   BorionProject in '..\Tools\BorionProject.pas',
@@ -53,7 +54,8 @@ uses
   TestBorionProject in 'TestBorionProject.pas',
   TestBorionConfig in 'TestBorionConfig.pas',
   TestBorionWindow in 'TestBorionWindow.pas',
-  TestBorionMultiWindow in 'TestBorionMultiWindow.pas';
+  TestBorionMultiWindow in 'TestBorionMultiWindow.pas',
+  TestBorionWindowState in 'TestBorionWindowState.pas';
 
 begin
   RunRegisteredTests(rxbHaltOnFailures);

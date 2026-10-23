@@ -16,6 +16,7 @@ end;
 begin
   TBorionBuilder.Create
     .Plugin(TBorionWindowPlugin.Create)
+    .Plugin(TBorionWindowStatePlugin.Create)
     .Command('contar', Contar)
     .Run;
 end.
@@ -40,7 +41,8 @@ As janelas estão no `app.json`:
 | Nota (`nota.html`) | `emitTo('main', 'nota', { de, texto })` e `close()` |
 | Todas | `invoke('contar')`: um comando Delphi registrado uma vez responde a qualquer janela, e `Call.Window` diz de qual veio |
 
-Fechar a principal fecha o app e as outras. No Delphi 7, as janelas secundárias não têm botão
+Com o plugin `window-state`, cada janela (a principal, a de configurações e as notas) reabre no
+tamanho e no lugar em que foi fechada. Fechar a principal fecha o app e as outras. No Delphi 7, as janelas secundárias não têm botão
 próprio na barra de tarefas.
 
 ## Rodando

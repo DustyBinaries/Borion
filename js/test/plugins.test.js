@@ -20,6 +20,7 @@ import * as autostart from '../autostart.js';
 import * as globalShortcut from '../global-shortcut.js';
 import * as log from '../log.js';
 import * as win from '../window.js';
+import * as windowState from '../window-state.js';
 
 let chamadas;
 let respostas;
@@ -738,5 +739,22 @@ describe('@borion/api/log juntos', () => {
     } finally {
       console.info = original;
     }
+  });
+});
+
+describe('@borion/api/window-state', () => {
+  test('save, restore e filename chamam o plugin', async () => {
+    respostas['window-state:restore'] = true;
+    respostas['window-state:filename'] = 'C:\Users\x\AppData\Roaming\App\.window-state.json';
+    assert.equal(await windowState.saveWindowState(), undefined);
+    assert.equal(await windowState.restoreState(), true);
+    assert.equal(await windowState.restoreState('config'), true);
+    assert.match(await windowState.filename(), /\.window-state\.json$/);
+    assert.deepEqual(chamadas, [
+      ['window-state:save', undefined],
+      ['window-state:restore', {}],
+      ['window-state:restore', { label: 'config' }],
+      ['window-state:filename', undefined],
+    ]);
   });
 });
