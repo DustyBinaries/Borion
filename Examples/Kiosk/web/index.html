@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: kiosk</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "@borion/api": "./borion-api/index.js",
+      "@borion/api/window": "./borion-api/window.js"
+    }
+  }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <!-- cinco cliques neste canto abrem o PIN de saída -->
+  <div id="canto" aria-hidden="true"><span id="contagem"></span></div>
+
+  <main>
+    <div id="hora">--:--</div>
+    <div id="data"></div>
+    <h1>Bem-vindo</h1>
+    <button id="comecar" type="button">Começar</button>
+    <p class="dica" id="aviso"></p>
+    <p class="dica">Exemplo: para sair, clique 5 vezes no canto superior esquerdo e digite o PIN 1234.</p>
+  </main>
+
+  <dialog id="pin">
+    <form method="dialog" id="form-pin">
+      <h2>Sair do modo kiosk</h2>
+      <input id="senha" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN">
+      <p class="erro" id="erro" hidden>PIN incorreto</p>
+      <div class="botoes">
+        <button type="button" id="cancelar">Cancelar</button>
+        <button type="submit">Sair</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

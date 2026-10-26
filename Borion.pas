@@ -72,6 +72,7 @@ type
     FResizable: Boolean;
     FNormalBounds: TRect;
     FFullscreen: Boolean;
+    FStartFullscreen: Boolean;
     FOnCloseQuery: TBorionCloseQueryProc;
     FOnClose: TBorionCloseProc;
     procedure WMMove(var Message: TWMMove); message WM_MOVE;
@@ -114,6 +115,8 @@ type
     property NormalBounds: TRect read FNormalBounds write FNormalBounds;
     { Em tela cheia (o plugin window marca): o NormalBounds fica o de antes dela }
     property Fullscreen: Boolean read FFullscreen write FFullscreen;
+    { O app.json pediu tela cheia: o plugin window entra nela quando acompanha a janela }
+    property StartFullscreen: Boolean read FStartFullscreen;
   end;
 
   { As janelas do app (o global BorionWindows, criado pelo TBorionBuilder.Run) }
@@ -324,6 +327,8 @@ begin
   Constraints.MaxWidth := Config.MaxWidth;
   Constraints.MaxHeight := Config.MaxHeight;
   FResizable := Config.Resizable;
+  FStartFullscreen := Config.Fullscreen;
+  FBrowser.DevToolsEnabled := Config.DevTools;
   if Config.Center then
     Position := poScreenCenter
   else

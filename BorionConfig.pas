@@ -17,7 +17,8 @@ unit BorionConfig;
         "windows": [
           { "title": "Meu App", "width": 1000, "height": 700, "minWidth": 600,
             "resizable": true, "center": true, "maximized": false,
-            "decorations": true, "alwaysOnTop": false }
+            "decorations": true, "alwaysOnTop": false, "fullscreen": false,
+            "devTools": true }
         ],
         "security": { "csp": "default-src 'self'" }
       },
@@ -57,6 +58,8 @@ type
     Maximized: Boolean;
     Decorations: Boolean;           { False: sem borda nem barra de título }
     AlwaysOnTop: Boolean;
+    Fullscreen: Boolean;            { abre em tela cheia (precisa do plugin window) }
+    DevTools: Boolean;              { False: sem DevTools (F12, Ctrl+Shift+I) }
   end;
 
   TBorionConfig = class
@@ -155,6 +158,7 @@ begin
   Result.Resizable := True;
   Result.Center := True;
   Result.Decorations := True;
+  Result.DevTools := True;
 end;
 
 function BorionIsValidWindowLabel(const WindowLabel: string): Boolean;
@@ -389,7 +393,7 @@ end;
 procedure TBorionConfig.LerJanela(O: TJsonObject; const Caminho: string; var W: TBorionWindowConfig);
 begin
   Avisar(O, Caminho, 'label|url|visible|create|title|width|height|minWidth|minHeight|maxWidth|' +
-    'maxHeight|resizable|center|maximized|decorations|alwaysOnTop');
+    'maxHeight|resizable|center|maximized|decorations|alwaysOnTop|fullscreen|devTools');
   LerTexto(O, Caminho, 'label', W.WindowLabel);
   if not BorionIsValidWindowLabel(W.WindowLabel) then
     raise EBorionConfig.CreateFmt('app.json: "%s.label" inválido: "%s" (use letras, dígitos, "-" e "_")',
@@ -411,6 +415,8 @@ begin
   LerLogico(O, Caminho, 'maximized', W.Maximized);
   LerLogico(O, Caminho, 'decorations', W.Decorations);
   LerLogico(O, Caminho, 'alwaysOnTop', W.AlwaysOnTop);
+  LerLogico(O, Caminho, 'fullscreen', W.Fullscreen);
+  LerLogico(O, Caminho, 'devTools', W.DevTools);
   if (W.MaxWidth > 0) and (W.MaxWidth < W.MinWidth) then
     raise EBorionConfig.CreateFmt('app.json: "%s.maxWidth" é menor que o minWidth', [Caminho]);
   if (W.MaxHeight > 0) and (W.MaxHeight < W.MinHeight) then

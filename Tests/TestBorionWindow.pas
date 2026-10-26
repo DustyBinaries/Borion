@@ -46,6 +46,7 @@ type
     procedure TestDuploCliqueSoSeRedimensionavel;
     procedure TestMaximizadaSemBordaNaAreaDeTrabalho;
     procedure TestRedimensionavelDoAppJsonSemBorda;
+    procedure TestTelaCheiaDoAppJson;
     procedure TestExportaScriptParaTestesJs;
   end;
 
@@ -479,6 +480,28 @@ begin
     { sem borda, o BorderStyle não diz se é redimensionável: vem da TBorionWindow }
     Check(Pos('"resizable":false', Invocar('window:state')) > 0, FPosts.Text);
     Check(Pos('"enabled":false', Invocar('window:internalResizeBorder')) > 0, FPosts.Text);
+  finally
+    Janela.Free;
+  end;
+end;
+
+procedure TTestBorionWindow.TestTelaCheiaDoAppJson;
+var
+  Janela: TBorionWindow;
+  C: TBorionWindowConfig;
+  Win: TBorionWindowPlugin;
+begin
+  Janela := TBorionWindow.Create(nil);
+  try
+    C := BorionDefaultWindow;
+    C.Fullscreen := True;
+    Janela.ApplyConfig(C, 'x');
+    Win := TBorionWindowPlugin(Janela.Ipc.AddPlugin(TBorionWindowPlugin.Create));
+    Check(Win.Fullscreen, 'o plugin entra em tela cheia ao acompanhar a janela');
+    Check(Janela.Fullscreen);
+    Check(Janela.BorderStyle = bsNone);
+    Check(Janela.BoundsRect.Right - Janela.BoundsRect.Left =
+      Screen.MonitorFromWindow(Janela.Handle).Width, 'o monitor inteiro');
   finally
     Janela.Free;
   end;

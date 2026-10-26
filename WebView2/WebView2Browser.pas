@@ -181,6 +181,7 @@ type
     FTokens: array[TWV2EventKind] of EventRegistrationToken;
     FTokenActive: array[TWV2EventKind] of Boolean;
     FCreating: Boolean;
+    FDevToolsEnabled: Boolean;
     FPendingUrl: WideString;
     FLastUrl: WideString;
     FParkingWindow: HWND;
@@ -292,6 +293,8 @@ type
     property WebView: ICoreWebView2 read FWebView;
     { Pasta de cache/cookies. Padrão: %LOCALAPPDATA%\<nome do exe>\WebView2 }
     property UserDataFolder: WideString read FUserDataFolder write FUserDataFolder;
+    { Falso: sem DevTools (F12, Ctrl+Shift+I, "Inspecionar"); antes de CreateWebView }
+    property DevToolsEnabled: Boolean read FDevToolsEnabled write FDevToolsEnabled;
     { Idioma da interface do WebView2 e do Accept-Language, ex.: 'pt-BR'. Antes do CreateWebView. }
     property Language: WideString read FLanguage write FLanguage;
     { Argumentos de linha de comando do Chromium, ex.: '--disable-gpu'. Antes do CreateWebView. }
@@ -746,6 +749,7 @@ begin
   inherited Create(AOwner);
   FHandlers := TList.Create;
   FDeferredResponses := TList.Create;
+  FDevToolsEnabled := True;
   TabStop := True;
   Width := 300;
   Height := 200;
@@ -971,7 +975,7 @@ begin
   begin
     Settings.put_IsScriptEnabled(BoolToWV2(True));
     Settings.put_IsWebMessageEnabled(BoolToWV2(True));
-    Settings.put_AreDevToolsEnabled(BoolToWV2(True));
+    Settings.put_AreDevToolsEnabled(BoolToWV2(FDevToolsEnabled));
     Settings.put_AreDefaultContextMenusEnabled(BoolToWV2(True));
     Settings.put_IsStatusBarEnabled(BoolToWV2(True));
   end;

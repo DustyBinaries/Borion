@@ -264,7 +264,8 @@ bandeja (`tray`) e sai pelo menu (`app`).
 - [ ] Bloquear navegação para fora do app por padrão (`NavigationStarting`), com lista de
       permitidos.
 - [ ] Política padrão para novas janelas (abrir no navegador do sistema).
-- [ ] Em release: desligar DevTools, menu de contexto padrão, atalhos de recarregar e zoom.
+- [ ] Em release: desligar menu de contexto padrão, atalhos de recarregar e zoom (o DevTools já
+      desliga com `devTools: false` no `app.json`).
 - [ ] Documento de modelo de ameaças: o que o JS pode e não pode fazer.
 
 **Marco 5:** um XSS na página não consegue ler arquivos fora do escopo nem chamar comandos não

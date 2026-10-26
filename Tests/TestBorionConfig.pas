@@ -57,7 +57,7 @@ const
     '  "app": { "windows": [ { "title": "Loja - Caixa", "width": 800, "height": 600,' +
     '    "minWidth": 400, "minHeight": 300, "maxWidth": 1600, "maxHeight": 1200,' +
     '    "resizable": false, "center": false, "maximized": true, "decorations": false,' +
-    '    "alwaysOnTop": true } ],' +
+    '    "alwaysOnTop": true, "fullscreen": true, "devTools": false } ],' +
     '    "security": { "csp": "default-src ''self''" } } }';
 
 { TTestBorionConfig }
@@ -94,6 +94,7 @@ begin
   CheckEquals(0, W.MinWidth);
   Check(W.Resizable and W.Center and W.Decorations, 'redimensionável, centralizada, com borda');
   Check(not W.Maximized and not W.AlwaysOnTop);
+  Check(not W.Fullscreen and W.DevTools, 'sem tela cheia, com DevTools');
   CheckEquals('', W.Title);
   FConfig.LoadFromJson('{}');
   Check(FConfig.Loaded, '{} é um app.json válido');
@@ -125,6 +126,8 @@ begin
   Check(W.Maximized, 'maximized');
   Check(not W.Decorations, 'decorations');
   Check(W.AlwaysOnTop, 'alwaysOnTop');
+  Check(W.Fullscreen, 'fullscreen');
+  Check(not W.DevTools, 'devTools');
   CheckEquals(0, FConfig.Warnings.Count, FConfig.Warnings.Text);
   { uma leitura nova começa dos padrões }
   FConfig.LoadFromJson('{"productName": "Outro"}');
@@ -446,6 +449,8 @@ begin
     Check(W.FormStyle = fsStayOnTop, 'alwaysOnTop');
     Check(W.WindowState = wsMaximized, 'maximized');
     Check(W.Position = poDefaultPosOnly, 'center: false');
+    Check(W.StartFullscreen, 'fullscreen');
+    Check(not W.Browser.DevToolsEnabled, 'devTools: false');
 
     C := BorionDefaultWindow;
     C.Resizable := False;

@@ -101,6 +101,8 @@ chave ausente.
 | `app.windows[].maximized` | lógico | Abre maximizada |
 | `app.windows[].decorations` | lógico | `false`: sem borda nem barra de título, para desenhar a barra em HTML ([plugin `window`](PLUGINS.md#barra-de-título-em-html): arrastar, maximizar, redimensionar pela beirada e os botões) |
 | `app.windows[].alwaysOnTop` | lógico | Sempre por cima das outras janelas |
+| `app.windows[].fullscreen` | lógico | Abre em tela cheia, sem borda, cobrindo o monitor (precisa do [plugin `window`](PLUGINS.md)); com `decorations: false` e `alwaysOnTop: true`, é a base de um app em modo quiosque. `setFullscreen(false)` sai dela |
+| `app.windows[].devTools` | lógico | `false`: sem DevTools (F12, Ctrl+Shift+I, "Inspecionar"); padrão `true` |
 | `app.security.csp` | texto | O header `Content-Security-Policy` dos assets embutidos e da pasta no `--dev-dir`. Não vale para o servidor do Vite |
 | `bundle.icon` | lista | Os ícones do app, relativos ao `app.json`, como no `tauri.conf.json`. O primeiro `.ico` da lista vira o ícone do exe ([ícone](#ícone)); os `.png` e `.icns` são aceitos e ignorados |
 | `bundle.active` | lógico | Aceito, como no Tauri; ainda não faz nada (o instalador é da Fase 7) |

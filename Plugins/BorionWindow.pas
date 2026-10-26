@@ -495,6 +495,9 @@ begin
   J.Hook;
   FJanelas.Add(J);
   Result := J;
+  { "fullscreen": true no app.json }
+  if (AForm is TBorionWindow) and TBorionWindow(AForm).StartFullscreen then
+    J.EntrarTelaCheia;
 end;
 
 function TBorionWindowPlugin.Achar(const WindowLabel: string): TObject;

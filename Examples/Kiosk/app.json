@@ -1,0 +1,19 @@
+{
+  "productName": "Borion: kiosk",
+  "version": "0.1.0",
+  "identifier": "com.borion.exemplo.kiosk",
+  "build": {
+    "frontendDist": "web"
+  },
+  "app": {
+    "windows": [
+      {
+        "fullscreen": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "devTools": false
+      }
+    ]
+  }
+}
