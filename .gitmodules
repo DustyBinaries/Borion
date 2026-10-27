@@ -1,0 +1,3 @@
+[submodule "WebView2"]
+	path = WebView2
+	url = git@github.com:DustyBinaries/WebView2.git

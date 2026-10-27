@@ -205,6 +205,9 @@ arquivo, campo por campo ([precedência](docs/CONFIG.md#precedência)):
 | `Examples/Menu/`, `Tray/`, `App/`, `Window/`, `Clipboard/`, `Store/`, `Os/`, `Http/`, `Notification/`, `SingleInstance/`, `DeepLink/`, `Autostart/`, `GlobalShortcut/`, `Log/` | Um exemplo pequeno para cada plugin, sem bundler ([Menu](Examples/Menu/README.md), [Tray](Examples/Tray/README.md), [App](Examples/App/README.md), [Window](Examples/Window/README.md), [Clipboard](Examples/Clipboard/README.md), [Store](Examples/Store/README.md), [Os](Examples/Os/README.md), [Http](Examples/Http/README.md), [Notification](Examples/Notification/README.md), [SingleInstance](Examples/SingleInstance/README.md), [DeepLink](Examples/DeepLink/README.md), [Autostart](Examples/Autostart/README.md), [GlobalShortcut](Examples/GlobalShortcut/README.md), [Log](Examples/Log/README.md)) |
 | `Tests/` | Testes DUnit e o `run-tests.bat`, que roda também os testes JS (veja abaixo) |
 
+`WebView2/` é um submódulo do git ([DustyBinaries/WebView2](https://github.com/DustyBinaries/WebView2)): clone com
+`git clone --recurse-submodules` ou, num clone existente, rode `git submodule update --init`.
+
 Para usar num projeto: ponha no *Search path* a raiz deste repositório, `WebView2/` e
 `Plugins/`, a pasta da `Jsons.pas` e a do `ACBr.inc`. Os exemplos (exceto o `Demo`) são um
 `.dpr` só, com o `TBorionBuilder`.
