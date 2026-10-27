@@ -1,0 +1,17 @@
+:root { color-scheme: light dark; font: 15px/1.45 "Segoe UI", sans-serif; }
+body { margin: 0; padding: 20px 28px; }
+h1 { margin: 0 0 4px; font-size: 24px; }
+h2 { margin: 0 0 10px; font-size: 16px; }
+.sub { margin: 0 0 18px; opacity: .75; }
+.cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; }
+ul { margin: 0; padding: 0; list-style: none; }
+li { margin: 0 0 12px; display: flex; flex-direction: column; gap: 2px; }
+li span { font-size: 13px; opacity: .7; }
+button { align-self: flex-start; font: inherit; padding: 3px 10px; }
+kbd, code { font-family: Consolas, monospace; font-size: 13px; padding: 0 4px; border-radius: 3px;
+  background: rgba(127, 127, 127, .2); }
+dl { margin: 0 0 12px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+dt { opacity: .75; }
+dd { margin: 0; font-family: Consolas, monospace; }
+.nota { font-size: 13px; opacity: .7; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }

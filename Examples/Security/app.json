@@ -1,0 +1,23 @@
+{
+  "productName": "Borion: seguranca",
+  "version": "0.1.0",
+  "identifier": "com.borion.exemplo.seguranca",
+  "build": {
+    "frontendDist": "web"
+  },
+  "app": {
+    "windows": [
+      {
+        "width": 1000,
+        "height": 720,
+        "devTools": false,
+        "contextMenu": false,
+        "browserKeys": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'none'",
+      "allowNavigation": ["https://example.org"]
+    }
+  }
+}

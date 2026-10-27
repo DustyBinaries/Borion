@@ -47,7 +47,7 @@ end.
 | | |
 |---|---|
 | Fechamento | `win.onCloseRequested` com `event.preventDefault()` barra o X, o Alt+F4 e o `app.exit()` |
-| Menu de contexto e atalhos | `contextmenu` e `keydown` com `preventDefault`: F5, Ctrl+R, Ctrl+P, Ctrl+/-, F11, F12, e o zoom com Ctrl+roda |
+| Menu de contexto e atalhos | `contextmenu` e `keydown` com `preventDefault`: F5, Ctrl+R, Ctrl+P, Ctrl+/-, F11, F12, e o zoom com Ctrl+roda. Sem código na página, o `app.json` também faz o essencial (`contextMenu: false` e `browserKeys: false`: menu de contexto, recarregar, ver fonte e zoom); veja o [exemplo Security](../Security/README.md) |
 | Cursor | Some depois de 3 s sem mover o mouse |
 | Saída | Cinco cliques no canto superior esquerdo abrem um `<dialog>` com o PIN (`1234`); certo, `win.destroy()` fecha sem passar pelo `onCloseRequested` |
 

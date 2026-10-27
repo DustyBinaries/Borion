@@ -154,9 +154,10 @@ liberadas no IPC (`AllowOrigin`, `Url()`) e para as de `app.security.allowNaviga
 "security": { "allowNavigation": ["https://docs.exemplo.com"] }
 ```
 
-- **Qualquer outra navegação é cancelada.** Se foi um clique do usuário num link `http`, `https`
-  ou `mailto`, abre no **navegador do sistema**; um redirecionamento ou um `location.href` de
-  script só é cancelado. Nada além desses esquemas é executado (`file:`, `javascript:`...).
+- **Qualquer outra navegação é cancelada.** Se partiu de um gesto do usuário (um clique num link
+  ou num botão que faz `location.href = ...`) para `http`, `https` ou `mailto`, abre no
+  **navegador do sistema**; um redirecionamento do servidor ou uma navegação de script sem gesto
+  só é cancelado. Nada além desses esquemas é executado (`file:`, `javascript:`...).
 - **Janela nova nunca abre** (`target="_blank"`, `window.open`): o link de fora vai para o
   navegador do sistema, e um link para o próprio app é ignorado. Para abrir outra janela do app,
   use `createWindow` / `BorionWindows.Open`.
@@ -199,6 +200,9 @@ BorionAppConfigError;            // '' ou o erro de leitura do recurso
 C := TBorionConfig.Create;       // ler de outro lugar
 C.LoadFromFile('outro.json');    // EBorionConfig se inválido; avisos em C.Warnings
 TBorionBuilder.Create.Config(C)...
+
+C.Window.ContextMenu;            // contextMenu e browserKeys de cada janela
+C.AllowNavigation;               // TStringList: app.security.allowNavigation
 ```
 
 ```pascal
@@ -214,6 +218,10 @@ BorionWindows.Count; BorionWindows[I].WindowLabel;
 O `BorionWindows` existe durante o `TBorionBuilder.Run`. `TBorionWindow.ApplyConfig(Config,
 TituloPadrao)` aplica uma `TBorionWindowConfig` a uma janela (o builder usa esse método para
 todas).
+
+A navegação de cada janela também tem API: `TBorionBuilder.AllowNavigation('https://docs.exemplo.com')`
+(soma-se ao `app.security.allowNavigation`) e `TBorionWindow.AllowNavigation(...)`, que vale só para
+aquela janela. Veja [navegação e janelas novas](#navegação-e-janelas-novas).
 
 ## Ainda não
 

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Borion: segurança da janela</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Segurança da janela</h1>
+  <p class="sub">Cada item tenta sair do app de um jeito. O que acontece está ao lado de cada um e,
+    em <b>Sensores</b>, o que a página enxergou.</p>
+
+  <div class="cols">
+    <section>
+      <h2>Navegação e janelas novas</h2>
+      <ul>
+        <li><a href="https://example.com/">Link para example.com</a>
+          <span>fora da lista: abre no <b>navegador do sistema</b></span></li>
+        <li><a href="https://example.com/" target="_blank">Link com target="_blank"</a>
+          <span>janela nova nunca abre: vai para o navegador</span></li>
+        <li><button id="abrir">window.open('https://example.com/')</button>
+          <span>idem</span></li>
+        <li><button id="href">location.href = 'https://example.com/'</button>
+          <span>gesto do usuário: navegador do sistema</span></li>
+        <li><a href="https://example.org/">Link para example.org</a>
+          <span>está em <code>allowNavigation</code>: navega <b>nesta janela</b> (volte com Alt+←)</span></li>
+        <li><a href="mailto:alguem@example.com">mailto:</a>
+          <span>abre o programa de e-mail</span></li>
+        <li><a href="file:///C:/Windows/notepad.exe">file:///C:/Windows/notepad.exe</a>
+          <span>cancelado, <b>nada é executado</b></span></li>
+        <li><a href="outra.html">Página do app</a>
+          <span>navega nesta janela</span></li>
+        <li><a href="outra.html" target="_blank">Página do app com target="_blank"</a>
+          <span>ignorado: não abre janela</span></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Sensores</h2>
+      <p>Clique com o botão direito aqui, aperte <kbd>F5</kbd>, <kbd>Ctrl+R</kbd>, <kbd>Ctrl+U</kbd>,
+        <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>-</kbd> ou gire a roda com <kbd>Ctrl</kbd>.</p>
+      <dl>
+        <dt>Carregamentos da página</dt><dd id="loads">1</dd>
+        <dt>Menu de contexto (evento na página)</dt><dd id="ctx">0</dd>
+        <dt>Teclas recebidas pela página</dt><dd id="keys">—</dd>
+      </dl>
+      <p class="nota">Com <code>browserKeys: false</code>, F5, Ctrl+R, Ctrl+U e Ctrl + +/-/0 não
+        chegam à página (os carregamentos não sobem). Uma tecla comum, como <kbd>x</kbd>, chega.
+        O evento <code>contextmenu</code> chega, mas, com <code>contextMenu: false</code>, o menu nativo
+        (Voltar, Atualizar, Salvar como...) não aparece.</p>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
