@@ -182,6 +182,8 @@ type
     FTokenActive: array[TWV2EventKind] of Boolean;
     FCreating: Boolean;
     FDevToolsEnabled: Boolean;
+    FContextMenusEnabled: Boolean;
+    FZoomControlEnabled: Boolean;
     FPendingUrl: WideString;
     FLastUrl: WideString;
     FParkingWindow: HWND;
@@ -295,6 +297,10 @@ type
     property UserDataFolder: WideString read FUserDataFolder write FUserDataFolder;
     { Falso: sem DevTools (F12, Ctrl+Shift+I, "Inspecionar"); antes de CreateWebView }
     property DevToolsEnabled: Boolean read FDevToolsEnabled write FDevToolsEnabled;
+    { Menu de contexto padrão do WebView2 (padrão True); antes do CreateWebView }
+    property ContextMenusEnabled: Boolean read FContextMenusEnabled write FContextMenusEnabled;
+    { Zoom pelo usuário (Ctrl+roda, Ctrl+ +/-) (padrão True); antes do CreateWebView }
+    property ZoomControlEnabled: Boolean read FZoomControlEnabled write FZoomControlEnabled;
     { Idioma da interface do WebView2 e do Accept-Language, ex.: 'pt-BR'. Antes do CreateWebView. }
     property Language: WideString read FLanguage write FLanguage;
     { Argumentos de linha de comando do Chromium, ex.: '--disable-gpu'. Antes do CreateWebView. }
@@ -750,6 +756,8 @@ begin
   FHandlers := TList.Create;
   FDeferredResponses := TList.Create;
   FDevToolsEnabled := True;
+  FContextMenusEnabled := True;
+  FZoomControlEnabled := True;
   TabStop := True;
   Width := 300;
   Height := 200;
@@ -976,7 +984,8 @@ begin
     Settings.put_IsScriptEnabled(BoolToWV2(True));
     Settings.put_IsWebMessageEnabled(BoolToWV2(True));
     Settings.put_AreDevToolsEnabled(BoolToWV2(FDevToolsEnabled));
-    Settings.put_AreDefaultContextMenusEnabled(BoolToWV2(True));
+    Settings.put_AreDefaultContextMenusEnabled(BoolToWV2(FContextMenusEnabled));
+    Settings.put_IsZoomControlEnabled(BoolToWV2(FZoomControlEnabled));
     Settings.put_IsStatusBarEnabled(BoolToWV2(True));
   end;
 

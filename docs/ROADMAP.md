@@ -261,11 +261,13 @@ bandeja (`tray`) e sai pelo menu (`app`).
 - [ ] Junções/links simbólicos dentro de pastas liberadas: hoje só o `remove` recursivo se
       protege.
 - [ ] CSP padrão restritiva, injetada nos headers dos assets.
-- [ ] Bloquear navegação para fora do app por padrão (`NavigationStarting`), com lista de
-      permitidos.
-- [ ] Política padrão para novas janelas (abrir no navegador do sistema).
-- [ ] Em release: desligar menu de contexto padrão, atalhos de recarregar e zoom (o DevTools já
-      desliga com `devTools: false` no `app.json`).
+- [x] Bloquear navegação para fora do app por padrão (`NavigationStarting`), com lista de
+      permitidos (`app.security.allowNavigation`); o clique em link de fora abre no navegador do
+      sistema ([CONFIG](CONFIG.md#navegação-e-janelas-novas)).
+- [x] Política padrão para novas janelas: nunca abrem; o que é de fora vai para o navegador do
+      sistema.
+- [x] Em release: `contextMenu: false` (menu de contexto padrão) e `browserKeys: false`
+      (recarregar, ver fonte e zoom), além do `devTools: false`, por janela no `app.json`.
 - [ ] Documento de modelo de ameaças: o que o JS pode e não pode fazer.
 
 **Marco 5:** um XSS na página não consegue ler arquivos fora do escopo nem chamar comandos não

@@ -103,6 +103,9 @@ chave ausente.
 | `app.windows[].alwaysOnTop` | lógico | Sempre por cima das outras janelas |
 | `app.windows[].fullscreen` | lógico | Abre em tela cheia, sem borda, cobrindo o monitor (precisa do [plugin `window`](PLUGINS.md)); com `decorations: false` e `alwaysOnTop: true`, é a base de um app em modo quiosque. `setFullscreen(false)` sai dela |
 | `app.windows[].devTools` | lógico | `false`: sem DevTools (F12, Ctrl+Shift+I, "Inspecionar"); padrão `true` |
+| `app.windows[].contextMenu` | lógico | `false`: sem o menu de contexto padrão (botão direito: Voltar, Salvar como, Inspecionar...); padrão `true`. O `menu` do Borion (`popup`) continua funcionando |
+| `app.windows[].browserKeys` | lógico | `false`: sem as teclas de navegador: recarregar (F5, Ctrl+R), ver fonte (Ctrl+U) e zoom (Ctrl+roda, Ctrl+`+`/`-`/`0`). A página não recebe essas teclas; padrão `true` |
+| `app.security.allowNavigation` | lista | Origens (`"https://docs.exemplo.com"`, `"http://localhost:8080"`, ou `"*"`) para onde as janelas podem navegar, além do app ([navegação](#navegação-e-janelas-novas)) |
 | `app.security.csp` | texto | O header `Content-Security-Policy` dos assets embutidos e da pasta no `--dev-dir`. Não vale para o servidor do Vite |
 | `bundle.icon` | lista | Os ícones do app, relativos ao `app.json`, como no `tauri.conf.json`. O primeiro `.ico` da lista vira o ícone do exe ([ícone](#ícone)); os `.png` e `.icns` são aceitos e ignorados |
 | `bundle.active` | lógico | Aceito, como no Tauri; ainda não faz nada (o instalador é da Fase 7) |
@@ -141,6 +144,26 @@ Com `build.frontendDist`:
 
 Para cada janela vale o mesmo frontend: no build, as páginas da pasta `frontendDist`; no
 `borion dev`, o servidor do Vite (um projeto com várias páginas) ou a pasta `web\`.
+
+### Navegação e janelas novas
+
+Uma janela do Borion só navega para o app (o frontend embutido, o `devUrl`), para as origens
+liberadas no IPC (`AllowOrigin`, `Url()`) e para as de `app.security.allowNavigation`:
+
+```json
+"security": { "allowNavigation": ["https://docs.exemplo.com"] }
+```
+
+- **Qualquer outra navegação é cancelada.** Se foi um clique do usuário num link `http`, `https`
+  ou `mailto`, abre no **navegador do sistema**; um redirecionamento ou um `location.href` de
+  script só é cancelado. Nada além desses esquemas é executado (`file:`, `javascript:`...).
+- **Janela nova nunca abre** (`target="_blank"`, `window.open`): o link de fora vai para o
+  navegador do sistema, e um link para o próprio app é ignorado. Para abrir outra janela do app,
+  use `createWindow` / `BorionWindows.Open`.
+- **`allowNavigation` não dá acesso ao IPC:** só a navegação. O IPC continua só para as origens
+  do `AllowOrigin`.
+- No Delphi: `.AllowNavigation('https://docs.exemplo.com')` no builder (soma-se ao arquivo) ou
+  `Window.AllowNavigation(...)` numa janela. `"*"` libera qualquer navegação.
 
 ### Ícone
 
@@ -197,4 +220,4 @@ todas).
 - `x`/`y` e `fullscreen` por janela; uma janela com outro site (`url` externa).
 - `beforeDevCommand` / `beforeBuildCommand`: hoje o comando é sempre o `npm run dev` / `npm run build`.
 - Versão e manifesto do exe a partir do `app.json` (hoje o `.rc` é escrito à mão; Fase 7).
-- Capabilities e permissões (Fase 5).
+- Capabilities e permissões, CSP padrão restritiva (Fase 5).

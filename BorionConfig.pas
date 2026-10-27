@@ -18,9 +18,9 @@ unit BorionConfig;
           { "title": "Meu App", "width": 1000, "height": 700, "minWidth": 600,
             "resizable": true, "center": true, "maximized": false,
             "decorations": true, "alwaysOnTop": false, "fullscreen": false,
-            "devTools": true }
+            "devTools": true, "contextMenu": true, "browserKeys": true }
         ],
-        "security": { "csp": "default-src 'self'" }
+        "security": { "csp": "default-src 'self'", "allowNavigation": ["https://docs.exemplo.com"] }
       },
       "bundle": {
         "icon": ["icons/32x32.png", "icons/icon.icns", "icons/icon.ico"]
@@ -60,6 +60,8 @@ type
     AlwaysOnTop: Boolean;
     Fullscreen: Boolean;            { abre em tela cheia (precisa do plugin window) }
     DevTools: Boolean;              { False: sem DevTools (F12, Ctrl+Shift+I) }
+    ContextMenu: Boolean;           { False: sem o menu de contexto padrão (botão direito) }
+    BrowserKeys: Boolean;           { False: sem recarregar (F5, Ctrl+R), ver fonte (Ctrl+U) e zoom }
   end;
 
   TBorionConfig = class
@@ -70,6 +72,7 @@ type
     FFrontendDist: string;
     FDevUrl: string;
     FCsp: string;
+    FAllowNavigation: TStringList;
     FIcons: TStringList;
     FBundleActive: Boolean;
     FWindows: array of TBorionWindowConfig;
@@ -101,6 +104,9 @@ type
     property DevUrl: string read FDevUrl write FDevUrl;
     { app.security.csp: o header Content-Security-Policy dos assets ('' = nenhum) }
     property Csp: string read FCsp write FCsp;
+    { app.security.allowNavigation: origens (https://docs.exemplo.com) para onde as
+      janelas podem navegar, além do app. O resto abre no navegador do sistema. }
+    property AllowNavigation: TStringList read FAllowNavigation;
     { bundle.icon: os ícones do app, relativos à pasta do app.json, como no
       tauri.conf.json. O Windows só usa o .ico (os .png e .icns são aceitos e
       ignorados) }
@@ -159,6 +165,8 @@ begin
   Result.Center := True;
   Result.Decorations := True;
   Result.DevTools := True;
+  Result.ContextMenu := True;
+  Result.BrowserKeys := True;
 end;
 
 function BorionIsValidWindowLabel(const WindowLabel: string): Boolean;
@@ -284,6 +292,34 @@ begin
   end;
 end;
 
+{ '*' ou http(s)://host[:porta], sem caminho }
+function OrigemValida(const S: string): Boolean;
+var
+  T, L: string;
+  P: Integer;
+begin
+  T := Trim(S);
+  if T = '*' then
+  begin
+    Result := True;
+    Exit;
+  end;
+  L := LowerCase(T);
+  if Pos('http://', L) = 1 then
+    P := 8
+  else if Pos('https://', L) = 1 then
+    P := 9
+  else
+  begin
+    Result := False;
+    Exit;
+  end;
+  T := Copy(T, P, MaxInt);
+  while (T <> '') and (T[Length(T)] = '/') do
+    Delete(T, Length(T), 1);
+  Result := (T <> '') and (Pos('/', T) = 0) and (Pos(' ', T) = 0);
+end;
+
 procedure Falhar(const Caminho, Esperado: string);
 begin
   raise EBorionConfig.CreateFmt('app.json: "%s" deve ser %s', [Caminho, Esperado]);
@@ -355,11 +391,13 @@ begin
   inherited Create;
   FWarnings := TStringList.Create;
   FIcons := TStringList.Create;
+  FAllowNavigation := TStringList.Create;
   Clear;
 end;
 
 destructor TBorionConfig.Destroy;
 begin
+  FAllowNavigation.Free;
   FIcons.Free;
   FWarnings.Free;
   inherited;
@@ -373,6 +411,7 @@ begin
   FFrontendDist := '';
   FDevUrl := '';
   FCsp := '';
+  FAllowNavigation.Clear;
   FIcons.Clear;
   FBundleActive := False;
   SetLength(FWindows, 1);
@@ -393,7 +432,8 @@ end;
 procedure TBorionConfig.LerJanela(O: TJsonObject; const Caminho: string; var W: TBorionWindowConfig);
 begin
   Avisar(O, Caminho, 'label|url|visible|create|title|width|height|minWidth|minHeight|maxWidth|' +
-    'maxHeight|resizable|center|maximized|decorations|alwaysOnTop|fullscreen|devTools');
+    'maxHeight|resizable|center|maximized|decorations|alwaysOnTop|fullscreen|devTools|' +
+    'contextMenu|browserKeys');
   LerTexto(O, Caminho, 'label', W.WindowLabel);
   if not BorionIsValidWindowLabel(W.WindowLabel) then
     raise EBorionConfig.CreateFmt('app.json: "%s.label" inválido: "%s" (use letras, dígitos, "-" e "_")',
@@ -417,6 +457,8 @@ begin
   LerLogico(O, Caminho, 'alwaysOnTop', W.AlwaysOnTop);
   LerLogico(O, Caminho, 'fullscreen', W.Fullscreen);
   LerLogico(O, Caminho, 'devTools', W.DevTools);
+  LerLogico(O, Caminho, 'contextMenu', W.ContextMenu);
+  LerLogico(O, Caminho, 'browserKeys', W.BrowserKeys);
   if (W.MaxWidth > 0) and (W.MaxWidth < W.MinWidth) then
     raise EBorionConfig.CreateFmt('app.json: "%s.maxWidth" é menor que o minWidth', [Caminho]);
   if (W.MaxHeight > 0) and (W.MaxHeight < W.MinHeight) then
@@ -474,7 +516,7 @@ procedure TBorionConfig.Ler(Raiz: TJsonObject);
 var
   Build, App, Security, Bundle: TJsonObject;
   V: TJsonValue;
-  Janelas, Icones: TJsonArray;
+  Janelas, Icones, Origens: TJsonArray;
   I, J: Integer;
   Caminho: string;
 begin
@@ -563,8 +605,22 @@ begin
   Security := LerObjeto(App, 'app', 'security');
   if Security <> nil then
   begin
-    Avisar(Security, 'app.security', 'csp');
+    Avisar(Security, 'app.security', 'csp|allowNavigation');
     LerTexto(Security, 'app.security', 'csp', FCsp);
+    V := Membro(Security, 'allowNavigation');
+    if V <> nil then
+    begin
+      if V.ValueType <> jvArray then
+        Falhar('app.security.allowNavigation', 'uma lista de origens (ex.: ["https://docs.exemplo.com"])');
+      Origens := V.AsArray;
+      for I := 0 to Origens.Count - 1 do
+      begin
+        if (Origens[I].ValueType <> jvString) or not OrigemValida(Origens[I].AsString) then
+          Falhar(Format('app.security.allowNavigation[%d]', [I]),
+            'uma origem http:// ou https:// (ex.: "https://docs.exemplo.com") ou "*"');
+        FAllowNavigation.Add(Trim(Origens[I].AsString));
+      end;
+    end;
   end;
 end;
 

@@ -6,7 +6,7 @@ unit TestBorionConfig;
 interface
 
 uses
-  Windows, SysUtils, Classes, Forms, Controls, TestFramework, BorionConfig, BorionPack, Borion;
+  Windows, SysUtils, Classes, Forms, Controls, TestFramework, WebView2Browser, BorionConfig, BorionPack, Borion;
 
 type
   TTestBorionConfig = class(TTestCase)
@@ -29,6 +29,7 @@ type
     procedure TestIdentificador;
     procedure TestDevPort;
     procedure TestIcone;
+    procedure TestSeguranca;
     procedure TestRecursoNoRes;
     procedure TestSemRecursoNoExe;
   end;
@@ -46,6 +47,7 @@ type
     procedure TestTituloExplicitoVence;
     procedure TestSemProductNameUsaOExe;
     procedure TestJanelaAplicaConfig;
+    procedure TestNavegacaoDaJanela;
   end;
 
 implementation
@@ -133,6 +135,29 @@ begin
   FConfig.LoadFromJson('{"productName": "Outro"}');
   CheckEquals(1000, FConfig.Window.Width);
   CheckEquals('', FConfig.Csp);
+end;
+
+procedure TTestBorionConfig.TestSeguranca;
+var
+  W: TBorionWindowConfig;
+begin
+  W := FConfig.Window;
+  Check(W.ContextMenu and W.BrowserKeys, 'padrão: menu de contexto e teclas do navegador');
+  CheckEquals(0, FConfig.AllowNavigation.Count);
+  FConfig.LoadFromJson('{"app": {"windows": [{"contextMenu": false, "browserKeys": false}], ' +
+    '"security": {"allowNavigation": ["https://docs.exemplo.com", "http://localhost:8080/", "*"]}}}');
+  W := FConfig.Window;
+  Check(not W.ContextMenu, 'contextMenu');
+  Check(not W.BrowserKeys, 'browserKeys');
+  CheckEquals(3, FConfig.AllowNavigation.Count);
+  CheckEquals('https://docs.exemplo.com', FConfig.AllowNavigation[0]);
+  CheckEquals(0, FConfig.Warnings.Count, FConfig.Warnings.Text);
+  FConfig.LoadFromJson('{}');
+  CheckEquals(0, FConfig.AllowNavigation.Count, 'uma leitura nova começa dos padrões');
+  DeveFalhar('{"app": {"security": {"allowNavigation": "https://x.com"}}}', '"app.security.allowNavigation"');
+  DeveFalhar('{"app": {"security": {"allowNavigation": ["x.com"]}}}', '"app.security.allowNavigation[0]"');
+  DeveFalhar('{"app": {"security": {"allowNavigation": ["https://x.com/docs"]}}}', '"app.security.allowNavigation[0]"');
+  DeveFalhar('{"app": {"windows": [{"contextMenu": "no"}]}}', 'true ou false');
 end;
 
 procedure TTestBorionConfig.TestUtf8EBom;
@@ -434,6 +459,44 @@ begin
   end;
 end;
 
+procedure TTestBuilderConfig.TestNavegacaoDaJanela;
+var
+  W: TBorionWindow;
+  Cancel: Boolean;
+  Action: TWV2NewWindowAction;
+
+  procedure Navega(const Uri: string);
+  begin
+    Cancel := False;
+    W.Browser.OnNavigationStarting(W.Browser, Uri, False, False, Cancel);
+  end;
+
+begin
+  W := TBorionWindow.Create(nil);
+  try
+    W.Ipc.AllowOrigin('https://app.localhost');
+    Navega('https://app.localhost/x?y');
+    Check(not Cancel, 'o app');
+    Navega('about:blank');
+    Check(not Cancel, 'about:blank');
+    Navega('https://exemplo.com/a');
+    Check(Cancel, 'site de fora');
+    W.AllowNavigation('https://Exemplo.com/');
+    Navega('https://exemplo.com/a');
+    Check(not Cancel, 'origem liberada com AllowNavigation');
+    Navega('https://exemplo.com.evil.net/');
+    Check(Cancel, 'origem parecida');
+    Action := nwaPopup;
+    W.Browser.OnNewWindowRequested(W.Browser, 'https://app.localhost/', False, Action);
+    Check(Action = nwaCancel, 'janela nova nunca abre');
+    W.AllowNavigation('*');
+    Navega('https://qualquer.com/');
+    Check(not Cancel, '*');
+  finally
+    W.Free;
+  end;
+end;
+
 procedure TTestBuilderConfig.TestJanelaAplicaConfig;
 var
   W: TBorionWindow;
@@ -451,6 +514,8 @@ begin
     Check(W.Position = poDefaultPosOnly, 'center: false');
     Check(W.StartFullscreen, 'fullscreen');
     Check(not W.Browser.DevToolsEnabled, 'devTools: false');
+    Check(W.Browser.ContextMenusEnabled and W.Browser.ZoomControlEnabled, 'padrão: menu e zoom');
+    Check(not Assigned(W.Browser.OnAcceleratorKeyPressed), 'padrão: sem filtro de teclas');
 
     C := BorionDefaultWindow;
     C.Resizable := False;

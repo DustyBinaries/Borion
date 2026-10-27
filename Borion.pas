@@ -48,7 +48,7 @@ unit Borion;
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Controls, Forms, Dialogs,
+  Windows, Messages, ShellAPI, SysUtils, Classes, Controls, Forms, Dialogs,
   XPMan,  { visual do Windows nos diálogos e controles nativos }
   WebView2Browser, BorionIpc, BorionAssets, BorionScope, BorionConfig;
 
@@ -73,6 +73,7 @@ type
     FNormalBounds: TRect;
     FFullscreen: Boolean;
     FStartFullscreen: Boolean;
+    FNavigation: TStringList;
     FOnCloseQuery: TBorionCloseQueryProc;
     FOnClose: TBorionCloseProc;
     procedure WMMove(var Message: TWMMove); message WM_MOVE;
@@ -84,6 +85,12 @@ type
     procedure FecharConsulta(Sender: TObject; var CanClose: Boolean);
     procedure Fechar(Sender: TObject; var Action: TCloseAction);
     procedure Preparar;
+    function NavigationAllowed(const Uri: WideString): Boolean;
+    procedure BrowserNavigating(Sender: TObject; const Uri: WideString;
+      IsUserInitiated, IsRedirected: Boolean; var Cancel: Boolean);
+    procedure BrowserNewWindow(Sender: TObject; const Uri: WideString;
+      IsUserInitiated: Boolean; var Action: TWV2NewWindowAction);
+    procedure BrowserKey(Sender: TObject; KeyEventKind, VirtualKey: Integer; var Handled: Boolean);
   public
     { A janela 'main', com um IPC próprio (o do app) }
     constructor Create(AOwner: TComponent); override;
@@ -99,6 +106,11 @@ type
     { A janela principal: fechá-la fecha o app }
     function IsMain: Boolean;
     property Assets: TBorionAssets read FAssets;
+    { Mais uma origem para onde esta janela pode navegar, além do app e das origens
+      do IPC. Qualquer outra navegação é cancelada e, se foi um clique, abre no
+      navegador do sistema (http, https e mailto); janelas novas (target="_blank",
+      window.open) nunca abrem, só vão para o navegador. "*" libera tudo. }
+    procedure AllowNavigation(const Origin: string);
     { O escopo de arquivos do app (o mesmo dos plugins fs, dialog e shell) }
     function Scope: TBorionScope;
     { Tamanho, limites, borda e estado da janela; o caption é Config.Title ou,
@@ -129,6 +141,7 @@ type
     FCsp: string;
     FUrl: string;
     FUserDataFolder: string;
+    FNavigation: TStringList;
     FOnCloseQuery: TBorionCloseQueryProc;
     FOnClose: TBorionCloseProc;
     function GetItem(Index: Integer): TBorionWindow;
@@ -167,6 +180,7 @@ type
     FCommands: TStringList;    { nome -> TBorionCommandProc (em Objects) }
     FCommandSets: TList;       { TBorionCommandsProc }
     FOrigins: TStringList;
+    FNavigation: TStringList;
     FSetup: TBorionSetupProc;
     FOnCloseQuery: TBorionCloseQueryProc;
     FOnClose: TBorionCloseProc;
@@ -201,6 +215,9 @@ type
     function Url(const AUrl: string): TBorionBuilder;
     { Mais uma origem que pode usar o IPC (a do frontend já é liberada) }
     function AllowOrigin(const Origin: string): TBorionBuilder;
+    { Mais uma origem para onde as janelas podem navegar (sem IPC); o resto
+      abre no navegador do sistema. Soma-se ao app.security.allowNavigation. }
+    function AllowNavigation(const Origin: string): TBorionBuilder;
     { Header Content-Security-Policy dos assets embutidos ('' = nenhum) }
     function Csp(const Policy: string): TBorionBuilder;
     { Pasta de dados do WebView2 (padrão: <exe>.WebView2 ao lado do exe) }
@@ -288,6 +305,75 @@ begin
     FIpc.EmitJson('window:destroyed', '{"label":' + '"' + FWindowLabel + '"}');
   end;
   inherited;
+  FNavigation.Free;
+end;
+
+{ http, https e mailto vão para o navegador do sistema; nada mais é executado }
+procedure AbrirNoNavegador(const Uri: WideString);
+var
+  S, L: string;
+begin
+  S := Uri;
+  L := LowerCase(S);
+  if (Pos('http://', L) = 1) or (Pos('https://', L) = 1) or (Pos('mailto:', L) = 1) then
+    ShellExecute(0, 'open', PChar(S), nil, nil, SW_SHOWNORMAL);
+end;
+
+procedure TBorionWindow.AllowNavigation(const Origin: string);
+var
+  S: string;
+begin
+  S := LowerCase(Trim(Origin));
+  while (S <> '') and (S[Length(S)] = '/') do
+    Delete(S, Length(S), 1);
+  if (S <> '') and (FNavigation.IndexOf(S) < 0) then
+    FNavigation.Add(S);
+end;
+
+{ o app, as origens do IPC (AllowOrigin) e as do AllowNavigation }
+function TBorionWindow.NavigationAllowed(const Uri: WideString): Boolean;
+var
+  Origin: string;
+begin
+  Origin := LowerCase(BorionOriginOf(Uri));
+  Result := (Origin = 'about:blank') or (FNavigation.IndexOf('*') >= 0) or
+    (FNavigation.IndexOf(Origin) >= 0) or ((FIpc <> nil) and FIpc.IsOriginAllowed(Uri));
+end;
+
+{ para fora do app: cancela e, se foi um clique, abre no navegador do sistema }
+procedure TBorionWindow.BrowserNavigating(Sender: TObject; const Uri: WideString;
+  IsUserInitiated, IsRedirected: Boolean; var Cancel: Boolean);
+begin
+  if NavigationAllowed(Uri) then
+    Exit;
+  Cancel := True;
+  if IsUserInitiated and not IsRedirected then
+    AbrirNoNavegador(Uri);
+end;
+
+{ janela nova nunca abre: o que é de fora vai para o navegador do sistema }
+procedure TBorionWindow.BrowserNewWindow(Sender: TObject; const Uri: WideString;
+  IsUserInitiated: Boolean; var Action: TWV2NewWindowAction);
+begin
+  Action := nwaCancel;
+  if IsUserInitiated and not NavigationAllowed(Uri) then
+    AbrirNoNavegador(Uri);
+end;
+
+{ browserKeys: false. Recarregar, ver fonte e zoom (a página não recebe a tecla) }
+procedure TBorionWindow.BrowserKey(Sender: TObject; KeyEventKind, VirtualKey: Integer;
+  var Handled: Boolean);
+var
+  Ctrl: Boolean;
+begin
+  Ctrl := GetKeyState(VK_CONTROL) < 0;
+  case VirtualKey of
+    VK_F5:
+      Handled := True;
+    Ord('R'), Ord('U'), Ord('0'), VK_NUMPAD0, VK_ADD, VK_SUBTRACT, 187, 189:
+      if Ctrl then
+        Handled := True;
+  end;
 end;
 
 procedure TBorionWindow.Preparar;
@@ -300,6 +386,9 @@ begin
   FBrowser.Align := alClient;
   FBrowser.OnInitialized := BrowserInitialized;
   FBrowser.OnTitleChanged := BrowserTitleChanged;
+  FNavigation := TStringList.Create;
+  FBrowser.OnNavigationStarting := BrowserNavigating;
+  FBrowser.OnNewWindowRequested := BrowserNewWindow;
   OnCloseQuery := FecharConsulta;
   OnClose := Fechar;
 end;
@@ -329,6 +418,10 @@ begin
   FResizable := Config.Resizable;
   FStartFullscreen := Config.Fullscreen;
   FBrowser.DevToolsEnabled := Config.DevTools;
+  FBrowser.ContextMenusEnabled := Config.ContextMenu;
+  FBrowser.ZoomControlEnabled := Config.BrowserKeys;
+  if not Config.BrowserKeys then
+    FBrowser.OnAcceleratorKeyPressed := BrowserKey;
   if Config.Center then
     Position := poScreenCenter
   else
@@ -421,6 +514,7 @@ begin
   FCommands := TStringList.Create;
   FCommandSets := TList.Create;
   FOrigins := TStringList.Create;
+  FNavigation := TStringList.Create;
   Config(BorionAppConfig);
 end;
 
@@ -436,6 +530,7 @@ begin
   FCommands.Free;
   FCommandSets.Free;
   FOrigins.Free;
+  FNavigation.Free;
   inherited;
 end;
 
@@ -454,6 +549,7 @@ begin
   { um title explícito na janela fica; sem ele, o caption segue o document.title }
   FTitleFromPage := FWindow.Title = '';
   FCsp := AConfig.Csp;
+  FNavigation.Assign(AConfig.AllowNavigation);
   SetLength(FDefs, AConfig.WindowCount);
   for I := 0 to AConfig.WindowCount - 1 do
     FDefs[I] := AConfig.Windows[I];
@@ -548,6 +644,12 @@ begin
   Result := Self;
 end;
 
+function TBorionBuilder.AllowNavigation(const Origin: string): TBorionBuilder;
+begin
+  FNavigation.Add(Origin);
+  Result := Self;
+end;
+
 function TBorionBuilder.UserDataFolder(const Dir: string): TBorionBuilder;
 begin
   FUserDataFolder := Dir;
@@ -616,6 +718,7 @@ begin
   Janelas.FCsp := FCsp;
   Janelas.FUrl := FUrl;
   Janelas.FUserDataFolder := FUserDataFolder;
+  Janelas.FNavigation.Assign(FNavigation);
   Janelas.FOnCloseQuery := FOnCloseQuery;
   Janelas.FOnClose := FOnClose;
   SetLength(Janelas.FDefs, Length(FDefs));
@@ -700,10 +803,12 @@ constructor TBorionWindows.Create;
 begin
   inherited Create;
   FList := TList.Create;
+  FNavigation := TStringList.Create;
 end;
 
 destructor TBorionWindows.Destroy;
 begin
+  FNavigation.Free;
   FList.Free;
   inherited;
 end;
@@ -754,12 +859,16 @@ end;
 
 { tudo o que a janela precisa antes de criar o WebView }
 procedure TBorionWindows.Preparar(W: TBorionWindow; const Config: TBorionWindowConfig);
+var
+  I: Integer;
 begin
   W.ApplyConfig(Config, FTitle);
   { um title explícito fica; sem ele, o caption segue o document.title }
   W.TitleFromPage := Config.Title = '';
   W.FOnCloseQuery := FOnCloseQuery;
   W.FOnClose := FOnClose;
+  for I := 0 to FNavigation.Count - 1 do
+    W.AllowNavigation(FNavigation[I]);
   if FUserDataFolder <> '' then
     W.Browser.UserDataFolder := FUserDataFolder;
   { a interface: o pacote embutido no exe (ou o --dev-url), ou a URL do Url() }
